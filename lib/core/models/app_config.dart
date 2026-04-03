@@ -5,6 +5,10 @@ class AppConfig {
   final bool roundingTenYen;
   final String umaText;
   final int oka;
+  final bool isThreePlayer;
+  final int targetTotalScore;
+  final int tobiPrize;
+  final int yakumanPrize;
 
   const AppConfig({
     this.rate = 100.0,
@@ -13,6 +17,10 @@ class AppConfig {
     this.roundingTenYen = true,
     this.umaText = '10-30',
     this.oka = 20,
+    this.isThreePlayer = false,
+    this.targetTotalScore = 100000,
+    this.tobiPrize = 10,
+    this.yakumanPrize = 10,
   });
 
   AppConfig copyWith({
@@ -22,6 +30,10 @@ class AppConfig {
     bool? roundingTenYen,
     String? umaText,
     int? oka,
+    bool? isThreePlayer,
+    int? targetTotalScore,
+    int? tobiPrize,
+    int? yakumanPrize,
   }) {
     return AppConfig(
       rate: rate ?? this.rate,
@@ -30,6 +42,38 @@ class AppConfig {
       roundingTenYen: roundingTenYen ?? this.roundingTenYen,
       umaText: umaText ?? this.umaText,
       oka: oka ?? this.oka,
+      isThreePlayer: isThreePlayer ?? this.isThreePlayer,
+      targetTotalScore: targetTotalScore ?? this.targetTotalScore,
+      tobiPrize: tobiPrize ?? this.tobiPrize,
+      yakumanPrize: yakumanPrize ?? this.yakumanPrize,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'rate': rate,
+    'chipRate': chipRate,
+    'gameFee': gameFee,
+    'roundingTenYen': roundingTenYen,
+    'umaText': umaText,
+    'oka': oka,
+    'isThreePlayer': isThreePlayer,
+    'targetTotalScore': targetTotalScore,
+    'tobiPrize': tobiPrize,
+    'yakumanPrize': yakumanPrize,
+  };
+
+  factory AppConfig.fromJson(Map<String, dynamic> json) {
+    return AppConfig(
+      rate: (json['rate'] as num?)?.toDouble() ?? 100.0,
+      chipRate: json['chipRate'] as int? ?? 100,
+      gameFee: json['gameFee'] as int? ?? 0,
+      roundingTenYen: json['roundingTenYen'] as bool? ?? true,
+      umaText: json['umaText'] as String? ?? '10-30',
+      oka: json['oka'] as int? ?? 20,
+      isThreePlayer: json['isThreePlayer'] as bool? ?? false,
+      targetTotalScore: json['targetTotalScore'] as int? ?? 100000,
+      tobiPrize: json['tobiPrize'] as int? ?? 10,
+      yakumanPrize: json['yakumanPrize'] as int? ?? 10,
     );
   }
 }

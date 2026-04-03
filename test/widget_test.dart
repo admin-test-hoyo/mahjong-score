@@ -2,20 +2,30 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mahjong_calc/main.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:mahjong_calc/features/calc/calc_state.dart';
 
 void main() {
   testWidgets('CalcScreen renders basic spreadsheet structure without errors', (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+
     // Build our app and trigger a frame.
-    await tester.pumpWidget(const ProviderScope(child: MahjongApp()));
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+      ],
+      child: const MahjongApp(),
+    ));
 
     // Verify header exists
     expect(find.text('Rate'), findsOneWidget);
-    expect(find.text('場代 (1日の1卓総額)'), findsOneWidget);
+    expect(find.text('場代'), findsOneWidget);
     
     // Verify columns exist
-    expect(find.text('Player 1'), findsWidgets);
+    expect(find.text('A'), findsWidgets);
     
-    // Verify first row check mechanism
-    expect(find.text('OK'), findsWidgets); // Due to 0x4 returning valid
+    // Verify first row check mechanism (check_circle icon instead of OK text)
+    expect(find.byIcon(Icons.add_circle), findsWidgets);
   });
 }

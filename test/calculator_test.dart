@@ -83,7 +83,7 @@ void main() {
       final results = MahjongCalculator.calculate(
         inputs: [p1, p2, p3, p4], 
         rule: rule,
-        config: const AppConfig(gameFee: 2000),
+        config: const AppConfig(rate: 50.0, gameFee: 2000),
       );
       
       final r1 = results.firstWhere((r) => r.id == 1);
@@ -119,7 +119,7 @@ void main() {
       final p4 = PlayerInput(id: 4, score: 17400); // -33pt
       
       final customRule = defaultRule.copyWith(totalFee: 1500);
-      final results = MahjongCalculator.calculate(inputs: [p1, p2, p3, p4], rule: customRule, config: const AppConfig(gameFee: 1500));
+      final results = MahjongCalculator.calculate(inputs: [p1, p2, p3, p4], rule: customRule, config: const AppConfig(rate: 50.0, gameFee: 1500));
       
       // p1: 48 * 50 - 375 = 2400 - 375 = 2025. 2025/10 = 202.5. Ceil => 203 => 2030
       // p2: 6 * 50 - 375 = 300 - 375 = -75. /10 = -7.5. Ceil(-7.5) = -7 => -70
@@ -141,14 +141,14 @@ void main() {
       // p1(E)=0, p2(S)=1, p3(W)=2, p4(N)=3
       // Tie between p2(1) and p3(2) -> p2 should be ranked higher (rank 1), p3 rank 2.
       // Uma: rank 1 gets 10, rank 2 gets -10.
-      final results1 = MahjongCalculator.calculate(inputs: [p1, p2, p3, p4], rule: defaultRule, config: const AppConfig(), startingOyaIndex: 0);
+      final results1 = MahjongCalculator.calculate(inputs: [p1, p2, p3, p4], rule: defaultRule, config: const AppConfig(rate: 50.0), startingOyaIndex: 0);
       expect(results1.firstWhere((r) => r.id == 2).finalPoint, (25 - 30) + 10); // -5 + 10 = +5
       expect(results1.firstWhere((r) => r.id == 3).finalPoint, (25 - 30) - 10); // -5 - 10 = -15
 
       // Scenario 2: startingOyaIndex = 2 (Player 3 is East)
       // p1(W)=2, p2(N)=3, p3(E)=0, p4(S)=1
       // Tie between p2(3) and p3(0) -> p3 should be ranked higher.
-      final results2 = MahjongCalculator.calculate(inputs: [p1, p2, p3, p4], rule: defaultRule, config: const AppConfig(), startingOyaIndex: 2);
+      final results2 = MahjongCalculator.calculate(inputs: [p1, p2, p3, p4], rule: defaultRule, config: const AppConfig(rate: 50.0), startingOyaIndex: 2);
       expect(results2.firstWhere((r) => r.id == 3).finalPoint, (25 - 30) + 10); // p3 gets 3rd place uma? No, p3 is rank 1, p2 is rank 2.
       expect(results2.firstWhere((r) => r.id == 2).finalPoint, (25 - 30) - 10);
     });
@@ -180,6 +180,30 @@ void main() {
       // GameFee Deduction: 13200 / 4 = 3300.
       // 5600 - 3300 = 2300!
       expect(results.firstWhere((r) => r.id == 1).money, 2300);
+    });
+
+    test('calculate correctly sums up overlapping Tobi and Yakuman', () {
+      final defaultRuleForTest = const MahjongRule(); // Rule defaults logic (yakumanRon=10, tobi=10)
+      final rule = defaultRuleForTest.copyWith(uma: [30, 10, -10, -30]); // Simulate typical 10-30 uma
+      
+      final p1 = PlayerInput(id: 1, score: 62000, tobiPt: 10, yakumanPt: 10);
+      final p2 = PlayerInput(id: 2, score: 25000);
+      final p3 = PlayerInput(id: 3, score: 20000);
+      final p4 = PlayerInput(id: 4, score: -7000, tobiPt: -10, yakumanPt: -10);
+
+      final results = MahjongCalculator.calculate(
+        inputs: [p1, p2, p3, p4],
+        rule: rule,
+        config: const AppConfig(),
+      );
+
+      final r4 = results.firstWhere((r) => r.id == 4);
+      // p4: ( -7000 - 30000 ) / 1000 = -37
+      // Rank 4: uma = -30
+      // -37 - 30 = -67.
+      // tobiPt = -10, yakumanPt = -10.
+      // -67 - 10 - 10 = -87.
+      expect(r4.finalPoint, -87);
     });
 
   });

@@ -50,6 +50,34 @@ class MahjongRule {
       totalFee: totalFee ?? this.totalFee,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'rate': rate,
+    'chipRate': chipRate,
+    'returnScore': returnScore,
+    'uma': uma,
+    'oka': oka,
+    'tobiPrize': tobiPrize,
+    'yakumanRonPrize': yakumanRonPrize,
+    'yakumanTsumoPrize': yakumanTsumoPrize,
+    'yakumanPaoPrize': yakumanPaoPrize,
+    'totalFee': totalFee,
+  };
+
+  factory MahjongRule.fromJson(Map<String, dynamic> json) {
+    return MahjongRule(
+      rate: json['rate'] as int? ?? 50,
+      chipRate: json['chipRate'] as int? ?? 100,
+      returnScore: json['returnScore'] as int? ?? 30000,
+      uma: (json['uma'] as List<dynamic>?)?.map((e) => e as int).toList() ?? const [20, 10, -10, -20],
+      oka: json['oka'] as int? ?? 20,
+      tobiPrize: json['tobiPrize'] as int? ?? 10,
+      yakumanRonPrize: json['yakumanRonPrize'] as int? ?? 10,
+      yakumanTsumoPrize: json['yakumanTsumoPrize'] as int? ?? 15,
+      yakumanPaoPrize: json['yakumanPaoPrize'] as int? ?? 15,
+      totalFee: json['totalFee'] as int? ?? 0,
+    );
+  }
 }
 
 enum SpecialPrizeType {
@@ -93,6 +121,26 @@ class PlayerInput {
       tobiPt: tobiPt ?? this.tobiPt,
       yakumanPt: yakumanPt ?? this.yakumanPt,
       blownByPlayerId: clearBlownBy ? null : (blownByPlayerId ?? this.blownByPlayerId),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'score': score,
+    'chip': chip,
+    'tobiPt': tobiPt,
+    'yakumanPt': yakumanPt,
+    'blownByPlayerId': blownByPlayerId,
+  };
+
+  factory PlayerInput.fromJson(Map<String, dynamic> json) {
+    return PlayerInput(
+      id: json['id'] as int,
+      score: json['score'] as int? ?? 0,
+      chip: json['chip'] as int? ?? 0,
+      tobiPt: json['tobiPt'] as int? ?? 0,
+      yakumanPt: json['yakumanPt'] as int? ?? 0,
+      blownByPlayerId: json['blownByPlayerId'] as int?,
     );
   }
 }
@@ -164,8 +212,9 @@ class MahjongCalculator {
     required AppConfig config,
     int startingOyaIndex = 0,
   }) {
-    if (inputs.length != 4) {
-      throw ArgumentError('There must be exactly 4 players.');
+    final expectedPlayers = config.isThreePlayer ? 3 : 4;
+    if (inputs.length != expectedPlayers) {
+      throw ArgumentError('There must be exactly $expectedPlayers players.');
     }
 
     // 順位付け (スコアの降順でソート。同点の場合は起家からの順番(priority)でソート)
@@ -186,8 +235,8 @@ class MahjongCalculator {
     
     // スコア合計チェック
     final totalScore = inputs.fold(0, (sum, p) => sum + p.score);
-    if (totalScore != 100000) {
-      throw ArgumentError('Total score must be exactly 100,000.');
+    if (totalScore != config.targetTotalScore) {
+      throw ArgumentError('Total score must be exactly ${config.targetTotalScore}.');
     }
 
     // Tobi Points Zero-Sum Validation
@@ -202,9 +251,9 @@ class MahjongCalculator {
       throw ArgumentError('The sum of yakumanPt across all players must be exactly 0 (current sum: $totalYakuman).');
     }
 
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < expectedPlayers; i++) {
       final player = sortedInputs[i];
-      final rank = i; // 0=トップ, 1=2着, 2=3着, 3=ラス
+      final rank = i; // 0=トップ, 1=2着, 2=3着, (3=ラス)
       
       // 1. ベースポイントの算出（(素点 - 返し点) / 1000）
       final basePoint = (player.score - rule.returnScore) / 1000.0;
@@ -247,8 +296,8 @@ class MahjongCalculator {
     final finalResults = results.map((r) {
       final input = inputs.firstWhere((i) => i.id == r.id);
       
-      // 現金換算式: (ポイント × レート) + (チップ数 × チップ単価) - (場代 / 4)
-      final correctRawMoney = (r.finalPoint * config.rate) + (input.chip * config.chipRate) - (config.gameFee / 4).round();
+      // 現金換算式: (ポイント × レート) + (チップ数 × チップ単価) - (場代 / players)
+      final correctRawMoney = (r.finalPoint * config.rate) + (input.chip * config.chipRate) - (config.gameFee / expectedPlayers).round();
 
       // 6. 最終端数処理: 10円単位での切り上げ
       int moneyRoundedUp;

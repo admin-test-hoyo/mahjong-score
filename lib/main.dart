@@ -1,12 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'features/calc/calc_screen.dart';
+import 'features/calc/calc_state.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final sharedPrefs = await SharedPreferences.getInstance();
+
   runApp(
-    const ProviderScope(
-      child: MahjongApp(),
+    ProviderScope(
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(sharedPrefs),
+      ],
+      child: const MahjongApp(),
     ),
   );
 }
@@ -18,7 +26,7 @@ class MahjongApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Mahjong Calc',
+      title: '麻雀スコア表',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF00E676), // Neon green
