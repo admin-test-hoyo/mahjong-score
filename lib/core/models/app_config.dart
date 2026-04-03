@@ -8,6 +8,7 @@ class AppConfig {
   final bool isThreePlayer;
   final int targetTotalScore;
   final int startingPoints;
+  final int tobiPrize;
   final int yakumanTsumoPrize;
   final int yakumanRonPrize;
 
