@@ -328,8 +328,15 @@ class ConfigNotifier extends Notifier<AppConfig> {
   }
 
   void updateIsThreePlayer(bool isThreePlayer) {
-    final targetScore = isThreePlayer ? 105000 : 100000;
+    final numPlayers = isThreePlayer ? 3 : 4;
+    final targetScore = state.startingPoints * numPlayers;
     state = state.copyWith(isThreePlayer: isThreePlayer, targetTotalScore: targetScore);
+  }
+
+  void updateStartingPoints(int startingPoints) {
+    final numPlayers = state.isThreePlayer ? 3 : 4;
+    final targetScore = startingPoints * numPlayers;
+    state = state.copyWith(startingPoints: startingPoints, targetTotalScore: targetScore);
   }
 
   void updateTargetTotalScore(int targetTotalScore) {

@@ -7,6 +7,7 @@ class AppConfig {
   final int oka;
   final bool isThreePlayer;
   final int targetTotalScore;
+  final int startingPoints;
   final int tobiPrize;
   final int yakumanPrize;
 
@@ -19,6 +20,7 @@ class AppConfig {
     this.oka = 20,
     this.isThreePlayer = false,
     this.targetTotalScore = 100000,
+    this.startingPoints = 25000,
     this.tobiPrize = 10,
     this.yakumanPrize = 10,
   });
@@ -32,6 +34,7 @@ class AppConfig {
     int? oka,
     bool? isThreePlayer,
     int? targetTotalScore,
+    int? startingPoints,
     int? tobiPrize,
     int? yakumanPrize,
   }) {
@@ -44,6 +47,7 @@ class AppConfig {
       oka: oka ?? this.oka,
       isThreePlayer: isThreePlayer ?? this.isThreePlayer,
       targetTotalScore: targetTotalScore ?? this.targetTotalScore,
+      startingPoints: startingPoints ?? this.startingPoints,
       tobiPrize: tobiPrize ?? this.tobiPrize,
       yakumanPrize: yakumanPrize ?? this.yakumanPrize,
     );
@@ -58,6 +62,7 @@ class AppConfig {
     'oka': oka,
     'isThreePlayer': isThreePlayer,
     'targetTotalScore': targetTotalScore,
+    'startingPoints': startingPoints,
     'tobiPrize': tobiPrize,
     'yakumanPrize': yakumanPrize,
   };
@@ -72,6 +77,7 @@ class AppConfig {
       oka: json['oka'] as int? ?? 20,
       isThreePlayer: json['isThreePlayer'] as bool? ?? false,
       targetTotalScore: json['targetTotalScore'] as int? ?? 100000,
+      startingPoints: json['startingPoints'] as int? ?? 25000,
       tobiPrize: json['tobiPrize'] as int? ?? 10,
       yakumanPrize: json['yakumanPrize'] as int? ?? 10,
     );
