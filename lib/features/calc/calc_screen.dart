@@ -294,10 +294,8 @@ class SettingsModal extends ConsumerWidget {
         _row([_field(ref, '配給原点', config.startingPoints.toString(), (v) => ref.read(configProvider.notifier).updateStartingPoints(int.tryParse(v) ?? 25000)), _field(ref, 'Oka', config.oka.toString(), (v) => ref.read(configProvider.notifier).updateOka(int.tryParse(v) ?? 0))]),
         const SizedBox(height: 12),
         Row(children: [
-            const Expanded(child: Text('役満賞 (ツモ / ロン)', style: TextStyle(color: Colors.white54, fontSize: 11))),
-            SizedBox(width: 80, child: _field(ref, 'ツモ', config.yakumanTsumoPrize.toString(), (v) => ref.read(configProvider.notifier).updateYakumanTsumoPrize(int.tryParse(v) ?? 5))),
-            const Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('/', style: TextStyle(color: Colors.white12))),
-            SizedBox(width: 80, child: _field(ref, 'ロン', config.yakumanRonPrize.toString(), (v) => ref.read(configProvider.notifier).updateYakumanRonPrize(int.tryParse(v) ?? 10))),
+            Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: _field(ref, '役満賞(ツモ)', config.yakumanTsumoPrize.toString(), (v) => ref.read(configProvider.notifier).updateYakumanTsumoPrize(int.tryParse(v) ?? 5)))),
+            Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: _field(ref, '役満賞(ロン)', config.yakumanRonPrize.toString(), (v) => ref.read(configProvider.notifier).updateYakumanRonPrize(int.tryParse(v) ?? 10)))),
         ]),
         const SizedBox(height: 12),
         _row([_field(ref, 'トビ賞', config.tobiPrize.toString(), (v) => ref.read(configProvider.notifier).updateTobiPrize(int.tryParse(v) ?? 10)), const SizedBox()]),
@@ -336,13 +334,26 @@ class _PlayerInputCardState extends ConsumerState<PlayerInputCard> {
   @override Widget build(BuildContext context) {
     final state = ref.watch(calcProvider); final game = state.games.firstWhere((g) => g.id == widget.gameId);
     final oya = game.startingOyaIndex == widget.player.id - 1; final wind = ['東', '南', '西', '北'][((widget.player.id - 1) - game.startingOyaIndex + 4) % 4];
+    
+    // Tobi Icon Logic
+    final tobiPt = widget.player.tobiPt;
+    IconData tobiIcon = Icons.favorite_border; Color tobiColor = Colors.grey.shade400;
+    if (tobiPt > 0) { tobiIcon = Icons.favorite; tobiColor = Colors.pinkAccent; }
+    else if (tobiPt < 0) { tobiIcon = Icons.heart_broken; tobiColor = Colors.blueGrey; }
+    
+    // Yakuman Icon Logic
+    final yakumanPt = widget.player.yakumanPt;
+    IconData yakumanIcon = Icons.emoji_events; Color yakumanColor = Colors.grey.shade400;
+    if (yakumanPt > 0) { yakumanIcon = Icons.emoji_events; yakumanColor = Colors.orange; }
+    else if (yakumanPt < 0) { yakumanIcon = Icons.sentiment_dissatisfied; yakumanColor = Colors.blueGrey; }
+
     return Container(margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFF002922), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white10)), child: Row(children: [
         GestureDetector(onTap: () => ref.read(calcProvider.notifier).setStartingOya(widget.gameId, widget.player.id - 1), child: Container(width: 26, height: 26, margin: const EdgeInsets.only(right: 8), decoration: BoxDecoration(shape: BoxShape.circle, color: oya ? const Color(0xFF00FFC2) : Colors.transparent, border: Border.all(color: oya ? const Color(0xFF00FFC2) : Colors.white24)), child: Center(child: Text(wind, style: TextStyle(color: oya ? const Color(0xFF004D40) : Colors.white38, fontSize: 11, fontWeight: FontWeight.bold))))),
         Expanded(child: Text(state.playerNames[widget.player.id - 1], style: const TextStyle(color: Colors.white70, fontSize: 13))),
         SizedBox(width: 60, child: TextField(controller: _s, keyboardType: const TextInputType.numberWithOptions(signed: true), style: const TextStyle(color: Colors.greenAccent, fontSize: 14), decoration: const InputDecoration(isDense: true, border: InputBorder.none, hintText: '0', hintStyle: TextStyle(color: Colors.white10)), onChanged: (v) => ref.read(calcProvider.notifier).updateScore(widget.gameId, widget.player.id, int.tryParse(v) ?? 0))),
-        SizedBox(width: 32, child: IconButton(icon: const Icon(Icons.heart_broken, color: Colors.grey, size: 20), onPressed: () => widget.showTobi(widget.player.id), padding: EdgeInsets.zero, constraints: const BoxConstraints())),
+        SizedBox(width: 32, child: IconButton(icon: Icon(tobiIcon, color: tobiColor, size: 20), onPressed: () => widget.showTobi(widget.player.id), padding: EdgeInsets.zero, constraints: const BoxConstraints())),
         const SizedBox(width: 8),
-        SizedBox(width: 32, child: IconButton(icon: const Icon(Icons.emoji_events, color: Colors.orange, size: 20), onPressed: () => widget.showYakuman(widget.player.id), padding: EdgeInsets.zero, constraints: const BoxConstraints())),
+        SizedBox(width: 32, child: IconButton(icon: Icon(yakumanIcon, color: yakumanColor, size: 20), onPressed: () => widget.showYakuman(widget.player.id), padding: EdgeInsets.zero, constraints: const BoxConstraints())),
     ]));
   }
 }
