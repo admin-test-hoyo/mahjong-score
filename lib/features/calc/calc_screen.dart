@@ -99,6 +99,7 @@ class CalcScreen extends ConsumerWidget {
           child: DataTable(
             columnSpacing: 0,
             horizontalMargin: 4,
+            showCheckboxColumn: false,
             headingTextStyle: GoogleFonts.robotoMono(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold),
             dataTextStyle: GoogleFonts.robotoMono(color: Colors.white70, fontSize: 13),
             columns: [
@@ -128,8 +129,8 @@ class CalcScreen extends ConsumerWidget {
                     }
                     return DataCell(SizedBox(width: pWidth, child: Center(child: Text(val, style: GoogleFonts.robotoMono(color: col, fontWeight: results != null ? FontWeight.bold : FontWeight.normal)))));
                   }),
-                  DataCell(SizedBox(width: ctrlWidth, child: IconButton(padding: EdgeInsets.zero, constraints: const BoxConstraints(), icon: Icon(isValid ? Icons.check_circle : Icons.error_outline, color: isValid ? const Color(0xFF00FFC2).withOpacity(0.3) : Colors.redAccent, size: 16), onPressed: () => _showPrizeSetupModal(context, ref, game)))),
-                  DataCell(SizedBox(width: ctrlWidth, child: Center(child: IconButton(padding: EdgeInsets.zero, constraints: const BoxConstraints(), icon: const Icon(Icons.close, color: Colors.white12, size: 16), onPressed: () => ref.read(calcProvider.notifier).deleteGame(game.id))))),
+                  DataCell(SizedBox(width: ctrlWidth, child: Center(child: Icon(isValid ? Icons.check_circle : Icons.error_outline, color: isValid ? const Color(0xFF00FFC2).withOpacity(0.3) : Colors.redAccent, size: 16)))),
+                  DataCell(SizedBox(width: ctrlWidth, child: Center(child: IconButton(padding: EdgeInsets.zero, constraints: const BoxConstraints(), icon: const Icon(Icons.delete_outline, color: Colors.white24, size: 16), onPressed: () => ref.read(calcProvider.notifier).deleteGame(game.id))))),
                 ]);
               }),
               DataRow(color: MaterialStateProperty.all(Colors.black12), cells: [
@@ -146,13 +147,133 @@ class CalcScreen extends ConsumerWidget {
     });
   }
 
-  void _showPrizeSetupModal(BuildContext context, WidgetRef ref, GameRecord game) {
-    showModalBottomSheet(context: context, backgroundColor: const Color(0xFF002922), isScrollControlled: true, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (context) => PrizeSetupModal(gameId: game.id));
+  void _showYakumanDialog(BuildContext context, WidgetRef ref, GameRecord game) {
+    final state = ref.read(calcProvider);
+    final config = ref.read(configProvider);
+    final players = config.isThreePlayer ? 3 : 4;
+    
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      backgroundColor: const Color(0xFF001F1A),
+      title: Text('役満設定', style: GoogleFonts.robotoMono(color: Colors.white, fontSize: 16)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('和了者を選択してください', style: TextStyle(color: Colors.white54, fontSize: 12)),
+          const SizedBox(height: 16),
+          const Text('1. ツモ和了', style: TextStyle(color: Colors.orangeAccent, fontSize: 11, fontWeight: FontWeight.bold)),
+          const Divider(color: Colors.white10),
+          Wrap(
+            spacing: 8,
+            children: List.generate(players, (i) => ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.orangeAccent.withOpacity(0.1), foregroundColor: Colors.orangeAccent),
+              onPressed: () {
+                ref.read(calcProvider.notifier).setYakumanTsumo(game.id, i + 1);
+                Navigator.pop(ctx);
+              },
+              child: Text(state.playerNames[i]),
+            )),
+          ),
+          const SizedBox(height: 24),
+          const Text('2. ロン和了 (放銃者を選択)', style: TextStyle(color: Colors.white38, fontSize: 11)),
+          const Divider(color: Colors.white10),
+          ...List.generate(players, (loserIdx) => ListTile(
+            dense: true,
+            title: Text('${state.playerNames[loserIdx]} が放銃', style: const TextStyle(color: Colors.white70, fontSize: 13)),
+            onTap: () {
+              Navigator.pop(ctx);
+              _showYakumanWinnerSelect(context, ref, game, loserIdx + 1);
+            },
+          )),
+        ],
+      ),
+    ));
+  }
+
+  void _showYakumanWinnerSelect(BuildContext context, WidgetRef ref, GameRecord game, int loserId) {
+    final state = ref.read(calcProvider);
+    final players = ref.read(configProvider).isThreePlayer ? 3 : 4;
+    showDialog(context: context, builder: (ctx) => SimpleDialog(
+      backgroundColor: const Color(0xFF001F1A),
+      title: const Text('和了者を選択', style: TextStyle(color: Colors.white, fontSize: 14)),
+      children: List.generate(players, (i) => i + 1).where((id) => id != loserId).map((id) => SimpleDialogOption(
+        child: Text(state.playerNames[id - 1], style: const TextStyle(color: Color(0xFF00FFC2))),
+        onPressed: () {
+          ref.read(calcProvider.notifier).setYakumanRon(game.id, id, loserId);
+          Navigator.pop(ctx);
+        },
+      )).toList(),
+    ));
+  }
+
+  void _showTobiDialog(BuildContext context, WidgetRef ref, GameRecord game) {
+    final state = ref.read(calcProvider);
+    final players = ref.read(configProvider).isThreePlayer ? 3 : 4;
+    
+    showDialog(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx, setState) {
+      final updatedGame = ref.watch(calcProvider).games.firstWhere((g) => g.id == game.id);
+      return AlertDialog(
+        backgroundColor: const Color(0xFF001F1A),
+        title: Text('誰に飛ばされましたか？', style: GoogleFonts.robotoMono(color: Colors.white, fontSize: 16)),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: List.generate(players, (i) {
+              final p = updatedGame.inputs.firstWhere((inp) => inp.id == i + 1);
+              final isBlown = p.blownByPlayerId != null;
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4.0),
+                child: Row(
+                  children: [
+                    Expanded(child: Text(state.playerNames[i], style: TextStyle(color: isBlown ? Colors.redAccent : Colors.white70))),
+                    if (isBlown) ...[
+                      Text('to ${state.playerNames[p.blownByPlayerId! - 1]}', style: const TextStyle(color: Colors.blueAccent, fontSize: 11)),
+                      IconButton(icon: const Icon(Icons.undo, size: 16, color: Colors.white24), onPressed: () => ref.read(calcProvider.notifier).setBlownBy(game.id, i + 1, null)),
+                    ] else
+                      TextButton(
+                        onPressed: () => _showBlowerSelect(context, ref, game.id, i + 1),
+                        child: const Text('飛ばされた', style: TextStyle(color: Colors.redAccent, fontSize: 12)),
+                      ),
+                  ],
+                ),
+              );
+            }),
+          ),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('閉じる'))],
+      );
+    }));
+  }
+
+  void _showBlowerSelect(BuildContext context, WidgetRef ref, String gId, int loserId) {
+    final state = ref.read(calcProvider);
+    final players = ref.read(configProvider).isThreePlayer ? 3 : 4;
+    showDialog(context: context, builder: (ctx) => SimpleDialog(
+      backgroundColor: const Color(0xFF001F1A),
+      title: const Text('飛ばした人を選択', style: TextStyle(color: Colors.white, fontSize: 14)),
+      children: List.generate(players, (i) => i + 1).where((id) => id != loserId).map((id) => SimpleDialogOption(
+        child: Text(state.playerNames[id - 1], style: const TextStyle(color: Color(0xFF00FFC2))),
+        onPressed: () {
+          ref.read(calcProvider.notifier).setBlownBy(gId, loserId, id);
+          Navigator.pop(ctx);
+        },
+      )).toList(),
+    ));
   }
 
   void _showEditModal(BuildContext context, WidgetRef ref, GameRecord game) {
     final config = ref.read(configProvider); final players = config.isThreePlayer ? 3 : 4;
-    showModalBottomSheet(context: context, backgroundColor: const Color(0xFF001F1A), isScrollControlled: true, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (context) => Padding(padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 16, right: 16, top: 24), child: Column(mainAxisSize: MainAxisSize.min, children: [Text('スコア編集', style: GoogleFonts.robotoMono(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)), const SizedBox(height: 16), ...game.inputs.where((p) => p.id <= players).map((p) => PlayerInputCard(gameId: game.id, player: p)), const SizedBox(height: 16)])));
+    showModalBottomSheet(context: context, backgroundColor: const Color(0xFF001F1A), isScrollControlled: true, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (context) => Padding(padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 16, right: 16, top: 24), child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Text('スコア編集', style: GoogleFonts.robotoMono(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+            Row(children: [
+                IconButton(icon: const Icon(Icons.stars, color: Colors.orangeAccent), onPressed: () => _showYakumanDialog(context, ref, game)),
+                IconButton(icon: const Icon(Icons.warning_amber_rounded, color: Colors.redAccent), onPressed: () => _showTobiDialog(context, ref, game)),
+            ])
+        ]),
+        const SizedBox(height: 16), 
+        ...game.inputs.where((p) => p.id <= players).map((p) => PlayerInputCard(gameId: game.id, player: p)), 
+        const SizedBox(height: 16)])));
   }
 
   Widget _buildBottomSummaryFooter(BuildContext context, WidgetRef ref) {
@@ -202,49 +323,6 @@ class SettingsModal extends ConsumerWidget {
   Widget _field(WidgetRef ref, String l, String i, Function(String) o, {bool isDec = false}) => TextFormField(initialValue: i, keyboardType: TextInputType.numberWithOptions(decimal: isDec), style: GoogleFonts.robotoMono(color: Colors.white, fontSize: 15), decoration: InputDecoration(labelText: l, labelStyle: const TextStyle(color: Colors.white38, fontSize: 11), filled: true, fillColor: Colors.white.withOpacity(0.04), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none), contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10)), onChanged: o);
 }
 
-class PrizeSetupModal extends ConsumerWidget {
-  final String gameId;
-  const PrizeSetupModal({super.key, required this.gameId});
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(calcProvider); final config = ref.watch(configProvider);
-    final game = state.games.firstWhere((g) => g.id == gameId);
-    final players = config.isThreePlayer ? 3 : 4;
-    return Padding(padding: const EdgeInsets.all(20), child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('祝儀・トビの入力', style: GoogleFonts.robotoMono(color: const Color(0xFF00FFC2), fontSize: 16, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 16),
-        const Text('役満', style: TextStyle(color: Colors.white54, fontSize: 12)),
-        const Divider(color: Colors.white10),
-        ListTile(title: const Center(child: Text('ツモ', style: TextStyle(color: Colors.orangeAccent))), onTap: () => _showWinnerList(context, ref, gameId, isTsumo: true)),
-        const Divider(color: Colors.white10),
-        const Padding(padding: EdgeInsets.symmetric(vertical: 4), child: Center(child: Text('ロン（放銃者を選択）', style: TextStyle(color: Colors.white38, fontSize: 11)))),
-        Wrap(spacing: 8, alignment: WrapAlignment.center, children: List.generate(players, (i) => ChoiceChip(label: Text(state.playerNames[i]), selected: false, onSelected: (_) => _showWinnerList(context, ref, gameId, loserId: i + 1)))),
-        const SizedBox(height: 24),
-        const Text('トビの報告', style: TextStyle(color: Colors.white54, fontSize: 12)),
-        const Divider(color: Colors.white10),
-        const Text('誰に飛ばされましたか？', style: TextStyle(color: Colors.white38, fontSize: 11)),
-        ...List.generate(players, (i) {
-            final p = game.inputs.firstWhere((p) => p.id == i+1);
-            return ListTile(title: Text(state.playerNames[i], style: const TextStyle(color: Colors.white70)), leading: Checkbox(value: p.blownByPlayerId != null, onChanged: (v) { if (v == true) _showWinnerList(context, ref, gameId, loserId: i+1, isTobi: true); else ref.read(calcProvider.notifier).setBlownBy(gameId, i+1, null); }), trailing: p.blownByPlayerId != null ? Text('to ${state.playerNames[p.blownByPlayerId!-1]}', style: const TextStyle(color: Colors.blueAccent, fontSize: 11)) : null);
-        }),
-        const SizedBox(height: 20),
-        SizedBox(width: double.infinity, child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00FFC2), foregroundColor: const Color(0xFF004D40)), onPressed: () => Navigator.pop(context), child: const Text('完了'))),
-    ]));
-  }
-  void _showWinnerList(BuildContext context, WidgetRef ref, String gId, {bool isTsumo = false, int? loserId, bool isTobi = false}) {
-    final state = ref.read(calcProvider); final players = ref.read(configProvider).isThreePlayer ? 3 : 4;
-    showDialog(context: context, builder: (ctx) => SimpleDialog(backgroundColor: const Color(0xFF001F1A), title: Text(isTobi ? '誰に飛ばされましたか？' : '和了者を選択', style: const TextStyle(color: Colors.white, fontSize: 14)), children: List.generate(players, (i) => i+1).where((id) => id != loserId).map((id) => SimpleDialogOption(child: Text(state.playerNames[id-1], style: const TextStyle(color: Color(0xFF00FFC2))), onPressed: () {
-      if (isTobi) {
-        ref.read(calcProvider.notifier).setBlownBy(gId, loserId!, id);
-      } else if (isTsumo) {
-        ref.read(calcProvider.notifier).setYakumanTsumo(gId, id);
-      } else {
-        ref.read(calcProvider.notifier).setYakumanRon(gId, id, loserId!);
-      }
-      Navigator.pop(ctx);
-    })).toList()));
-  }
-}
 
 class PlayerNameField extends ConsumerStatefulWidget {
   final int index; final String initialName;
