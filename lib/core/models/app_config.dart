@@ -8,8 +8,8 @@ class AppConfig {
   final bool isThreePlayer;
   final int targetTotalScore;
   final int startingPoints;
-  final int tobiPrize;
-  final int yakumanPrize;
+  final int yakumanTsumoPrize;
+  final int yakumanRonPrize;
 
   const AppConfig({
     this.rate = 100.0,
@@ -22,7 +22,8 @@ class AppConfig {
     this.targetTotalScore = 100000,
     this.startingPoints = 25000,
     this.tobiPrize = 10,
-    this.yakumanPrize = 10,
+    this.yakumanTsumoPrize = 5,
+    this.yakumanRonPrize = 10,
   });
 
   AppConfig copyWith({
@@ -36,7 +37,8 @@ class AppConfig {
     int? targetTotalScore,
     int? startingPoints,
     int? tobiPrize,
-    int? yakumanPrize,
+    int? yakumanTsumoPrize,
+    int? yakumanRonPrize,
   }) {
     return AppConfig(
       rate: rate ?? this.rate,
@@ -49,7 +51,8 @@ class AppConfig {
       targetTotalScore: targetTotalScore ?? this.targetTotalScore,
       startingPoints: startingPoints ?? this.startingPoints,
       tobiPrize: tobiPrize ?? this.tobiPrize,
-      yakumanPrize: yakumanPrize ?? this.yakumanPrize,
+      yakumanTsumoPrize: yakumanTsumoPrize ?? this.yakumanTsumoPrize,
+      yakumanRonPrize: yakumanRonPrize ?? this.yakumanRonPrize,
     );
   }
 
@@ -64,7 +67,8 @@ class AppConfig {
     'targetTotalScore': targetTotalScore,
     'startingPoints': startingPoints,
     'tobiPrize': tobiPrize,
-    'yakumanPrize': yakumanPrize,
+    'yakumanTsumoPrize': yakumanTsumoPrize,
+    'yakumanRonPrize': yakumanRonPrize,
   };
 
   factory AppConfig.fromJson(Map<String, dynamic> json) {
@@ -79,7 +83,8 @@ class AppConfig {
       targetTotalScore: json['targetTotalScore'] as int? ?? 100000,
       startingPoints: json['startingPoints'] as int? ?? 25000,
       tobiPrize: json['tobiPrize'] as int? ?? 10,
-      yakumanPrize: json['yakumanPrize'] as int? ?? 10,
+      yakumanTsumoPrize: json['yakumanTsumoPrize'] as int? ?? 5,
+      yakumanRonPrize: json['yakumanRonPrize'] as int? ?? 10,
     );
   }
 }

@@ -222,15 +222,15 @@ class CalcNotifier extends Notifier<CalcState> {
   }
 
   void setYakumanRon(String gameId, int winnerId, int loserId) {
-    final yakumanPrize = ref.read(configProvider).yakumanPrize;
+    final yakumanRonPrize = ref.read(configProvider).yakumanRonPrize;
     final newGames = state.games.map((game) {
       if (game.id != gameId) return game;
-      final isAlreadySet = game.inputs.any((p) => p.id == winnerId && p.yakumanPt == yakumanPrize);
+      final isAlreadySet = game.inputs.any((p) => p.id == winnerId && p.yakumanPt == yakumanRonPrize);
 
       final newInputs = game.inputs.map((p) {
         if (isAlreadySet) return p.copyWith(yakumanPt: 0);
-        if (p.id == winnerId) return p.copyWith(yakumanPt: yakumanPrize);
-        if (p.id == loserId) return p.copyWith(yakumanPt: -yakumanPrize);
+        if (p.id == winnerId) return p.copyWith(yakumanPt: yakumanRonPrize);
+        if (p.id == loserId) return p.copyWith(yakumanPt: -yakumanRonPrize);
         return p.copyWith(yakumanPt: 0);
       }).toList();
       return game.copyWith(inputs: newInputs);
@@ -239,20 +239,21 @@ class CalcNotifier extends Notifier<CalcState> {
   }
 
   void setYakumanTsumo(String gameId, int winnerId) {
-    final yakumanTsumoPrize = (ref.read(configProvider).yakumanPrize * 1.5).round(); // Usually Sanma Tsumo is adjusted or 4-player 15pt
-    final isThreePlayer = ref.read(configProvider).isThreePlayer;
-    final divisor = isThreePlayer ? 2 : 3;
+    final yakumanTsumoPrize = ref.read(configProvider).yakumanTsumoPrize;
+    final config = ref.read(configProvider);
+    final isThreePlayer = config.isThreePlayer;
+    final numPlayers = isThreePlayer ? 3 : 4;
+    final totalWin = yakumanTsumoPrize * (numPlayers - 1);
 
     final newGames = state.games.map((game) {
       if (game.id != gameId) return game;
-      final isAlreadySet = game.inputs.any((p) => p.id == winnerId && p.yakumanPt == yakumanTsumoPrize);
+      final isAlreadySet = game.inputs.any((p) => p.id == winnerId && p.yakumanPt == totalWin);
 
       final newInputs = game.inputs.map((p) {
         if (isAlreadySet) return p.copyWith(yakumanPt: 0);
-        if (p.id == winnerId) return p.copyWith(yakumanPt: yakumanTsumoPrize);
-        // Exclude inactive player (ID 4 in Sanma) from paying the Tsumo
-        if (isThreePlayer && p.id == 4) return p.copyWith(yakumanPt: 0); 
-        return p.copyWith(yakumanPt: -(yakumanTsumoPrize ~/ divisor));
+        if (p.id == winnerId) return p.copyWith(yakumanPt: totalWin);
+        if (isThreePlayer && p.id == 4) return p.copyWith(yakumanPt: 0);
+        return p.copyWith(yakumanPt: -yakumanTsumoPrize);
       }).toList();
       return game.copyWith(inputs: newInputs);
     }).toList();
@@ -347,8 +348,12 @@ class ConfigNotifier extends Notifier<AppConfig> {
     state = state.copyWith(tobiPrize: tobiPrize);
   }
 
-  void updateYakumanPrize(int yakumanPrize) {
-    state = state.copyWith(yakumanPrize: yakumanPrize);
+  void updateYakumanTsumoPrize(int yakumanTsumoPrize) {
+    state = state.copyWith(yakumanTsumoPrize: yakumanTsumoPrize);
+  }
+
+  void updateYakumanRonPrize(int yakumanRonPrize) {
+    state = state.copyWith(yakumanRonPrize: yakumanRonPrize);
   }
 }
 
