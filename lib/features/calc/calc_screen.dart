@@ -147,41 +147,42 @@ class CalcScreen extends ConsumerWidget {
     });
   }
 
-  void _showYakumanDialog(BuildContext context, WidgetRef ref, GameRecord game) {
+  void _showYakumanDialog(BuildContext context, WidgetRef ref, GameRecord game, int winnerId) {
     final state = ref.read(calcProvider);
     final config = ref.read(configProvider);
     final players = config.isThreePlayer ? 3 : 4;
     
     showDialog(context: context, builder: (ctx) => AlertDialog(
       backgroundColor: const Color(0xFF001F1A),
-      title: Text('役満設定', style: GoogleFonts.robotoMono(color: Colors.white, fontSize: 16)),
+      title: Text('${state.playerNames[winnerId-1]} の役満設定', style: GoogleFonts.robotoMono(color: Colors.white, fontSize: 16)),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text('和了者を選択してください', style: TextStyle(color: Colors.white54, fontSize: 12)),
+          const Text('和了タイプを選択してください', style: TextStyle(color: Colors.white54, fontSize: 12)),
           const SizedBox(height: 16),
-          const Text('1. ツモ和了', style: TextStyle(color: Colors.orangeAccent, fontSize: 11, fontWeight: FontWeight.bold)),
-          const Divider(color: Colors.white10),
-          Wrap(
-            spacing: 8,
-            children: List.generate(players, (i) => ElevatedButton(
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.bolt, color: Colors.orangeAccent, size: 18),
+              label: const Text('ツモ和了', style: TextStyle(fontWeight: FontWeight.bold)),
               style: ElevatedButton.styleFrom(backgroundColor: Colors.orangeAccent.withOpacity(0.1), foregroundColor: Colors.orangeAccent),
               onPressed: () {
-                ref.read(calcProvider.notifier).setYakumanTsumo(game.id, i + 1);
+                ref.read(calcProvider.notifier).setYakumanTsumo(game.id, winnerId);
                 Navigator.pop(ctx);
+                Navigator.pop(context);
               },
-              child: Text(state.playerNames[i]),
-            )),
+            ),
           ),
           const SizedBox(height: 24),
-          const Text('2. ロン和了 (放銃者を選択)', style: TextStyle(color: Colors.white38, fontSize: 11)),
+          const Text('ロン (放銃者を選択)', style: TextStyle(color: Colors.white38, fontSize: 11)),
           const Divider(color: Colors.white10),
-          ...List.generate(players, (loserIdx) => ListTile(
+          ...List.generate(players, (pIdx) => pIdx + 1).where((id) => id != winnerId).map((loserId) => ListTile(
             dense: true,
-            title: Text('${state.playerNames[loserIdx]} が放銃', style: const TextStyle(color: Colors.white70, fontSize: 13)),
+            title: Text('${state.playerNames[loserId - 1]} が放銃', style: const TextStyle(color: Colors.white70, fontSize: 13)),
             onTap: () {
+              ref.read(calcProvider.notifier).setYakumanRon(game.id, winnerId, loserId);
               Navigator.pop(ctx);
-              _showYakumanWinnerSelect(context, ref, game, loserIdx + 1);
+              Navigator.pop(context);
             },
           )),
         ],
@@ -189,90 +190,54 @@ class CalcScreen extends ConsumerWidget {
     ));
   }
 
-  void _showYakumanWinnerSelect(BuildContext context, WidgetRef ref, GameRecord game, int loserId) {
+  void _showTobiDialog(BuildContext context, WidgetRef ref, GameRecord game, int blownPlayerId) {
     final state = ref.read(calcProvider);
-    final players = ref.read(configProvider).isThreePlayer ? 3 : 4;
-    showDialog(context: context, builder: (ctx) => SimpleDialog(
-      backgroundColor: const Color(0xFF001F1A),
-      title: const Text('和了者を選択', style: TextStyle(color: Colors.white, fontSize: 14)),
-      children: List.generate(players, (i) => i + 1).where((id) => id != loserId).map((id) => SimpleDialogOption(
-        child: Text(state.playerNames[id - 1], style: const TextStyle(color: Color(0xFF00FFC2))),
-        onPressed: () {
-          ref.read(calcProvider.notifier).setYakumanRon(game.id, id, loserId);
-          Navigator.pop(ctx);
-        },
-      )).toList(),
-    ));
-  }
-
-  void _showTobiDialog(BuildContext context, WidgetRef ref, GameRecord game) {
-    final state = ref.read(calcProvider);
-    final players = ref.read(configProvider).isThreePlayer ? 3 : 4;
+    final config = ref.read(configProvider);
+    final players = config.isThreePlayer ? 3 : 4;
     
     showDialog(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx, setState) {
       final updatedGame = ref.watch(calcProvider).games.firstWhere((g) => g.id == game.id);
+      final p = updatedGame.inputs.firstWhere((inp) => inp.id == blownPlayerId);
+      final currentBlowerId = p.blownByPlayerId;
+
       return AlertDialog(
         backgroundColor: const Color(0xFF001F1A),
-        title: Text('誰に飛ばされましたか？', style: GoogleFonts.robotoMono(color: Colors.white, fontSize: 16)),
+        title: Text('${state.playerNames[blownPlayerId-1]} を飛ばした人を選択', style: GoogleFonts.robotoMono(color: Colors.white, fontSize: 15)),
         content: SizedBox(
           width: double.maxFinite,
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            children: List.generate(players, (i) {
-              final p = updatedGame.inputs.firstWhere((inp) => inp.id == i + 1);
-              final isBlown = p.blownByPlayerId != null;
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4.0),
-                child: Row(
-                  children: [
-                    Expanded(child: Text(state.playerNames[i], style: TextStyle(color: isBlown ? Colors.redAccent : Colors.white70))),
-                    if (isBlown) ...[
-                      Text('to ${state.playerNames[p.blownByPlayerId! - 1]}', style: const TextStyle(color: Colors.blueAccent, fontSize: 11)),
-                      IconButton(icon: const Icon(Icons.undo, size: 16, color: Colors.white24), onPressed: () => ref.read(calcProvider.notifier).setBlownBy(game.id, i + 1, null)),
-                    ] else
-                      TextButton(
-                        onPressed: () => _showBlowerSelect(context, ref, game.id, i + 1),
-                        child: const Text('飛ばされた', style: TextStyle(color: Colors.redAccent, fontSize: 12)),
-                      ),
-                  ],
-                ),
-              );
-            }),
+            children: [
+              const Text('飛ばした人にチェックを入れてください', style: TextStyle(color: Colors.white38, fontSize: 11)),
+              const SizedBox(height: 8),
+              ...List.generate(players, (i) => i + 1).where((id) => id != blownPlayerId).map((id) {
+                final isBlower = currentBlowerId == id;
+                return CheckboxListTile(
+                  title: Text(state.playerNames[id - 1], style: TextStyle(color: isBlower ? const Color(0xFF00FFC2) : Colors.white70)),
+                  value: isBlower,
+                  activeColor: const Color(0xFF00FFC2),
+                  checkColor: const Color(0xFF004D40),
+                  onChanged: (val) {
+                    ref.read(calcProvider.notifier).setBlownBy(game.id, blownPlayerId, val == true ? id : null);
+                    Navigator.pop(ctx);
+                    Navigator.pop(context); // Return from edit Modal for immediate feedback
+                  },
+                );
+              }),
+            ],
           ),
         ),
-        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('閉じる'))],
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('キャンセル'))],
       );
     }));
-  }
-
-  void _showBlowerSelect(BuildContext context, WidgetRef ref, String gId, int loserId) {
-    final state = ref.read(calcProvider);
-    final players = ref.read(configProvider).isThreePlayer ? 3 : 4;
-    showDialog(context: context, builder: (ctx) => SimpleDialog(
-      backgroundColor: const Color(0xFF001F1A),
-      title: const Text('飛ばした人を選択', style: TextStyle(color: Colors.white, fontSize: 14)),
-      children: List.generate(players, (i) => i + 1).where((id) => id != loserId).map((id) => SimpleDialogOption(
-        child: Text(state.playerNames[id - 1], style: const TextStyle(color: Color(0xFF00FFC2))),
-        onPressed: () {
-          ref.read(calcProvider.notifier).setBlownBy(gId, loserId, id);
-          Navigator.pop(ctx);
-        },
-      )).toList(),
-    ));
   }
 
   void _showEditModal(BuildContext context, WidgetRef ref, GameRecord game) {
     final config = ref.read(configProvider); final players = config.isThreePlayer ? 3 : 4;
     showModalBottomSheet(context: context, backgroundColor: const Color(0xFF001F1A), isScrollControlled: true, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (context) => Padding(padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 16, right: 16, top: 24), child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Text('スコア編集', style: GoogleFonts.robotoMono(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-            Row(children: [
-                IconButton(icon: const Icon(Icons.stars, color: Colors.orangeAccent), onPressed: () => _showYakumanDialog(context, ref, game)),
-                IconButton(icon: const Icon(Icons.warning_amber_rounded, color: Colors.redAccent), onPressed: () => _showTobiDialog(context, ref, game)),
-            ])
-        ]),
+        Text('スコア編集', style: GoogleFonts.robotoMono(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
         const SizedBox(height: 16), 
-        ...game.inputs.where((p) => p.id <= players).map((p) => PlayerInputCard(gameId: game.id, player: p)), 
+        ...game.inputs.where((p) => p.id <= players).map((p) => PlayerInputCard(gameId: game.id, player: p, showYakuman: (id) => _showYakumanDialog(context, ref, game, id), showTobi: (id) => _showTobiDialog(context, ref, game, id))), 
         const SizedBox(height: 16)])));
   }
 
@@ -313,7 +278,10 @@ class SettingsModal extends ConsumerWidget {
         const SizedBox(height: 12),
         _row([_field(ref, '配給原点', config.startingPoints.toString(), (v) => ref.read(configProvider.notifier).updateStartingPoints(int.tryParse(v) ?? 25000)), _field(ref, 'Oka', config.oka.toString(), (v) => ref.read(configProvider.notifier).updateOka(int.tryParse(v) ?? 0))]),
         const SizedBox(height: 12),
-        _row([_field(ref, '役満(ツモ)', config.yakumanTsumoPrize.toString(), (v) => ref.read(configProvider.notifier).updateYakumanTsumoPrize(int.tryParse(v) ?? 5)), _field(ref, '役満(ロン)', config.yakumanRonPrize.toString(), (v) => ref.read(configProvider.notifier).updateYakumanRonPrize(int.tryParse(v) ?? 10))]),
+        Row(children: [
+            Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: _field(ref, '役満(ツモ)', config.yakumanTsumoPrize.toString(), (v) => ref.read(configProvider.notifier).updateYakumanTsumoPrize(int.tryParse(v) ?? 5)))),
+            Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: _field(ref, '役満(ロン)', config.yakumanRonPrize.toString(), (v) => ref.read(configProvider.notifier).updateYakumanRonPrize(int.tryParse(v) ?? 10)))),
+        ]),
         const SizedBox(height: 12),
         _row([_field(ref, 'トビ賞', config.tobiPrize.toString(), (v) => ref.read(configProvider.notifier).updateTobiPrize(int.tryParse(v) ?? 10)), const SizedBox()]),
         const SizedBox(height: 32),
@@ -339,7 +307,8 @@ class _PlayerNameFieldState extends ConsumerState<PlayerNameField> {
 
 class PlayerInputCard extends ConsumerStatefulWidget {
   final String gameId; final PlayerInput player;
-  const PlayerInputCard({super.key, required this.gameId, required this.player});
+  final Function(int) showYakuman; final Function(int) showTobi;
+  const PlayerInputCard({super.key, required this.gameId, required this.player, required this.showYakuman, required this.showTobi});
   @override ConsumerState<PlayerInputCard> createState() => _PlayerInputCardState();
 }
 class _PlayerInputCardState extends ConsumerState<PlayerInputCard> {
@@ -350,10 +319,13 @@ class _PlayerInputCardState extends ConsumerState<PlayerInputCard> {
   @override Widget build(BuildContext context) {
     final state = ref.watch(calcProvider); final game = state.games.firstWhere((g) => g.id == widget.gameId);
     final oya = game.startingOyaIndex == widget.player.id - 1; final wind = ['東', '南', '西', '北'][((widget.player.id - 1) - game.startingOyaIndex + 4) % 4];
-    return Container(margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: const Color(0xFF002922), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white10)), child: Row(children: [
+    return Container(margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFF002922), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white10)), child: Row(children: [
         GestureDetector(onTap: () => ref.read(calcProvider.notifier).setStartingOya(widget.gameId, widget.player.id - 1), child: Container(width: 26, height: 26, margin: const EdgeInsets.only(right: 8), decoration: BoxDecoration(shape: BoxShape.circle, color: oya ? const Color(0xFF00FFC2) : Colors.transparent, border: Border.all(color: oya ? const Color(0xFF00FFC2) : Colors.white24)), child: Center(child: Text(wind, style: TextStyle(color: oya ? const Color(0xFF004D40) : Colors.white38, fontSize: 11, fontWeight: FontWeight.bold))))),
-        Expanded(child: Text(state.playerNames[widget.player.id - 1], style: const TextStyle(color: Colors.white70, fontSize: 13))),
-        SizedBox(width: 80, child: TextField(controller: _s, keyboardType: const TextInputType.numberWithOptions(signed: true), style: const TextStyle(color: Colors.greenAccent, fontSize: 15), decoration: const InputDecoration(isDense: true, border: InputBorder.none, hintText: '0', hintStyle: TextStyle(color: Colors.white10)), onChanged: (v) => ref.read(calcProvider.notifier).updateScore(widget.gameId, widget.player.id, int.tryParse(v) ?? 0))),
+        Expanded(child: Text(state.playerNames[widget.player.id - 1], style: const TextStyle(color: Colors.white70, fontSize: 12))),
+        SizedBox(width: 60, child: TextField(controller: _s, keyboardType: const TextInputType.numberWithOptions(signed: true), style: const TextStyle(color: Colors.greenAccent, fontSize: 14), decoration: const InputDecoration(isDense: true, border: InputBorder.none, hintText: '0', hintStyle: TextStyle(color: Colors.white10)), onChanged: (v) => ref.read(calcProvider.notifier).updateScore(widget.gameId, widget.player.id, int.tryParse(v) ?? 0))),
+        IconButton(icon: const Icon(Icons.stars, color: Colors.orangeAccent, size: 20), onPressed: () => widget.showTobi(widget.player.id), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+        const SizedBox(width: 4),
+        IconButton(icon: const Icon(Icons.warning, color: Colors.redAccent, size: 20), onPressed: () => widget.showYakuman(widget.player.id), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
     ]));
   }
 }
