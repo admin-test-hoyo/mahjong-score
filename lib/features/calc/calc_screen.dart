@@ -157,10 +157,10 @@ class CalcScreen extends ConsumerWidget {
 
   Widget _buildBottomSummaryFooter(BuildContext context, WidgetRef ref) {
     final state = ref.watch(calcProvider); final config = ref.watch(configProvider); final players = config.isThreePlayer ? 3 : 4;
-    List<List<PlayerResult>> all = []; int valid = 0;
+    List<List<PlayerResult>> all = [];
     for (var g in state.games) {
         if (g.inputs.where((p) => p.id <= players).fold(0, (s, p) => s + p.score) == config.targetTotalScore) {
-            valid++; try { all.add(MahjongCalculator.calculate(inputs: g.inputs.where((p) => p.id <= players).toList(), rule: state.rule.copyWith(oka: config.oka, uma: _buildUmaList(config.umaText, config.isThreePlayer)), config: config)); } catch (_) {}
+            try { all.add(MahjongCalculator.calculate(inputs: g.inputs.where((p) => p.id <= players).toList(), rule: state.rule.copyWith(oka: config.oka, uma: _buildUmaList(config.umaText, config.isThreePlayer)), config: config)); } catch (_) {}
         }
     }
     final summaries = { for (int i = 1; i <= players; i++) i: {'pt': 0, 'chip': state.globalChips[i - 1]} };
@@ -170,10 +170,10 @@ class CalcScreen extends ConsumerWidget {
 
   Widget _buildSumBlock(String name, Map<String, int> data, AppConfig conf, int players) {
     final pt = data['pt']!; final ch = data['chip']!;
-    final raw = (pt * conf.rate) + (ch * conf.chipRate);
-    final fin = (raw - (conf.gameFee / players)).round();
-    int bFee = conf.roundingTenYen ? (raw / 10.0).ceil() * 10 : raw;
-    int fBal = conf.roundingTenYen ? (fin / 10.0).ceil() * 10 : fin;
+    final double raw = (pt * conf.rate) + (ch * conf.chipRate);
+    final int fin = (raw - (conf.gameFee / players)).round();
+    final int bFee = conf.roundingTenYen ? (raw / 10.0).ceil() * 10 : raw.round();
+    final int fBal = conf.roundingTenYen ? (fin / 10.0).ceil() * 10 : fin;
     return Column(children: [Text(name, style: const TextStyle(color: Color(0xFF00FFC2), fontSize: 10, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis), Text('Pt:${pt.toCommaString()}|Ch:${ch.toCommaString()}', style: const TextStyle(color: Colors.white30, fontSize: 8)), Text('¥${bFee.toCommaString()}', style: TextStyle(color: bFee < 0 ? Colors.redAccent : Colors.white60, fontSize: 9)), Text('¥${fBal.toCommaString()}', style: TextStyle(color: fBal >= 0 ? Colors.greenAccent : Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold))]);
   }
 }
@@ -233,7 +233,16 @@ class PrizeSetupModal extends ConsumerWidget {
   }
   void _showWinnerList(BuildContext context, WidgetRef ref, String gId, {bool isTsumo = false, int? loserId, bool isTobi = false}) {
     final state = ref.read(calcProvider); final players = ref.read(configProvider).isThreePlayer ? 3 : 4;
-    showDialog(context: context, builder: (ctx) => SimpleDialog(backgroundColor: const Color(0xFF001F1A), title: Text(isTobi ? '誰に飛ばされましたか？' : '和了者を選択', style: const TextStyle(color: Colors.white, fontSize: 14)), children: List.generate(players, (i) => i+1).where((id) => id != loserId).map((id) => SimpleDialogOption(child: Text(state.playerNames[id-1], style: const TextStyle(color: Color(0xFF00FFC2))), onPressed: () { if (isTobi) ref.read(calcProvider.notifier).setBlownBy(gId, loserId!, id); else if (isTsumo) ref.read(calcProvider.notifier).setYakumanTsumo(gId, id); else ref.read(calcProvider.notifier).setYakumanRon(gId, id, loserId!); Navigator.pop(ctx); })).toList()));
+    showDialog(context: context, builder: (ctx) => SimpleDialog(backgroundColor: const Color(0xFF001F1A), title: Text(isTobi ? '誰に飛ばされましたか？' : '和了者を選択', style: const TextStyle(color: Colors.white, fontSize: 14)), children: List.generate(players, (i) => i+1).where((id) => id != loserId).map((id) => SimpleDialogOption(child: Text(state.playerNames[id-1], style: const TextStyle(color: Color(0xFF00FFC2))), onPressed: () {
+      if (isTobi) {
+        ref.read(calcProvider.notifier).setBlownBy(gId, loserId!, id);
+      } else if (isTsumo) {
+        ref.read(calcProvider.notifier).setYakumanTsumo(gId, id);
+      } else {
+        ref.read(calcProvider.notifier).setYakumanRon(gId, id, loserId!);
+      }
+      Navigator.pop(ctx);
+    })).toList()));
   }
 }
 
