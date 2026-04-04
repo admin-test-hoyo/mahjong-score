@@ -294,9 +294,35 @@ class CalcScreen extends ConsumerWidget {
     final int fBal = conf.roundingTenYen ? (fin / 10.0).ceil() * 10 : fin;
     return Column(mainAxisSize: MainAxisSize.min, children: [
       Text(name, style: const TextStyle(color: Color(0xFF00FFC2), fontSize: 12, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
-      Text('Pt:${pt.toCommaString()}|Ch:${ch.toCommaString()}', style: const TextStyle(color: Colors.white30, fontSize: 10)),
-      Text('収支: ¥${bFee.toCommaString()}', style: TextStyle(color: bFee < 0 ? Colors.redAccent : Colors.white60, fontSize: 11)),
-      Text('込: ¥${fBal.toCommaString()}', style: TextStyle(color: fBal >= 0 ? Colors.greenAccent : Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+      const SizedBox(height: 1),
+      Text('Pt:${pt.toCommaString()}|Ch:${ch.toCommaString()}', style: const TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold)),
+      const SizedBox(height: 1),
+      RichText(
+        textAlign: TextAlign.center,
+        text: TextSpan(
+          style: GoogleFonts.robotoMono(fontSize: 11, color: Colors.white60),
+          children: [
+            const TextSpan(text: '収支: '),
+            TextSpan(
+              text: '¥${bFee.toCommaString()}',
+              style: TextStyle(color: bFee < 0 ? Colors.redAccent : Colors.white),
+            ),
+          ],
+        ),
+      ),
+      RichText(
+        textAlign: TextAlign.center,
+        text: TextSpan(
+          style: GoogleFonts.robotoMono(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white60),
+          children: [
+            const TextSpan(text: '場代込: '),
+            TextSpan(
+              text: '¥${fBal.toCommaString()}',
+              style: TextStyle(color: fBal < 0 ? Colors.redAccent : const Color(0xFF00FFC2)),
+            ),
+          ],
+        ),
+      ),
     ]);
   }
 }
