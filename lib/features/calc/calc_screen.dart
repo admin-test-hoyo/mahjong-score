@@ -293,19 +293,19 @@ class CalcScreen extends ConsumerWidget {
     final int bFee = conf.roundingTenYen ? (raw / 10.0).ceil() * 10 : raw.round();
     final int fBal = conf.roundingTenYen ? (fin / 10.0).ceil() * 10 : fin;
     return Column(mainAxisSize: MainAxisSize.min, children: [
-      FittedBox(fit: BoxFit.scaleDown, child: Text(name, style: const TextStyle(color: Color(0xFF00FFC2), fontSize: 13, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
+      FittedBox(fit: BoxFit.scaleDown, child: Text(name, style: const TextStyle(color: Color(0xFF00FFC2), fontSize: 13, fontWeight: FontWeight.normal), overflow: TextOverflow.ellipsis)),
       const SizedBox(height: 1),
-      FittedBox(fit: BoxFit.scaleDown, child: Text('Pt:${pt.toCommaString()}|Ch:${ch.toCommaString()}', style: const TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold))),
+      FittedBox(fit: BoxFit.scaleDown, child: Text('Pt:${pt.toCommaString()}|Ch:${ch.toCommaString()}', style: const TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.normal))),
       const SizedBox(height: 1),
       FittedBox(fit: BoxFit.scaleDown, child: RichText(
         textAlign: TextAlign.center,
         text: TextSpan(
-          style: GoogleFonts.robotoMono(fontSize: 11, color: Colors.white60),
+          style: GoogleFonts.robotoMono(fontSize: 11, color: Colors.white60, fontWeight: FontWeight.normal),
           children: [
             const TextSpan(text: '収支:'),
             TextSpan(
               text: '¥${bFee.toCommaString()}',
-              style: TextStyle(color: bFee < 0 ? const Color(0xFFFF5252) : Colors.white, fontWeight: FontWeight.bold),
+              style: TextStyle(color: bFee < 0 ? const Color(0xFFFF5252) : Colors.white),
             ),
           ],
         ),
