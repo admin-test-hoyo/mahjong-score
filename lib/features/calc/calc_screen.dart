@@ -234,7 +234,18 @@ class CalcScreen extends ConsumerWidget {
     showModalBottomSheet(context: context, backgroundColor: const Color(0xFF001F1A), isScrollControlled: true, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (context) => Consumer(builder: (context, ref, child) {
         final updatedGame = ref.watch(calcProvider).games.firstWhere((g) => g.id == game.id);
         return Padding(padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 16, right: 16, top: 24), child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text('スコア編集', style: GoogleFonts.robotoMono(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const SizedBox(width: 48), // Spacer to balance the IconButton
+                Text('スコア編集', style: GoogleFonts.robotoMono(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                IconButton(
+                  icon: const Icon(Icons.cleaning_services, color: Colors.white38, size: 20),
+                  onPressed: () => ref.read(calcProvider.notifier).resetGameRecord(game.id),
+                  tooltip: '入力内容をクリア',
+                ),
+              ],
+            ),
             const SizedBox(height: 16),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
@@ -293,14 +304,17 @@ class SettingsModal extends ConsumerWidget {
         _row([_field(ref, '配給原点', config.startingPoints.toString(), (v) => ref.read(configProvider.notifier).updateStartingPoints(int.tryParse(v) ?? 25000)), _field(ref, 'Oka', config.oka.toString(), (v) => ref.read(configProvider.notifier).updateOka(int.tryParse(v) ?? 0))]),
         const SizedBox(height: 12),
         Row(children: [
-            const Expanded(child: Text('役満賞', style: TextStyle(color: Colors.white54, fontSize: 11))),
-            const Text('ツモ', style: TextStyle(color: Colors.white38, fontSize: 10)),
-            const SizedBox(width: 4),
-            SizedBox(width: 65, child: _field(ref, '', config.yakumanTsumoPrize.toString(), (v) => ref.read(configProvider.notifier).updateYakumanTsumoPrize(int.tryParse(v) ?? 5))),
+            Expanded(child: Row(children: [
+                const Text('役満賞(ツモ)', style: TextStyle(color: Colors.white54, fontSize: 10)),
+                const SizedBox(width: 4),
+                Expanded(child: _field(ref, '', config.yakumanTsumoPrize.toString(), (v) => ref.read(configProvider.notifier).updateYakumanTsumoPrize(int.tryParse(v) ?? 5))),
+            ])),
             const SizedBox(width: 12),
-            const Text('ロン', style: TextStyle(color: Colors.white38, fontSize: 10)),
-            const SizedBox(width: 4),
-            SizedBox(width: 65, child: _field(ref, '', config.yakumanRonPrize.toString(), (v) => ref.read(configProvider.notifier).updateYakumanRonPrize(int.tryParse(v) ?? 10))),
+            Expanded(child: Row(children: [
+                const Text('役満賞(ロン)', style: TextStyle(color: Colors.white54, fontSize: 10)),
+                const SizedBox(width: 4),
+                Expanded(child: _field(ref, '', config.yakumanRonPrize.toString(), (v) => ref.read(configProvider.notifier).updateYakumanRonPrize(int.tryParse(v) ?? 10))),
+            ])),
         ]),
         const SizedBox(height: 12),
         _row([_field(ref, 'トビ賞', config.tobiPrize.toString(), (v) => ref.read(configProvider.notifier).updateTobiPrize(int.tryParse(v) ?? 10)), const SizedBox()]),

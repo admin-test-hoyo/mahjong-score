@@ -277,6 +277,22 @@ class CalcNotifier extends Notifier<CalcState> {
     }).toList();
     state = state.copyWith(games: newGames);
   }
+
+  void resetGameRecord(String gameId) {
+    final newGames = state.games.map((game) {
+      if (game.id != gameId) return game;
+      final newInputs = game.inputs.map((p) => p.copyWith(
+        score: 0,
+        chip: 0,
+        tobiPt: 0,
+        yakumanPt: 0,
+        blownByPlayerId: null,
+        clearBlownBy: true,
+      )).toList();
+      return game.copyWith(inputs: newInputs);
+    }).toList();
+    state = state.copyWith(games: newGames);
+  }
 }
 
 final calcProvider = NotifierProvider<CalcNotifier, CalcState>(() {
