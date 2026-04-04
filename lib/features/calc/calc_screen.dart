@@ -169,7 +169,6 @@ class CalcScreen extends ConsumerWidget {
               onPressed: () {
                 ref.read(calcProvider.notifier).setYakumanTsumo(game.id, winnerId);
                 Navigator.pop(ctx);
-                Navigator.pop(context);
               },
             ),
           ),
@@ -182,7 +181,6 @@ class CalcScreen extends ConsumerWidget {
             onTap: () {
               ref.read(calcProvider.notifier).setYakumanRon(game.id, winnerId, loserId);
               Navigator.pop(ctx);
-              Navigator.pop(context);
             },
           )),
         ],
@@ -220,7 +218,6 @@ class CalcScreen extends ConsumerWidget {
                   onChanged: (val) {
                     ref.read(calcProvider.notifier).setBlownBy(game.id, blownPlayerId, val == true ? id : null);
                     Navigator.pop(ctx);
-                    Navigator.pop(context); // Return from edit Modal for immediate feedback
                   },
                 );
               }),
@@ -234,26 +231,28 @@ class CalcScreen extends ConsumerWidget {
 
   void _showEditModal(BuildContext context, WidgetRef ref, GameRecord game) {
     final config = ref.read(configProvider); final players = config.isThreePlayer ? 3 : 4;
-    showModalBottomSheet(context: context, backgroundColor: const Color(0xFF001F1A), isScrollControlled: true, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (context) => Padding(padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 16, right: 16, top: 24), child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Text('スコア編集', style: GoogleFonts.robotoMono(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 16),
-        // Header Row for Column Alignment
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-          child: Row(
-            children: [
-              const SizedBox(width: 34), // Matches Oya Circle (26+8)
-              const Expanded(child: Text('名前', style: TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold))),
-              const SizedBox(width: 60, child: Center(child: Text('点数', style: TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold)))),
-              const SizedBox(width: 32, child: Center(child: Text('トビ', style: TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold)))),
-              const SizedBox(width: 8),
-              const SizedBox(width: 32, child: Center(child: Text('役満', style: TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold)))),
-            ],
-          ),
-        ),
-        const Divider(color: Colors.white10),
-        ...game.inputs.where((p) => p.id <= players).map((p) => PlayerInputCard(gameId: game.id, player: p, showYakuman: (id) => _showYakumanDialog(context, ref, game, id), showTobi: (id) => _showTobiDialog(context, ref, game, id))), 
-        const SizedBox(height: 16)])));
+    showModalBottomSheet(context: context, backgroundColor: const Color(0xFF001F1A), isScrollControlled: true, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (context) => Consumer(builder: (context, ref, child) {
+        final updatedGame = ref.watch(calcProvider).games.firstWhere((g) => g.id == game.id);
+        return Padding(padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 16, right: 16, top: 24), child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text('スコア編集', style: GoogleFonts.robotoMono(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+              child: Row(
+                children: [
+                  const SizedBox(width: 34),
+                  const Expanded(child: Text('名前', style: TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold))),
+                  const SizedBox(width: 60, child: Center(child: Text('点数', style: TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold)))),
+                  const SizedBox(width: 32, child: Center(child: Text('トビ', style: TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold)))),
+                  const SizedBox(width: 8),
+                  const SizedBox(width: 32, child: Center(child: Text('役満', style: TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold)))),
+                ],
+              ),
+            ),
+            const Divider(color: Colors.white10),
+            ...updatedGame.inputs.where((p) => p.id <= players).map((p) => PlayerInputCard(gameId: game.id, player: p, showYakuman: (id) => _showYakumanDialog(context, ref, updatedGame, id), showTobi: (id) => _showTobiDialog(context, ref, updatedGame, id))), 
+            const SizedBox(height: 16)]));
+    }));
   }
 
   Widget _buildBottomSummaryFooter(BuildContext context, WidgetRef ref) {
@@ -338,14 +337,14 @@ class _PlayerInputCardState extends ConsumerState<PlayerInputCard> {
     // Tobi Icon Logic
     final tobiPt = widget.player.tobiPt;
     IconData tobiIcon = Icons.favorite_border; Color tobiColor = Colors.grey.shade400;
-    if (tobiPt > 0) { tobiIcon = Icons.favorite; tobiColor = Colors.pinkAccent; }
+    if (tobiPt > 0) { tobiIcon = Icons.favorite; tobiColor = Colors.red; }
     else if (tobiPt < 0) { tobiIcon = Icons.heart_broken; tobiColor = Colors.blueGrey; }
     
     // Yakuman Icon Logic
     final yakumanPt = widget.player.yakumanPt;
     IconData yakumanIcon = Icons.emoji_events; Color yakumanColor = Colors.grey.shade400;
     if (yakumanPt > 0) { yakumanIcon = Icons.emoji_events; yakumanColor = Colors.orange; }
-    else if (yakumanPt < 0) { yakumanIcon = Icons.sentiment_dissatisfied; yakumanColor = Colors.blueGrey; }
+    else if (yakumanPt < 0) { yakumanIcon = Icons.money_off; yakumanColor = Colors.blueGrey; }
 
     return Container(margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFF002922), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white10)), child: Row(children: [
         GestureDetector(onTap: () => ref.read(calcProvider.notifier).setStartingOya(widget.gameId, widget.player.id - 1), child: Container(width: 26, height: 26, margin: const EdgeInsets.only(right: 8), decoration: BoxDecoration(shape: BoxShape.circle, color: oya ? const Color(0xFF00FFC2) : Colors.transparent, border: Border.all(color: oya ? const Color(0xFF00FFC2) : Colors.white24)), child: Center(child: Text(wind, style: TextStyle(color: oya ? const Color(0xFF004D40) : Colors.white38, fontSize: 11, fontWeight: FontWeight.bold))))),
