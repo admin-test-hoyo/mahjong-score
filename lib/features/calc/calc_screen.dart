@@ -304,45 +304,49 @@ class SettingsModal extends ConsumerWidget {
         _row([_field(ref, '配給原点', config.startingPoints.toString(), (v) => ref.read(configProvider.notifier).updateStartingPoints(int.tryParse(v) ?? 25000)), _field(ref, 'Oka', config.oka.toString(), (v) => ref.read(configProvider.notifier).updateOka(int.tryParse(v) ?? 0))]),
         const SizedBox(height: 12),
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4.0),
+          padding: const EdgeInsets.symmetric(vertical: 8.0),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.start,
             children: [
-              const Text('役満賞', style: TextStyle(color: Colors.white54, fontSize: 11)),
-              const SizedBox(width: 16),
+              const Text('役満賞', style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold)),
+              const SizedBox(width: 10),
               const Text('ツモ', style: TextStyle(color: Colors.white38, fontSize: 10)),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               SizedBox(
-                width: 60,
+                width: 65,
                 child: TextFormField(
                   initialValue: config.yakumanTsumoPrize.toString(),
                   keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
                   style: GoogleFonts.robotoMono(color: Colors.white, fontSize: 14),
                   decoration: InputDecoration(
                     isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                    contentPadding: const EdgeInsets.all(8),
                     filled: true,
                     fillColor: Colors.white.withOpacity(0.04),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.white24)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.white12)),
                   ),
                   onChanged: (v) => ref.read(configProvider.notifier).updateYakumanTsumoPrize(int.tryParse(v) ?? 5),
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 15),
               const Text('ロン', style: TextStyle(color: Colors.white38, fontSize: 10)),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               SizedBox(
-                width: 60,
+                width: 65,
                 child: TextFormField(
                   initialValue: config.yakumanRonPrize.toString(),
                   keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
                   style: GoogleFonts.robotoMono(color: Colors.white, fontSize: 14),
                   decoration: InputDecoration(
                     isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                    contentPadding: const EdgeInsets.all(8),
                     filled: true,
                     fillColor: Colors.white.withOpacity(0.04),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.white24)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.white12)),
                   ),
                   onChanged: (v) => ref.read(configProvider.notifier).updateYakumanRonPrize(int.tryParse(v) ?? 10),
                 ),
@@ -400,13 +404,32 @@ class _PlayerInputCardState extends ConsumerState<PlayerInputCard> {
     if (yakumanPt > 0) { yakumanIcon = Icons.emoji_events; yakumanColor = Colors.orange; }
     else if (yakumanPt < 0) { yakumanIcon = Icons.sentiment_dissatisfied; yakumanColor = Colors.blueGrey; }
 
-    return Container(margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFF002922), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white10)), child: Row(children: [
-        GestureDetector(onTap: () => ref.read(calcProvider.notifier).setStartingOya(widget.gameId, widget.player.id - 1), child: Container(width: 26, height: 26, margin: const EdgeInsets.only(right: 8), decoration: BoxDecoration(shape: BoxShape.circle, color: oya ? const Color(0xFF00FFC2) : Colors.transparent, border: Border.all(color: oya ? const Color(0xFF00FFC2) : Colors.white24)), child: Center(child: Text(wind, style: TextStyle(color: oya ? const Color(0xFF004D40) : Colors.white38, fontSize: 11, fontWeight: FontWeight.bold))))),
-        Expanded(child: Text(state.playerNames[widget.player.id - 1], style: const TextStyle(color: Colors.white70, fontSize: 13))),
-        SizedBox(width: 60, child: TextField(controller: _s, keyboardType: const TextInputType.numberWithOptions(signed: true), style: const TextStyle(color: Colors.greenAccent, fontSize: 14), decoration: const InputDecoration(isDense: true, border: InputBorder.none, hintText: '0', hintStyle: TextStyle(color: Colors.white10)), onChanged: (v) => ref.read(calcProvider.notifier).updateScore(widget.gameId, widget.player.id, int.tryParse(v) ?? 0))),
-        SizedBox(width: 32, child: IconButton(icon: Icon(tobiIcon, color: tobiColor, size: 20), onPressed: () => widget.showTobi(widget.player.id), padding: EdgeInsets.zero, constraints: const BoxConstraints())),
+    return Container(margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), decoration: BoxDecoration(color: const Color(0xFF002922), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white10)), child: Row(children: [
+        GestureDetector(onTap: () => ref.read(calcProvider.notifier).setStartingOya(widget.gameId, widget.player.id - 1), child: Container(width: 28, height: 28, decoration: BoxDecoration(shape: BoxShape.circle, color: oya ? const Color(0xFF00FFC2) : Colors.transparent, border: Border.all(color: oya ? const Color(0xFF00FFC2) : Colors.white24)), child: Center(child: Text(wind, style: TextStyle(color: oya ? const Color(0xFF004D40) : Colors.white, fontSize: 11, fontWeight: FontWeight.bold))))),
+        const SizedBox(width: 12),
+        Expanded(flex: 3, child: Text(state.playerNames[widget.player.id - 1], style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)),
         const SizedBox(width: 8),
-        SizedBox(width: 32, child: IconButton(icon: Icon(yakumanIcon, color: yakumanColor, size: 20), onPressed: () => widget.showYakuman(widget.player.id), padding: EdgeInsets.zero, constraints: const BoxConstraints())),
+        Expanded(flex: 4, child: TextField(
+            controller: _s, 
+            textAlign: TextAlign.center, 
+            keyboardType: const TextInputType.numberWithOptions(signed: true), 
+            style: const TextStyle(color: Color(0xFF00FFC2), fontSize: 16, fontWeight: FontWeight.bold), 
+            decoration: InputDecoration(
+                isDense: true, 
+                contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4), 
+                hintText: '0', 
+                hintStyle: const TextStyle(color: Colors.white12), 
+                filled: true,
+                fillColor: Colors.black12,
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.white12)), 
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFF00FFC2)))
+            ), 
+            onChanged: (v) => ref.read(calcProvider.notifier).updateScore(widget.gameId, widget.player.id, int.tryParse(v) ?? 0)
+        )),
+        const SizedBox(width: 12),
+        SizedBox(width: 34, child: IconButton(icon: Icon(tobiIcon, color: tobiColor, size: 20), onPressed: () => widget.showTobi(widget.player.id), padding: EdgeInsets.zero, constraints: const BoxConstraints())),
+        const SizedBox(width: 4),
+        SizedBox(width: 34, child: IconButton(icon: Icon(yakumanIcon, color: yakumanColor, size: 20), onPressed: () => widget.showYakuman(widget.player.id), padding: EdgeInsets.zero, constraints: const BoxConstraints())),
     ]));
   }
 }
