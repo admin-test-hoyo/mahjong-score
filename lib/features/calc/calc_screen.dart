@@ -303,16 +303,14 @@ class SettingsModal extends ConsumerWidget {
         const SizedBox(height: 12),
         _row([_field(ref, '配給原点', config.startingPoints.toString(), (v) => ref.read(configProvider.notifier).updateStartingPoints(int.tryParse(v) ?? 25000)), _field(ref, 'Oka', config.oka.toString(), (v) => ref.read(configProvider.notifier).updateOka(int.tryParse(v) ?? 0))]),
         const SizedBox(height: 12),
-        _row([_field(ref, '役満賞(ツモ)', config.yakumanTsumoPrize.toString(), (v) => ref.read(configProvider.notifier).updateYakumanTsumoPrize(int.tryParse(v) ?? 5), suffixText: 'Pt'), const SizedBox()]),
-        const SizedBox(height: 12),
-        _row([_field(ref, '役満賞(ロン)', config.yakumanRonPrize.toString(), (v) => ref.read(configProvider.notifier).updateYakumanRonPrize(int.tryParse(v) ?? 10), suffixText: 'Pt'), const SizedBox()]),
+        _row([_field(ref, '役満賞(ツモ)', config.yakumanTsumoPrize.toString(), (v) => ref.read(configProvider.notifier).updateYakumanTsumoPrize(int.tryParse(v) ?? 5), suffixText: 'Pt'), _field(ref, '役満賞(ロン)', config.yakumanRonPrize.toString(), (v) => ref.read(configProvider.notifier).updateYakumanRonPrize(int.tryParse(v) ?? 10), suffixText: 'Pt')]),
         const SizedBox(height: 12),
         _row([_field(ref, 'トビ賞', config.tobiPrize.toString(), (v) => ref.read(configProvider.notifier).updateTobiPrize(int.tryParse(v) ?? 10), suffixText: 'Pt'), const SizedBox()]),
         const SizedBox(height: 32),
     ]));
   }
   Widget _row(List<Widget> c) => Row(children: c.map((w) => Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: w))).toList());
-  Widget _field(WidgetRef ref, String l, String i, Function(String) o, {bool isDec = false, String? suffixText}) => TextFormField(initialValue: i, keyboardType: TextInputType.numberWithOptions(decimal: isDec), style: GoogleFonts.robotoMono(color: Colors.white, fontSize: 15), decoration: InputDecoration(labelText: l, labelStyle: const TextStyle(color: Colors.white38, fontSize: 11), filled: true, fillColor: Colors.white.withOpacity(0.04), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none), contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10), suffixText: suffixText, suffixStyle: const TextStyle(color: Colors.white24, fontSize: 10)), onChanged: o);
+  Widget _field(WidgetRef ref, String l, String i, Function(String) o, {bool isDec = false, String? suffixText}) => TextFormField(initialValue: i, keyboardType: TextInputType.numberWithOptions(decimal: isDec), textAlign: TextAlign.center, style: GoogleFonts.robotoMono(color: Colors.white, fontSize: 15), decoration: InputDecoration(labelText: l, labelStyle: const TextStyle(color: Colors.white38, fontSize: 11), filled: true, fillColor: Colors.white.withOpacity(0.04), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none), contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10), suffixText: suffixText, suffixStyle: const TextStyle(color: Colors.white24, fontSize: 10)), onChanged: o);
 }
 
 
