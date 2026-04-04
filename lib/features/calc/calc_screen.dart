@@ -303,50 +303,9 @@ class SettingsModal extends ConsumerWidget {
         const SizedBox(height: 12),
         _row([_field(ref, '配給原点', config.startingPoints.toString(), (v) => ref.read(configProvider.notifier).updateStartingPoints(int.tryParse(v) ?? 25000)), _field(ref, 'Oka', config.oka.toString(), (v) => ref.read(configProvider.notifier).updateOka(int.tryParse(v) ?? 0))]),
         const SizedBox(height: 12),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          child: Row(
-            children: [
-              const Text('役満賞', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white70)),
-              const SizedBox(width: 16),
-              const Text('ツモ', style: TextStyle(color: Colors.white38, fontSize: 12)),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextFormField(
-                  initialValue: config.yakumanTsumoPrize.toString(),
-                  textAlign: TextAlign.center,
-                  keyboardType: TextInputType.number,
-                  style: GoogleFonts.robotoMono(color: Colors.white, fontSize: 14),
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    contentPadding: EdgeInsets.all(8),
-                    border: OutlineInputBorder(),
-                    enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white12)),
-                  ),
-                  onChanged: (v) => ref.read(configProvider.notifier).updateYakumanTsumoPrize(int.tryParse(v) ?? 5),
-                ),
-              ),
-              const SizedBox(width: 16),
-              const Text('ロン', style: TextStyle(color: Colors.white38, fontSize: 12)),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextFormField(
-                  initialValue: config.yakumanRonPrize.toString(),
-                  textAlign: TextAlign.center,
-                  keyboardType: TextInputType.number,
-                  style: GoogleFonts.robotoMono(color: Colors.white, fontSize: 14),
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    contentPadding: EdgeInsets.all(8),
-                    border: OutlineInputBorder(),
-                    enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white12)),
-                  ),
-                  onChanged: (v) => ref.read(configProvider.notifier).updateYakumanRonPrize(int.tryParse(v) ?? 10),
-                ),
-              ),
-            ],
-          ),
-        ),
+        _row([_field(ref, '役満賞(ツモ)', config.yakumanTsumoPrize.toString(), (v) => ref.read(configProvider.notifier).updateYakumanTsumoPrize(int.tryParse(v) ?? 5)), const SizedBox()]),
+        const SizedBox(height: 12),
+        _row([_field(ref, '役満賞(ロン)', config.yakumanRonPrize.toString(), (v) => ref.read(configProvider.notifier).updateYakumanRonPrize(int.tryParse(v) ?? 10)), const SizedBox()]),
         const SizedBox(height: 12),
         _row([_field(ref, 'トビ賞', config.tobiPrize.toString(), (v) => ref.read(configProvider.notifier).updateTobiPrize(int.tryParse(v) ?? 10)), const SizedBox()]),
         const SizedBox(height: 32),
