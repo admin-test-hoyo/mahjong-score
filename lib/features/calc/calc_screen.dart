@@ -129,7 +129,14 @@ class CalcScreen extends ConsumerWidget {
                     }
                     return DataCell(SizedBox(width: pWidth, child: Center(child: Text(val, style: GoogleFonts.robotoMono(color: col, fontWeight: results != null ? FontWeight.bold : FontWeight.normal)))));
                   }),
-                  DataCell(SizedBox(width: ctrlWidth, child: Center(child: Icon(isValid ? Icons.check_circle : Icons.error_outline, color: isValid ? const Color(0xFF00FFC2).withOpacity(0.3) : Colors.redAccent, size: 16)))),
+                  DataCell(SizedBox(width: ctrlWidth, child: Center(child: GestureDetector(
+                    onTap: isValid ? null : () {
+                      final diff = config.targetTotalScore - sum;
+                      final msg = diff > 0 ? '$diff点不足しています' : '${diff.abs()}点超過しています';
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating, duration: const Duration(seconds: 2)));
+                    },
+                    child: Icon(isValid ? Icons.check_circle : Icons.error_outline, color: isValid ? const Color(0xFF00FFC2).withOpacity(0.3) : Colors.redAccent, size: 16),
+                  )))),
                   DataCell(SizedBox(width: ctrlWidth, child: Center(child: IconButton(padding: EdgeInsets.zero, constraints: const BoxConstraints(), icon: const Icon(Icons.delete_outline, color: Colors.white24, size: 16), onPressed: () => ref.read(calcProvider.notifier).deleteGame(game.id))))),
                 ]);
               }),
@@ -285,7 +292,12 @@ class CalcScreen extends ConsumerWidget {
     final int fin = (raw - (conf.gameFee / players)).round();
     final int bFee = conf.roundingTenYen ? (raw / 10.0).ceil() * 10 : raw.round();
     final int fBal = conf.roundingTenYen ? (fin / 10.0).ceil() * 10 : fin;
-    return Column(children: [Text(name, style: const TextStyle(color: Color(0xFF00FFC2), fontSize: 10, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis), Text('Pt:${pt.toCommaString()}|Ch:${ch.toCommaString()}', style: const TextStyle(color: Colors.white30, fontSize: 8)), Text('¥${bFee.toCommaString()}', style: TextStyle(color: bFee < 0 ? Colors.redAccent : Colors.white60, fontSize: 9)), Text('¥${fBal.toCommaString()}', style: TextStyle(color: fBal >= 0 ? Colors.greenAccent : Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold))]);
+    return Column(mainAxisSize: MainAxisSize.min, children: [
+      Text(name, style: const TextStyle(color: Color(0xFF00FFC2), fontSize: 12, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
+      Text('Pt:${pt.toCommaString()}|Ch:${ch.toCommaString()}', style: const TextStyle(color: Colors.white30, fontSize: 10)),
+      Text('収支: ¥${bFee.toCommaString()}', style: TextStyle(color: bFee < 0 ? Colors.redAccent : Colors.white60, fontSize: 11)),
+      Text('込: ¥${fBal.toCommaString()}', style: TextStyle(color: fBal >= 0 ? Colors.greenAccent : Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+    ]);
   }
 }
 
