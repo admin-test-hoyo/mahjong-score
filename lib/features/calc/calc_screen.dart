@@ -283,7 +283,7 @@ class CalcScreen extends ConsumerWidget {
     }
     final summaries = { for (int i = 1; i <= players; i++) i: {'pt': 0, 'chip': state.globalChips[i - 1]} };
     for (var res in all) { for (var p in res) { summaries[p.id]!['pt'] = summaries[p.id]!['pt']! + p.finalPoint; } }
-    return Container(padding: const EdgeInsets.symmetric(vertical: 8), decoration: BoxDecoration(color: Colors.black26, border: const Border(top: BorderSide(color: Color(0xFF00FFC2), width: 1))), child: Row(children: [for (int i = 1; i <= players; i++) Expanded(child: _buildSumBlock(state.playerNames[i - 1], summaries[i]!, config, players))]));
+    return Container(padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2), decoration: BoxDecoration(color: Colors.black26, border: const Border(top: BorderSide(color: Color(0xFF00FFC2), width: 1))), child: Row(children: [for (int i = 1; i <= players; i++) Expanded(child: _buildSumBlock(state.playerNames[i - 1], summaries[i]!, config, players))]));
   }
 
   Widget _buildSumBlock(String name, Map<String, int> data, AppConfig conf, int players) {
@@ -293,36 +293,36 @@ class CalcScreen extends ConsumerWidget {
     final int bFee = conf.roundingTenYen ? (raw / 10.0).ceil() * 10 : raw.round();
     final int fBal = conf.roundingTenYen ? (fin / 10.0).ceil() * 10 : fin;
     return Column(mainAxisSize: MainAxisSize.min, children: [
-      Text(name, style: const TextStyle(color: Color(0xFF00FFC2), fontSize: 12, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
+      FittedBox(fit: BoxFit.scaleDown, child: Text(name, style: const TextStyle(color: Color(0xFF00FFC2), fontSize: 14, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
       const SizedBox(height: 1),
-      Text('Pt:${pt.toCommaString()}|Ch:${ch.toCommaString()}', style: const TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold)),
+      FittedBox(fit: BoxFit.scaleDown, child: Text('Pt:${pt.toCommaString()}|Ch:${ch.toCommaString()}', style: const TextStyle(color: Colors.white54, fontSize: 13, fontWeight: FontWeight.bold))),
       const SizedBox(height: 1),
-      RichText(
+      FittedBox(fit: BoxFit.scaleDown, child: RichText(
         textAlign: TextAlign.center,
         text: TextSpan(
-          style: GoogleFonts.robotoMono(fontSize: 11, color: Colors.white60),
+          style: GoogleFonts.robotoMono(fontSize: 12, color: Colors.white60),
           children: [
             const TextSpan(text: '収支: '),
             TextSpan(
               text: '¥${bFee.toCommaString()}',
-              style: TextStyle(color: bFee < 0 ? Colors.redAccent : Colors.white),
+              style: TextStyle(color: bFee < 0 ? const Color(0xFFFF5252) : Colors.white, fontWeight: FontWeight.bold),
             ),
           ],
         ),
-      ),
-      RichText(
+      )),
+      FittedBox(fit: BoxFit.scaleDown, child: RichText(
         textAlign: TextAlign.center,
         text: TextSpan(
-          style: GoogleFonts.robotoMono(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white60),
+          style: GoogleFonts.robotoMono(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white60),
           children: [
             const TextSpan(text: '場代込: '),
             TextSpan(
               text: '¥${fBal.toCommaString()}',
-              style: TextStyle(color: fBal < 0 ? Colors.redAccent : const Color(0xFF00FFC2)),
+              style: TextStyle(color: fBal < 0 ? const Color(0xFFFF5252) : const Color(0xFF00FFC2)),
             ),
           ],
         ),
-      ),
+      )),
     ]);
   }
 }
