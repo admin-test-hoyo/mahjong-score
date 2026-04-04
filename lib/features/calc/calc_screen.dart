@@ -293,8 +293,14 @@ class SettingsModal extends ConsumerWidget {
         _row([_field(ref, '配給原点', config.startingPoints.toString(), (v) => ref.read(configProvider.notifier).updateStartingPoints(int.tryParse(v) ?? 25000)), _field(ref, 'Oka', config.oka.toString(), (v) => ref.read(configProvider.notifier).updateOka(int.tryParse(v) ?? 0))]),
         const SizedBox(height: 12),
         Row(children: [
-            Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: _field(ref, '役満賞(ツモ)', config.yakumanTsumoPrize.toString(), (v) => ref.read(configProvider.notifier).updateYakumanTsumoPrize(int.tryParse(v) ?? 5)))),
-            Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: _field(ref, '役満賞(ロン)', config.yakumanRonPrize.toString(), (v) => ref.read(configProvider.notifier).updateYakumanRonPrize(int.tryParse(v) ?? 10)))),
+            const Expanded(child: Text('役満賞', style: TextStyle(color: Colors.white54, fontSize: 11))),
+            const Text('ツモ', style: TextStyle(color: Colors.white38, fontSize: 10)),
+            const SizedBox(width: 4),
+            SizedBox(width: 65, child: _field(ref, '', config.yakumanTsumoPrize.toString(), (v) => ref.read(configProvider.notifier).updateYakumanTsumoPrize(int.tryParse(v) ?? 5))),
+            const SizedBox(width: 12),
+            const Text('ロン', style: TextStyle(color: Colors.white38, fontSize: 10)),
+            const SizedBox(width: 4),
+            SizedBox(width: 65, child: _field(ref, '', config.yakumanRonPrize.toString(), (v) => ref.read(configProvider.notifier).updateYakumanRonPrize(int.tryParse(v) ?? 10))),
         ]),
         const SizedBox(height: 12),
         _row([_field(ref, 'トビ賞', config.tobiPrize.toString(), (v) => ref.read(configProvider.notifier).updateTobiPrize(int.tryParse(v) ?? 10)), const SizedBox()]),
@@ -344,7 +350,7 @@ class _PlayerInputCardState extends ConsumerState<PlayerInputCard> {
     final yakumanPt = widget.player.yakumanPt;
     IconData yakumanIcon = Icons.emoji_events; Color yakumanColor = Colors.grey.shade400;
     if (yakumanPt > 0) { yakumanIcon = Icons.emoji_events; yakumanColor = Colors.orange; }
-    else if (yakumanPt < 0) { yakumanIcon = Icons.money_off; yakumanColor = Colors.blueGrey; }
+    else if (yakumanPt < 0) { yakumanIcon = Icons.sentiment_dissatisfied; yakumanColor = Colors.blueGrey; }
 
     return Container(margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFF002922), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white10)), child: Row(children: [
         GestureDetector(onTap: () => ref.read(calcProvider.notifier).setStartingOya(widget.gameId, widget.player.id - 1), child: Container(width: 26, height: 26, margin: const EdgeInsets.only(right: 8), decoration: BoxDecoration(shape: BoxShape.circle, color: oya ? const Color(0xFF00FFC2) : Colors.transparent, border: Border.all(color: oya ? const Color(0xFF00FFC2) : Colors.white24)), child: Center(child: Text(wind, style: TextStyle(color: oya ? const Color(0xFF004D40) : Colors.white38, fontSize: 11, fontWeight: FontWeight.bold))))),
