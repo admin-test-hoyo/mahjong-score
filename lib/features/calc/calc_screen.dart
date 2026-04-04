@@ -304,49 +304,42 @@ class SettingsModal extends ConsumerWidget {
         _row([_field(ref, '配給原点', config.startingPoints.toString(), (v) => ref.read(configProvider.notifier).updateStartingPoints(int.tryParse(v) ?? 25000)), _field(ref, 'Oka', config.oka.toString(), (v) => ref.read(configProvider.notifier).updateOka(int.tryParse(v) ?? 0))]),
         const SizedBox(height: 12),
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0),
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.start,
             children: [
-              const Text('役満賞', style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold)),
-              const SizedBox(width: 10),
-              const Text('ツモ', style: TextStyle(color: Colors.white38, fontSize: 10)),
-              const SizedBox(width: 6),
-              SizedBox(
-                width: 65,
+              const Text('役満賞', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white70)),
+              const SizedBox(width: 16),
+              const Text('ツモ', style: TextStyle(color: Colors.white38, fontSize: 12)),
+              const SizedBox(width: 8),
+              Expanded(
                 child: TextFormField(
                   initialValue: config.yakumanTsumoPrize.toString(),
-                  keyboardType: TextInputType.number,
                   textAlign: TextAlign.center,
+                  keyboardType: TextInputType.number,
                   style: GoogleFonts.robotoMono(color: Colors.white, fontSize: 14),
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     isDense: true,
-                    contentPadding: const EdgeInsets.all(8),
-                    filled: true,
-                    fillColor: Colors.white.withOpacity(0.04),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.white24)),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.white12)),
+                    contentPadding: EdgeInsets.all(8),
+                    border: OutlineInputBorder(),
+                    enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white12)),
                   ),
                   onChanged: (v) => ref.read(configProvider.notifier).updateYakumanTsumoPrize(int.tryParse(v) ?? 5),
                 ),
               ),
-              const SizedBox(width: 15),
-              const Text('ロン', style: TextStyle(color: Colors.white38, fontSize: 10)),
-              const SizedBox(width: 6),
-              SizedBox(
-                width: 65,
+              const SizedBox(width: 16),
+              const Text('ロン', style: TextStyle(color: Colors.white38, fontSize: 12)),
+              const SizedBox(width: 8),
+              Expanded(
                 child: TextFormField(
                   initialValue: config.yakumanRonPrize.toString(),
-                  keyboardType: TextInputType.number,
                   textAlign: TextAlign.center,
+                  keyboardType: TextInputType.number,
                   style: GoogleFonts.robotoMono(color: Colors.white, fontSize: 14),
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     isDense: true,
-                    contentPadding: const EdgeInsets.all(8),
-                    filled: true,
-                    fillColor: Colors.white.withOpacity(0.04),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.white24)),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.white12)),
+                    contentPadding: EdgeInsets.all(8),
+                    border: OutlineInputBorder(),
+                    enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white12)),
                   ),
                   onChanged: (v) => ref.read(configProvider.notifier).updateYakumanRonPrize(int.tryParse(v) ?? 10),
                 ),
