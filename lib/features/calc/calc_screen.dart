@@ -26,31 +26,27 @@ class CalcScreen extends ConsumerWidget {
       backgroundColor: const Color(0xFF004D40),
       drawer: const MainDrawer(),
       appBar: AppBar(
-        title: const Text('麻雀スコア表', style: TextStyle(color: Color(0xFF00FFC2), fontWeight: FontWeight.bold, fontSize: 18.0)),
+        title: const FittedBox(fit: BoxFit.scaleDown, child: Text('麻雀スコア表', style: TextStyle(color: Color(0xFF00FFC2), fontWeight: FontWeight.bold, fontSize: 18.0))),
         backgroundColor: Colors.black.withOpacity(0.3),
         elevation: 0,
         actions: [
           // More compact 3P/4P Toggle
-          Transform.scale(
-            scale: 0.8,
-            child: SegmentedButton<bool>(
-              segments: const [
-                ButtonSegment(value: false, label: Padding(padding: EdgeInsets.zero, child: Text('4人', style: TextStyle(fontSize: 11.0)))),
-                ButtonSegment(value: true, label: Padding(padding: EdgeInsets.zero, child: Text('3人', style: TextStyle(fontSize: 11.0)))),
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0, top: 12.0, bottom: 12.0),
+            child: ToggleButtons(
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 30),
+              isSelected: [!config.isThreePlayer, config.isThreePlayer],
+              onPressed: (index) => ref.read(configProvider.notifier).updateIsThreePlayer(index == 1),
+              color: Colors.white60,
+              selectedColor: const Color(0xFF004D40),
+              fillColor: const Color(0xFF00FFC2),
+              borderColor: const Color(0xFF00FFC2).withOpacity(0.2),
+              selectedBorderColor: const Color(0xFF00FFC2).withOpacity(0.2),
+              borderRadius: BorderRadius.circular(20),
+              children: const [
+                Text('4人', style: TextStyle(fontSize: 11.0)),
+                Text('3人', style: TextStyle(fontSize: 11.0)),
               ],
-              selected: {config.isThreePlayer},
-              onSelectionChanged: (val) => ref.read(configProvider.notifier).updateIsThreePlayer(val.first),
-              showSelectedIcon: false,
-              style: SegmentedButton.styleFrom(
-                backgroundColor: Colors.black26,
-                selectedBackgroundColor: const Color(0xFF00FFC2),
-                selectedForegroundColor: const Color(0xFF004D40),
-                foregroundColor: Colors.white60,
-                side: BorderSide(color: const Color(0xFF00FFC2).withOpacity(0.2)),
-                visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
             ),
           ),
           IconButton(
@@ -88,7 +84,12 @@ class CalcScreen extends ConsumerWidget {
                   // 厳密には既存データをDBから引くべきだが、Webでのビルドエラー回避のため
                   // stateから取得するか、DateTime.now()を暫定で使用（calc_state側で調整可能）
                   final result = await calcNotifier.saveCurrentSession(DateTime.now());
-                  if (context.mounted) _showSaveSnackBar(context, result);
+                  if (context.mounted) {
+                    _showSaveSnackBar(context, result);
+                    if (result == SaveResult.registered || result == SaveResult.updated) {
+                      ref.read(historyProvider.notifier).refresh();
+                    }
+                  }
                 }
               } else {
                 // 新規登録の場合
@@ -128,7 +129,12 @@ class CalcScreen extends ConsumerWidget {
 
                   if (confirmed == true) {
                     final result = await calcNotifier.saveCurrentSession(selectedDate);
-                    if (context.mounted) _showSaveSnackBar(context, result);
+                    if (context.mounted) {
+                      _showSaveSnackBar(context, result);
+                      if (result == SaveResult.registered || result == SaveResult.updated) {
+                        ref.read(historyProvider.notifier).refresh();
+                      }
+                    }
                   }
                 }
               }

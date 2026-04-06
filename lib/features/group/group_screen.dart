@@ -40,11 +40,37 @@ class _GroupScreenState extends ConsumerState<GroupScreen> {
     _loadGroups();
   }
 
-  Future<void> _addMember(int groupId, String name) async {
-    if (name.isEmpty) return;
-    final db = DatabaseService();
-    await db.insertMember(groupId, name);
-    setState(() {}); // Refresh list
+  void _showAddGroupDialog() {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF001F1A),
+        title: const Text('新規グループ作成', style: TextStyle(color: Colors.white, fontSize: 16)),
+        content: TextField(
+          controller: controller,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(
+            hintText: 'グループ名を入力',
+            hintStyle: TextStyle(color: Colors.white24),
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('キャンセル', style: TextStyle(color: Colors.white54)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _addGroup(controller.text);
+            },
+            child: const Text('追加', style: TextStyle(color: Color(0xFF00FFC2), fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -59,102 +85,85 @@ class _GroupScreenState extends ConsumerState<GroupScreen> {
         backgroundColor: Colors.black.withOpacity(0.3),
         elevation: 0,
       ),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: const Color(0xFF00FFC2),
+        foregroundColor: const Color(0xFF004D40),
+        onPressed: _showAddGroupDialog,
+        child: const Icon(Icons.add),
+      ),
       body: _loading 
         ? const Center(child: CircularProgressIndicator(color: Color(0xFF00FFC2)))
-        : Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: _buildAddGroupField(),
+        : _groups.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.group_add, color: Colors.white24, size: 64),
+                  const SizedBox(height: 16),
+                  const Text('グループが登録されていません。', style: TextStyle(color: Colors.white70)),
+                  const SizedBox(height: 8),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 32),
+                    child: Text('右下の「+」ボタンから、麻雀仲間などのグループを作成してください。', style: TextStyle(color: Colors.white54, fontSize: 12), textAlign: TextAlign.center),
+                  ),
+                ],
               ),
-              const Divider(color: Colors.white12),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: _groups.length,
-                  itemBuilder: (context, index) {
-                    final group = _groups[index];
-                    final groupId = group['id'] as int;
-                    final isSelected = state.selectedGroupId == groupId;
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.only(top: 8, bottom: 80),
+              itemCount: _groups.length,
+              itemBuilder: (context, index) {
+                final group = _groups[index];
+                final groupId = group['id'] as int;
+                final isSelected = state.selectedGroupId == groupId;
 
-                    return Card(
-                      color: Colors.black26,
-                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: isSelected ? const Color(0xFF00FFC2) : Colors.white10),
-                      ),
-                      child: Column(
-                        children: [
-                          ListTile(
-                            leading: Icon(Icons.group, color: isSelected ? const Color(0xFF00FFC2) : Colors.white54),
-                            title: Text(group['name'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                            trailing: IconButton(
-                              icon: Icon(isSelected ? Icons.check_circle : Icons.radio_button_off, color: isSelected ? const Color(0xFF00FFC2) : Colors.white24),
-                              onPressed: () => notifier.state = state.copyWith(selectedGroupId: isSelected ? null : groupId),
-                            ),
-                          ),
-                          const Divider(color: Colors.white12),
-                          _MemberListWidget(groupId: groupId, onAddMember: (name) => _addMember(groupId, name)),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-    );
-  }
-
-  Widget _buildAddGroupField() {
-    final controller = TextEditingController();
-    return Row(
-      children: [
-        Expanded(
-          child: TextField(
-            controller: controller,
-            style: const TextStyle(color: Colors.white, fontSize: 14),
-            decoration: InputDecoration(
-              hintText: '新しいグループ名を入力',
-              hintStyle: const TextStyle(color: Colors.white24, fontSize: 13),
-              filled: true,
-              fillColor: Colors.black26,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                return Card(
+                  color: Colors.black26,
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: isSelected ? const Color(0xFF00FFC2) : Colors.white10),
+                  ),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    leading: Icon(Icons.group, color: isSelected ? const Color(0xFF00FFC2) : Colors.white54),
+                    title: Text(group['name'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                    subtitle: const Text('タップしてメンバーを編集', style: TextStyle(color: Colors.white38, fontSize: 10)),
+                    trailing: IconButton(
+                      icon: Icon(isSelected ? Icons.check_circle : Icons.radio_button_off, color: isSelected ? const Color(0xFF00FFC2) : Colors.white24, size: 28),
+                      onPressed: () => notifier.state = state.copyWith(selectedGroupId: isSelected ? null : groupId),
+                      tooltip: isSelected ? 'このグループを選択中' : 'このグループを選択する',
+                    ),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => MemberEditScreen(groupId: groupId, groupName: group['name']),
+                        ),
+                      );
+                    },
+                  ),
+                );
+              },
             ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF00FFC2).withOpacity(0.1),
-            foregroundColor: const Color(0xFF00FFC2),
-            padding: const EdgeInsets.all(12),
-          ),
-          onPressed: () {
-            _addGroup(controller.text);
-            controller.clear();
-          },
-          child: const Icon(Icons.add),
-        ),
-      ],
     );
   }
 }
 
-class _MemberListWidget extends StatefulWidget {
+class MemberEditScreen extends StatefulWidget {
   final int groupId;
-  final Function(String) onAddMember;
+  final String groupName;
 
-  const _MemberListWidget({required this.groupId, required this.onAddMember});
+  const MemberEditScreen({super.key, required this.groupId, required this.groupName});
 
   @override
-  State<_MemberListWidget> createState() => _MemberListWidgetState();
+  State<MemberEditScreen> createState() => _MemberEditScreenState();
 }
 
-class _MemberListWidgetState extends State<_MemberListWidget> {
+class _MemberEditScreenState extends State<MemberEditScreen> {
   final _controller = TextEditingController();
   List<Map<String, dynamic>> _members = [];
+  bool _loading = true;
 
   @override
   void initState() {
@@ -163,51 +172,95 @@ class _MemberListWidgetState extends State<_MemberListWidget> {
   }
 
   Future<void> _loadMembers() async {
+    setState(() => _loading = true);
     final db = DatabaseService();
     _members = await db.getMembers(widget.groupId);
-    if (mounted) setState(() {});
+    if (mounted) setState(() => _loading = false);
+  }
+
+  Future<void> _addMember() async {
+    final name = _controller.text.trim();
+    if (name.isEmpty) return;
+    
+    final db = DatabaseService();
+    await db.insertMember(widget.groupId, name);
+    _controller.clear();
+    _loadMembers();
+  }
+
+  Future<void> _deleteMember(int memberId) async {
+    final db = DatabaseService();
+    await db.deleteMember(memberId);
+    _loadMembers();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Scaffold(
+      backgroundColor: const Color(0xFF004D40),
+      appBar: AppBar(
+        title: Text('${widget.groupName} のメンバー', style: GoogleFonts.robotoMono(color: const Color(0xFF00FFC2), fontWeight: FontWeight.bold, fontSize: 16)),
+        backgroundColor: Colors.black.withOpacity(0.3),
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white70),
+      ),
+      body: Column(
         children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            children: _members.map((m) => Chip(
-              label: Text(m['name'], style: const TextStyle(fontSize: 10, color: Colors.white70)),
-              backgroundColor: Colors.white.withOpacity(0.05),
-              padding: EdgeInsets.zero,
-            )).toList(),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _controller,
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
-                  decoration: const InputDecoration(
-                    hintText: 'メンバー追加',
-                    hintStyle: TextStyle(color: Colors.white24, fontSize: 11),
-                    border: InputBorder.none,
-                    isDense: true,
+          Container(
+            padding: const EdgeInsets.all(16),
+            color: Colors.black12,
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    decoration: InputDecoration(
+                      hintText: '新しいメンバーを入力',
+                      hintStyle: const TextStyle(color: Colors.white24, fontSize: 13),
+                      filled: true,
+                      fillColor: Colors.black26,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                    onSubmitted: (_) => _addMember(),
                   ),
                 ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.person_add_alt_1, color: Color(0xFF00FFC2), size: 18),
-                onPressed: () {
-                  widget.onAddMember(_controller.text);
-                  _controller.clear();
-                  _loadMembers();
-                },
-              ),
-            ],
+                const SizedBox(width: 12),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF00FFC2).withOpacity(0.1),
+                    foregroundColor: const Color(0xFF00FFC2),
+                    padding: const EdgeInsets.all(12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: _addMember,
+                  child: const Icon(Icons.person_add),
+                ),
+              ],
+            ),
+          ),
+          const Divider(color: Colors.white12, height: 1),
+          Expanded(
+            child: _loading
+              ? const Center(child: CircularProgressIndicator(color: Color(0xFF00FFC2)))
+              : _members.isEmpty
+                ? const Center(child: Text('メンバーが登録されていません', style: TextStyle(color: Colors.white24)))
+                : ListView.builder(
+                    itemCount: _members.length,
+                    itemBuilder: (context, index) {
+                      final member = _members[index];
+                      return ListTile(
+                        leading: const Icon(Icons.person, color: Colors.white54),
+                        title: Text(member['name'], style: const TextStyle(color: Colors.white70, fontSize: 15)),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                          onPressed: () => _deleteMember(member['id']),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+                      );
+                    },
+                  ),
           ),
         ],
       ),

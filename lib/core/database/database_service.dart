@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -12,7 +13,9 @@ class DatabaseService {
   Future<Database> get database async {
     try {
       if (_database != null) return _database!;
-      _database = await _initDatabase();
+      if (!kIsWeb) {
+        _database = await _initDatabase();
+      }
       return _database!;
     } catch (e) {
       print('Database initialization error: $e');
@@ -21,6 +24,7 @@ class DatabaseService {
   }
 
   Future<Database> _initDatabase() async {
+    if (kIsWeb) return Future.error("sqflite is not supported on web");
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, 'mahjong_stats.db');
 
@@ -69,11 +73,13 @@ class DatabaseService {
 
   // Basic CRUD for Games
   Future<int> insertGame(Map<String, dynamic> row) async {
+    if (kIsWeb) return 0;
     final db = await database;
     return await db.insert('games', row);
   }
 
   Future<int> upsertGame(Map<String, dynamic> row) async {
+    if (kIsWeb) return 0;
     final db = await database;
     if (row.containsKey('id') && row['id'] != null) {
       return await db.update('games', row, where: 'id = ?', whereArgs: [row['id']]);
@@ -83,6 +89,7 @@ class DatabaseService {
   }
 
   Future<List<Map<String, dynamic>>> getGames({String? type, int? groupId}) async {
+    if (kIsWeb) return [];
     final db = await database;
     String? where;
     List<dynamic>? whereArgs;
@@ -102,34 +109,46 @@ class DatabaseService {
   }
 
   Future<int> deleteGame(int id) async {
+    if (kIsWeb) return 0;
     final db = await database;
     return await db.delete('games', where: 'id = ?', whereArgs: [id]);
   }
 
   // Basic CRUD for Groups
   Future<int> insertGroup(String name) async {
+    if (kIsWeb) return 0;
     final db = await database;
     return await db.insert('groups', {'name': name});
   }
 
   Future<List<Map<String, dynamic>>> getGroups() async {
+    if (kIsWeb) return [];
     final db = await database;
     return await db.query('groups');
   }
 
   Future<int> deleteGroup(int id) async {
+    if (kIsWeb) return 0;
     final db = await database;
     return await db.delete('groups', where: 'id = ?', whereArgs: [id]);
   }
 
   // Basic CRUD for Members
   Future<int> insertMember(int groupId, String name) async {
+    if (kIsWeb) return 0;
     final db = await database;
     return await db.insert('group_members', {'group_id': groupId, 'name': name});
   }
 
   Future<List<Map<String, dynamic>>> getMembers(int groupId) async {
+    if (kIsWeb) return [];
     final db = await database;
     return await db.query('group_members', where: 'group_id = ?', whereArgs: [groupId]);
+  }
+
+  Future<int> deleteMember(int id) async {
+    if (kIsWeb) return 0;
+    final db = await database;
+    return await db.delete('group_members', where: 'id = ?', whereArgs: [id]);
   }
 }
