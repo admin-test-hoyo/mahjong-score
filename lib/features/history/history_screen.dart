@@ -87,6 +87,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                     ),
                     onDismissed: (_) {
                       ref.read(historyProvider.notifier).refresh();
+                      ref.read(calcProvider.notifier).resetGame();
+                      Navigator.of(context).popUntil((route) => route.isFirst);
                     },
                     child: Container(
                       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -141,6 +143,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                   );
                                   if (confirmed == true) {
                                     ref.read(historyProvider.notifier).deleteGame(game.id!);
+                                    ref.read(calcProvider.notifier).resetGame();
+                                    Navigator.of(context).popUntil((route) => route.isFirst);
                                   }
                                 },
                               ),

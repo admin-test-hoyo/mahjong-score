@@ -168,8 +168,6 @@ class CalcNotifier extends Notifier<CalcState> {
   }
 
   void updateScore(String gameId, int playerId, int score) {
-    if (score > 100000) score = 100000;
-    if (score < -100000) score = -100000;
     
     final newGames = state.games.map((game) {
       if (game.id != gameId) return game;

@@ -33,6 +33,9 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
     try {
       final db = DatabaseService();
       _players = await db.getAllPlayerNames();
+      if (_selectedPlayer == null && _players.isNotEmpty) {
+        _selectedPlayer = _players.first;
+      }
       _groupList = await db.getGroups();
       await _loadGames();
     } catch (e) {
@@ -157,7 +160,6 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                 dropdownColor: const Color(0xFF001F1A),
                 isExpanded: true,
                 items: [
-                  const DropdownMenuItem<String>(value: null, child: Text('全員', style: TextStyle(color: Colors.white70, fontSize: 12))),
                   ..._players.map((p) => DropdownMenuItem(value: p, child: Text(p, style: const TextStyle(color: Colors.white, fontSize: 12)))),
                 ],
                 onChanged: (val) => setState(() => _selectedPlayer = val),

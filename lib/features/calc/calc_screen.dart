@@ -26,7 +26,10 @@ class CalcScreen extends ConsumerWidget {
       backgroundColor: const Color(0xFF004D40),
       drawer: const MainDrawer(),
       appBar: AppBar(
-        title: const FittedBox(fit: BoxFit.scaleDown, child: Text('麻雀スコア表', style: TextStyle(color: Color(0xFF00FFC2), fontWeight: FontWeight.bold, fontSize: 18.0))),
+        title: GestureDetector(
+          onTap: () => ref.read(calcProvider.notifier).resetGame(),
+          child: const FittedBox(fit: BoxFit.scaleDown, child: Text('麻雀スコア表', style: TextStyle(color: Color(0xFF00FFC2), fontWeight: FontWeight.bold, fontSize: 18.0))),
+        ),
         backgroundColor: Colors.black.withOpacity(0.3),
         elevation: 0,
         actions: [
@@ -438,11 +441,11 @@ class CalcScreen extends ConsumerWidget {
   }
 }
 
-class MainDrawer extends StatelessWidget {
+class MainDrawer extends ConsumerWidget {
   const MainDrawer({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Drawer(
       backgroundColor: const Color(0xFF001F1A),
       child: ListView(
@@ -459,16 +462,16 @@ class MainDrawer extends StatelessWidget {
               ],
             ),
           ),
-          _drawerItem(context, Icons.calculate, 'スコア計算', null),
-          _drawerItem(context, Icons.history, '対局履歴', const HistoryScreen()),
-          _drawerItem(context, Icons.analytics, '統計・分析', const StatsScreen()),
-          _drawerItem(context, Icons.groups, 'グループ管理', const GroupScreen()),
+          _drawerItem(context, ref, Icons.calculate, 'スコア計算', null),
+          _drawerItem(context, ref, Icons.history, '対局履歴', const HistoryScreen()),
+          _drawerItem(context, ref, Icons.analytics, '統計・分析', const StatsScreen()),
+          _drawerItem(context, ref, Icons.groups, 'グループ管理', const GroupScreen()),
         ],
       ),
     );
   }
 
-  Widget _drawerItem(BuildContext context, IconData icon, String title, Widget? screen) {
+  Widget _drawerItem(BuildContext context, WidgetRef ref, IconData icon, String title, Widget? screen) {
     return ListTile(
       leading: Icon(icon, color: const Color(0xFF00FFC2), size: 20),
       title: Text(title, style: const TextStyle(color: Colors.white70, fontSize: 14)),
@@ -476,6 +479,9 @@ class MainDrawer extends StatelessWidget {
         Navigator.pop(context); // Close drawer
         if (screen != null) {
           Navigator.push(context, MaterialPageRoute(builder: (context) => screen));
+        } else {
+          // If no screen and it's "スコア計算", act as home button / reset game
+          ref.read(calcProvider.notifier).resetGame();
         }
       },
     );
