@@ -320,7 +320,7 @@ class CalcNotifier extends Notifier<CalcState> {
     return isThreePlayer ? [20, 0, -20] : [20, 10, -10, -20];
   }
 
-  Future<SaveResult> saveCurrentSession() async {
+  Future<SaveResult> saveCurrentSession(DateTime date) async {
     try {
       final config = ref.read(configProvider);
       final players = config.isThreePlayer ? 3 : 4;
@@ -374,35 +374,35 @@ class CalcNotifier extends Notifier<CalcState> {
 
       // Final Ranks based on cumulative Pt
       final sortedIds = summaries.keys.toList()
-        ..sort((a, b) => summaries[b]!['pt']!.compareTo(summaries[a]!['pt']!));
+        ..sort((a, b) => (summaries[b]!['pt']! as int).compareTo(summaries[a]!['pt']! as int));
       
       final ranks = { for (int i = 1; i <= players; i++) i: sortedIds.indexOf(i) + 1 };
 
       final Map<String, dynamic> row = {
         if (state.currentId != null) 'id': state.currentId,
         'type': config.isThreePlayer ? '3-player' : '4-player',
-        'date': DateTime.now().toIso8601String(),
+        'date': date.toIso8601String(),
         'group_id': state.selectedGroupId,
         'p1_name': state.playerNames[0],
         'p2_name': state.playerNames[1],
         'p3_name': state.playerNames[2],
-        'p4_name': players == 4 ? state.playerNames[3] : '',
-        'p1_score': summaries[1]!['score'],
-        'p2_score': summaries[2]!['score'],
-        'p3_score': summaries[3]!['score'],
-        'p4_score': players == 4 ? (summaries[4]?['score'] ?? 0) : 0,
-        'p1_pt': summaries[1]!['pt'],
-        'p2_pt': summaries[2]!['pt'],
-        'p3_pt': summaries[3]!['pt'],
-        'p4_pt': players == 4 ? (summaries[4]?['pt'] ?? 0) : 0,
-        'p1_ch': summaries[1]!['chip'],
-        'p2_ch': summaries[2]!['chip'],
-        'p3_ch': summaries[3]!['chip'],
-        'p4_ch': players == 4 ? (summaries[4]?['chip'] ?? 0) : 0,
-        'p1_tobi': summaries[1]!['tobi'],
-        'p2_tobi': summaries[2]!['tobi'],
-        'p3_tobi': summaries[3]!['tobi'],
-        'p4_tobi': players == 4 ? (summaries[4]?['tobi'] ?? 0) : 0,
+        'p4_name': players == 4 ? state.playerNames[3] : "",
+        'p1_score': (summaries[1]?['score'] ?? 0) as int,
+        'p2_score': (summaries[2]?['score'] ?? 0) as int,
+        'p3_score': (summaries[3]?['score'] ?? 0) as int,
+        'p4_score': players == 4 ? ((summaries[4]?['score'] ?? 0) as int) : 0,
+        'p1_pt': (summaries[1]?['pt'] ?? 0) as int,
+        'p2_pt': (summaries[2]?['pt'] ?? 0) as int,
+        'p3_pt': (summaries[3]?['pt'] ?? 0) as int,
+        'p4_pt': players == 4 ? ((summaries[4]?['pt'] ?? 0) as int) : 0,
+        'p1_ch': (summaries[1]?['chip'] ?? 0) as int,
+        'p2_ch': (summaries[2]?['chip'] ?? 0) as int,
+        'p3_ch': (summaries[3]?['chip'] ?? 0) as int,
+        'p4_ch': players == 4 ? ((summaries[4]?['chip'] ?? 0) as int) : 0,
+        'p1_tobi': (summaries[1]?['tobi'] ?? 0) as int,
+        'p2_tobi': (summaries[2]?['tobi'] ?? 0) as int,
+        'p3_tobi': (summaries[3]?['tobi'] ?? 0) as int,
+        'p4_tobi': players == 4 ? ((summaries[4]?['tobi'] ?? 0) as int) : 0,
         'p1_rank': ranks[1],
         'p2_rank': ranks[2],
         'p3_rank': ranks[3],
@@ -415,7 +415,8 @@ class CalcNotifier extends Notifier<CalcState> {
       final id = await db.upsertGame(row);
       
       if (!isUpdate) {
-        state = state.copyWith(currentId: id);
+        // 新規登録成功時は状態をリセットする（ユーザー指示）
+        resetSession();
       }
       return isUpdate ? SaveResult.updated : SaveResult.registered;
     } catch (e) {

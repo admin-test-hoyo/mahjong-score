@@ -53,20 +53,81 @@ class CalcScreen extends ConsumerWidget {
             ),
           ),
           IconButton(icon: const Icon(Icons.settings, color: Color(0xFF00FFC2), size: 18), onPressed: () => _showSettingsModal(context, ref)),
-          IconButton(icon: const Icon(Icons.save, color: Color(0xFF00FFC2), size: 18), onPressed: () async {
-            final result = await ref.read(calcProvider.notifier).saveCurrentSession();
-            if (context.mounted) {
-              String msg = '保存に失敗しました。';
-              if (result == SaveResult.registered) msg = '対局情報を登録しました。';
-              if (result == SaveResult.updated) msg = '対局情報を更新しました。';
-              
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text(msg),
-                behavior: SnackBarBehavior.floating,
-                duration: const Duration(seconds: 2),
-              ));
-            }
-          }),
+          IconButton(
+            icon: const Icon(Icons.save, color: Color(0xFF00FFC2), size: 18),
+            onPressed: () async {
+              final calcNotifier = ref.read(calcProvider.notifier);
+              final currentState = ref.read(calcProvider);
+              final isUpdate = currentState.currentId != null;
+
+              if (isUpdate) {
+                // 更新の場合
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    backgroundColor: const Color(0xFF001F1A),
+                    title: const Text('更新の確認', style: TextStyle(color: Colors.white, fontSize: 16)),
+                    content: const Text('画面内容で更新します。よろしいですか？', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('キャンセル', style: TextStyle(color: Colors.white54))),
+                      TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('OK', style: TextStyle(color: Color(0xFF00FFC2), fontWeight: FontWeight.bold))),
+                    ],
+                  ),
+                );
+
+                if (confirmed == true) {
+                  // 既存の日付を取得（更新時は日付を変えない仕様と解釈）
+                  final db = DatabaseService();
+                  final games = await db.getGames();
+                  final currentGame = games.firstWhere((g) => g['id'] == currentState.currentId);
+                  final date = DateTime.parse(currentGame['date'] as String);
+                  
+                  final result = await calcNotifier.saveCurrentSession(date);
+                  if (context.mounted) _showSaveSnackBar(context, result);
+                }
+              } else {
+                // 新規登録の場合
+                final selectedDate = await showDatePicker(
+                  context: context,
+                  initialDate: DateTime.now(),
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime(2100),
+                  builder: (context, child) => Theme(
+                    data: Theme.of(context).copyWith(
+                      colorScheme: const ColorScheme.dark(
+                        primary: Color(0xFF00FFC2),
+                        onPrimary: Color(0xFF004D40),
+                        surface: Color(0xFF001F1A),
+                        onSurface: Colors.white,
+                      ),
+                    ),
+                    child: child!,
+                  ),
+                );
+
+                if (selectedDate != null && context.mounted) {
+                  final dateStr = "${selectedDate.year}/${selectedDate.month.toString().padLeft(2, '0')}/${selectedDate.day.toString().padLeft(2, '0')}";
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      backgroundColor: const Color(0xFF001F1A),
+                      title: const Text('登録の確認', style: TextStyle(color: Colors.white, fontSize: 16)),
+                      content: Text('$dateStrの対局データとして登録します。よろしいですか？', style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('キャンセル', style: TextStyle(color: Colors.white54))),
+                        TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('OK', style: TextStyle(color: Color(0xFF00FFC2), fontWeight: FontWeight.bold))),
+                      ],
+                    ),
+                  );
+
+                  if (confirmed == true) {
+                    final result = await calcNotifier.saveCurrentSession(selectedDate);
+                    if (context.mounted) _showSaveSnackBar(context, result);
+                  }
+                }
+              }
+            },
+          ),
           IconButton(icon: const Icon(Icons.refresh, color: Color(0xFFFF5252), size: 18), onPressed: () => _confirmReset(context, ref)),
           const SizedBox(width: 4),
         ],
@@ -80,6 +141,18 @@ class CalcScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  void _showSaveSnackBar(BuildContext context, SaveResult result) {
+    String msg = '保存に失敗しました。';
+    if (result == SaveResult.registered) msg = '対局情報を登録しました。';
+    if (result == SaveResult.updated) msg = '対局情報を更新しました。';
+
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      behavior: SnackBarBehavior.floating,
+      duration: const Duration(seconds: 2),
+    ));
   }
 
   void _showSettingsModal(BuildContext context, WidgetRef ref) {
