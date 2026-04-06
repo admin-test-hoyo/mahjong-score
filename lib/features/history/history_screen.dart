@@ -42,6 +42,8 @@ class HistoryScreen extends ConsumerStatefulWidget {
 }
 
 class _HistoryScreenState extends ConsumerState<HistoryScreen> {
+  DateTimeRange? _selectedDateRange;
+
   @override
   void initState() {
     super.initState();
@@ -59,14 +61,79 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
         title: Text('対局履歴', style: GoogleFonts.robotoMono(color: const Color(0xFF00FFC2), fontWeight: FontWeight.bold, fontSize: 16)),
         backgroundColor: Colors.black.withOpacity(0.3),
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.date_range, color: Color(0xFF00FFC2), size: 18),
+            onPressed: () async {
+              final picked = await showDateRangePicker(
+                context: context,
+                initialDateRange: _selectedDateRange,
+                firstDate: DateTime(2020),
+                lastDate: DateTime.now().add(const Duration(days: 1)),
+                builder: (context, child) {
+                  return Theme(
+                    data: Theme.of(context).copyWith(
+                      colorScheme: const ColorScheme.dark(
+                        primary: Color(0xFF00BFA5),
+                        onPrimary: Colors.white,
+                        surface: Color(0xFF001F1A),
+                        onSurface: Colors.white,
+                      ),
+                    ),
+                    child: child!,
+                  );
+                },
+              );
+              if (picked != null) {
+                setState(() => _selectedDateRange = picked);
+              } else {
+                setState(() => _selectedDateRange = null);
+              }
+            },
+          )
+        ],
       ),
       body: history.when(
-        data: (games) {
-          if (games.isEmpty) return const Center(child: Text('対局履歴がありません', style: TextStyle(color: Colors.white24)));
+        data: (allGames) {
+          var games = allGames;
+          if (_selectedDateRange != null) {
+            games = games.where((g) {
+              final dt = g.date;
+              final start = _selectedDateRange!.start;
+              final end = _selectedDateRange!.end.add(const Duration(days: 1));
+              return !dt.isBefore(start) && dt.isBefore(end);
+            }).toList();
+          }
 
-          return RefreshIndicator(
-            onRefresh: () => ref.read(historyProvider.notifier).refresh(),
-            color: const Color(0xFF00FFC2),
+          return Column(
+            children: [
+              if (_selectedDateRange != null)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
+                  color: Colors.black26,
+                  child: Row(
+                    children: [
+                      const Icon(Icons.filter_alt, size: 12, color: Colors.white54),
+                      const SizedBox(width: 4),
+                      Text(
+                        '期間指定: ${DateFormat('M/d').format(_selectedDateRange!.start)} 〜 ${DateFormat('M/d').format(_selectedDateRange!.end)}',
+                        style: const TextStyle(color: Colors.white70, fontSize: 11),
+                      ),
+                      const Spacer(),
+                      InkWell(
+                        onTap: () => setState(() => _selectedDateRange = null),
+                        child: const Icon(Icons.close, size: 14, color: Colors.white54),
+                      ),
+                    ],
+                  ),
+                ),
+              Expanded(
+                child: games.isEmpty 
+                  ? const Center(child: Text('対局履歴がありません', style: TextStyle(color: Colors.white24)))
+                  : RefreshIndicator(
+                      onRefresh: () => ref.read(historyProvider.notifier).refresh(),
+                      color: const Color(0xFF00FFC2),
             child: ListView.builder(
               itemCount: games.length,
               itemBuilder: (context, index) {
@@ -88,7 +155,9 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                     onDismissed: (_) {
                       ref.read(historyProvider.notifier).refresh();
                       ref.read(calcProvider.notifier).resetGame();
-                      Navigator.of(context).popUntil((route) => route.isFirst);
+                      if (context.mounted) {
+                        Navigator.of(context).popUntil((route) => route.isFirst);
+                      }
                     },
                     child: Container(
                       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -122,7 +191,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                 ),
                               ),
                               Text(
-                                DateFormat('yyyy/MM/dd HH:mm').format(game.date),
+                                DateFormat('yyyy/MM/dd').format(game.date),
                                 style: const TextStyle(color: Colors.white24, fontSize: 10),
                               ),
                               const Spacer(),
@@ -144,7 +213,9 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                   if (confirmed == true) {
                                     ref.read(historyProvider.notifier).deleteGame(game.id!);
                                     ref.read(calcProvider.notifier).resetGame();
-                                    Navigator.of(context).popUntil((route) => route.isFirst);
+                                    if (context.mounted) {
+                                      Navigator.of(context).popUntil((route) => route.isFirst);
+                                    }
                                   }
                                 },
                               ),
@@ -165,14 +236,14 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                           fontWeight: FontWeight.bold)),
                                   const SizedBox(height: 4),
                                   Text(
-                                    '${rank}位',
+                                    '$rank位',
                                     style: TextStyle(
                                       color: rank == 1 ? const Color(0xFF00FFC2) : Colors.white38,
                                       fontSize: 10,
                                     ),
                                   ),
                                   Text(
-                                    pt > 0 ? '+${pt}' : pt.toString(),
+                                    pt > 0 ? '+$pt' : pt.toString(),
                                     style: TextStyle(
                                       color: pt >= 0 ? const Color(0xFF00FFC2) : Colors.redAccent,
                                       fontSize: 12,
@@ -188,8 +259,12 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                     ),
                   ),
                 );
-              },
-            ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
           );
         },
         loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF00FFC2))),
