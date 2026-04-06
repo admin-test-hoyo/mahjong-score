@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/calculator.dart';
 import '../../core/models/app_config.dart';
+import '../../core/database/database_service.dart';
 
 final sharedPrefsProvider = Provider<SharedPreferences>((ref) {
   throw UnimplementedError();
@@ -57,7 +58,7 @@ class CalcState {
   const CalcState({
     this.playerNames = const ['A', 'B', 'C', 'D'],
     this.globalChips = const [0, 0, 0, 0],
-    this.games,
+    required this.games,
     this.rule = const MahjongRule(),
     this.selectedGroupId,
   });
