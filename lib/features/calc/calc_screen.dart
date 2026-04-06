@@ -5,6 +5,9 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/calculator.dart';
 import '../../core/models/app_config.dart';
 import 'calc_state.dart';
+import '../history/history_screen.dart';
+import '../stats/stats_screen.dart';
+import '../group/group_screen.dart';
 
 extension IntFormat on int {
   String toCommaString() {
@@ -21,6 +24,7 @@ class CalcScreen extends ConsumerWidget {
     
     return Scaffold(
       backgroundColor: const Color(0xFF004D40),
+      drawer: const MainDrawer(),
       appBar: AppBar(
         title: Text('麻雀スコア表', style: GoogleFonts.robotoMono(color: const Color(0xFF00FFC2), fontWeight: FontWeight.bold, fontSize: 16)),
         backgroundColor: Colors.black.withOpacity(0.3),
@@ -49,6 +53,12 @@ class CalcScreen extends ConsumerWidget {
             ),
           ),
           IconButton(icon: const Icon(Icons.settings, color: Color(0xFF00FFC2), size: 18), onPressed: () => _showSettingsModal(context, ref)),
+          IconButton(icon: const Icon(Icons.save, color: Color(0xFF00FFC2), size: 18), onPressed: () async {
+            await ref.read(calcProvider.notifier).saveCurrentSession();
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('対局データを保存しました'), behavior: SnackBarBehavior.floating));
+            }
+          }),
           IconButton(icon: const Icon(Icons.refresh, color: Color(0xFFFF5252), size: 18), onPressed: () => _confirmReset(context, ref)),
           const SizedBox(width: 4),
         ],
@@ -324,6 +334,50 @@ class CalcScreen extends ConsumerWidget {
         ),
       )),
     ]);
+  }
+}
+
+class MainDrawer extends StatelessWidget {
+  const MainDrawer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+      backgroundColor: const Color(0xFF001F1A),
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          DrawerHeader(
+            decoration: const BoxDecoration(color: Color(0xFF004D40)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Text('麻雀スコア表', style: GoogleFonts.robotoMono(color: const Color(0xFF00FFC2), fontWeight: FontWeight.bold, fontSize: 20)),
+                const Text('Ver 1.2', style: TextStyle(color: Colors.white24, fontSize: 10)),
+              ],
+            ),
+          ),
+          _drawerItem(context, Icons.calculate, 'スコア計算', null),
+          _drawerItem(context, Icons.history, '対局履歴', const HistoryScreen()),
+          _drawerItem(context, Icons.analytics, '統計・分析', const StatsScreen()),
+          _drawerItem(context, Icons.groups, 'グループ管理', const GroupScreen()),
+        ],
+      ),
+    );
+  }
+
+  Widget _drawerItem(BuildContext context, IconData icon, String title, Widget? screen) {
+    return ListTile(
+      leading: Icon(icon, color: const Color(0xFF00FFC2), size: 20),
+      title: Text(title, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+      onTap: () {
+        Navigator.pop(context); // Close drawer
+        if (screen != null) {
+          Navigator.push(context, MaterialPageRoute(builder: (context) => screen));
+        }
+      },
+    );
   }
 }
 
