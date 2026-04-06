@@ -71,7 +71,9 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
         return [];
       }
       filtered = filtered.where((g) {
-        return g.playerNames.any((name) => _groupMembers.contains(name));
+        // "仲間内だけで打った時の成績" -> All participants must be group members (ignoring empty slots)
+        final participants = g.playerNames.where((n) => n.isNotEmpty);
+        return participants.isNotEmpty && participants.every((name) => _groupMembers.contains(name));
       }).toList();
     }
 
