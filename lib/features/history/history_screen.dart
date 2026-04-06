@@ -34,11 +34,23 @@ final historyProvider = AsyncNotifierProvider<HistoryNotifier, List<SavedGame>>(
   return HistoryNotifier();
 });
 
-class HistoryScreen extends ConsumerWidget {
+class HistoryScreen extends ConsumerStatefulWidget {
   const HistoryScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HistoryScreen> createState() => _HistoryScreenState();
+}
+
+class _HistoryScreenState extends ConsumerState<HistoryScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // 画面が開かれた際に確実に最新データを再取得（リフレッシュ）する
+    Future.microtask(() => ref.read(historyProvider.notifier).refresh());
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final history = ref.watch(historyProvider);
 
     return Scaffold(
