@@ -57,11 +57,12 @@ class CalcState {
   final List<GameRecord> games;
   final MahjongRule rule;
   final int? selectedGroupId;
+  final int? currentId;
 
   const CalcState({
     this.playerNames = const ['A', 'B', 'C', 'D'],
     this.globalChips = const [0, 0, 0, 0],
-    this.games,
+    this.games = const [],
     this.rule = const MahjongRule(),
     this.selectedGroupId,
     this.currentId,
@@ -347,8 +348,18 @@ class CalcNotifier extends Notifier<CalcState> {
       final summaries = { for (int i = 1; i <= players; i++) i: {'pt': 0, 'chip': state.globalChips[i - 1], 'tobi': 0, 'score': 0} };
       for (var res in allResults) {
         for (var p in res) {
-          summaries[p.id]!['pt'] = summaries[p.id]!['pt']! + p.finalPoint;
-          summaries[p.id]!['score'] = summaries[p.id]!['score']! + p.score;
+          summaries[p.id]!['pt'] = (summaries[p.id]!['pt']! as int) + p.finalPoint.toInt();
+        }
+      }
+
+      // Sum raw scores from all valid games
+      for (var g in state.games) {
+        if (g.inputs.where((p) => p.id <= players).fold(0, (s, p) => s + p.score) == config.targetTotalScore) {
+          for (var inp in g.inputs) {
+            if (inp.id <= players) {
+              summaries[inp.id]!['score'] = (summaries[inp.id]!['score']! as int) + inp.score;
+            }
+          }
         }
       }
       
@@ -429,7 +440,7 @@ class CalcNotifier extends Notifier<CalcState> {
       currentId: game.id,
       playerNames: game.playerNames,
       globalChips: game.chips,
-      games: [GameRecord(inputs: inputs)],
+      games: [GameRecord(id: 'load_${game.id}', inputs: inputs)],
       selectedGroupId: game.groupId,
     );
   }
