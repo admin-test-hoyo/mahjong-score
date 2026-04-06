@@ -390,19 +390,19 @@ class CalcNotifier extends Notifier<CalcState> {
         'p1_score': summaries[1]!['score'],
         'p2_score': summaries[2]!['score'],
         'p3_score': summaries[3]!['score'],
-        'p4_score': players == 4 ? summaries[4]!['score'] : 0,
+        'p4_score': players == 4 ? (summaries[4]?['score'] ?? 0) : 0,
         'p1_pt': summaries[1]!['pt'],
         'p2_pt': summaries[2]!['pt'],
         'p3_pt': summaries[3]!['pt'],
-        'p4_pt': players == 4 ? summaries[4]!['pt'] : 0,
+        'p4_pt': players == 4 ? (summaries[4]?['pt'] ?? 0) : 0,
         'p1_ch': summaries[1]!['chip'],
         'p2_ch': summaries[2]!['chip'],
         'p3_ch': summaries[3]!['chip'],
-        'p4_ch': players == 4 ? summaries[4]!['chip'] : 0,
+        'p4_ch': players == 4 ? (summaries[4]?['chip'] ?? 0) : 0,
         'p1_tobi': summaries[1]!['tobi'],
         'p2_tobi': summaries[2]!['tobi'],
         'p3_tobi': summaries[3]!['tobi'],
-        'p4_tobi': players == 4 ? summaries[4]!['tobi'] : 0,
+        'p4_tobi': players == 4 ? (summaries[4]?['tobi'] ?? 0) : 0,
         'p1_rank': ranks[1],
         'p2_rank': ranks[2],
         'p3_rank': ranks[3],
@@ -411,6 +411,7 @@ class CalcNotifier extends Notifier<CalcState> {
 
       final db = DatabaseService();
       final isUpdate = state.currentId != null;
+      print('Saving session: $row'); // Debug log
       final id = await db.upsertGame(row);
       
       if (!isUpdate) {

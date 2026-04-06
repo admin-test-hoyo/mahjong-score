@@ -26,20 +26,17 @@ class CalcScreen extends ConsumerWidget {
       backgroundColor: const Color(0xFF004D40),
       drawer: const MainDrawer(),
       appBar: AppBar(
-        title: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text('麻雀スコア表', style: GoogleFonts.robotoMono(color: const Color(0xFF00FFC2), fontWeight: FontWeight.bold, fontSize: 16)),
-        ),
+        title: Text('麻雀スコア表', style: GoogleFonts.robotoMono(color: const Color(0xFF00FFC2), fontWeight: FontWeight.bold, fontSize: 18)),
         backgroundColor: Colors.black.withOpacity(0.3),
         elevation: 0,
         actions: [
-          // 3P/4P Toggle with fixed styling to prevent overlap
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 8),
+          // More compact 3P/4P Toggle
+          Transform.scale(
+            scale: 0.8,
             child: SegmentedButton<bool>(
               segments: const [
-                ButtonSegment(value: false, label: Padding(padding: EdgeInsets.symmetric(horizontal: 4), child: Text('4人', style: TextStyle(fontSize: 11)))),
-                ButtonSegment(value: true, label: Padding(padding: EdgeInsets.symmetric(horizontal: 4), child: Text('3人', style: TextStyle(fontSize: 11)))),
+                ButtonSegment(value: false, label: Padding(padding: EdgeInsets.symmetric(horizontal: 0), child: Text('4人', style: TextStyle(fontSize: 12)))),
+                ButtonSegment(value: true, label: Padding(padding: EdgeInsets.symmetric(horizontal: 0), child: Text('3人', style: TextStyle(fontSize: 12)))),
               ],
               selected: {config.isThreePlayer},
               onSelectionChanged: (val) => ref.read(configProvider.notifier).updateIsThreePlayer(val.first),

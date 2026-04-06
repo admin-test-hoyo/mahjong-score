@@ -52,6 +52,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
               _loadData();
             },
             activeColor: const Color(0xFF00FFC2),
+            activeTrackColor: const Color(0xFF00FFC2).withOpacity(0.3),
           ),
           Center(
             child: Padding(
