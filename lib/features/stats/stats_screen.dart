@@ -42,18 +42,40 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
     }
   }
 
+  List<String> _groupMembers = [];
+
   Future<void> _loadGames() async {
     final db = DatabaseService();
+    // 常にtypeのみで全件取得し、メモリ上でフィルタリングする
     final rows = await db.getGames(
       type: _isThreePlayer ? '3-player' : '4-player',
-      groupId: _selectedGroupId,
     );
     _allGames = rows.map((e) => SavedGame.fromMap(e)).toList();
+
+    if (_selectedGroupId != null) {
+      final members = await db.getMembers(_selectedGroupId!);
+      _groupMembers = members.map((e) => e['name'] as String).toList();
+    } else {
+      _groupMembers = [];
+    }
   }
 
   List<SavedGame> get _filteredGames {
-    if (_selectedPlayer == null || _selectedPlayer!.isEmpty) return _allGames;
-    return _allGames.where((g) => g.playerNames.contains(_selectedPlayer)).toList();
+    var filtered = _allGames;
+    
+    // Group filter: include game if ANY of its players is in the selected group
+    if (_selectedGroupId != null && _groupMembers.isNotEmpty) {
+      filtered = filtered.where((g) {
+        return g.playerNames.any((name) => _groupMembers.contains(name));
+      }).toList();
+    }
+
+    // Player filter: include game if it contains the selected player
+    if (_selectedPlayer != null && _selectedPlayer!.isNotEmpty) {
+      filtered = filtered.where((g) => g.playerNames.contains(_selectedPlayer)).toList();
+    }
+
+    return filtered;
   }
 
   @override
@@ -76,6 +98,8 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
             },
             activeColor: const Color(0xFF00BFA5),
             activeTrackColor: const Color(0xFF00BFA5).withOpacity(0.3),
+            inactiveThumbColor: const Color(0xFF00BFA5),
+            inactiveTrackColor: const Color(0xFF00BFA5).withOpacity(0.3),
           ),
           Center(
             child: Padding(

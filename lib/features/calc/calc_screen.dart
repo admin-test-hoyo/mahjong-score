@@ -245,7 +245,10 @@ class CalcScreen extends ConsumerWidget {
                     },
                     child: Icon(isValid ? Icons.check_circle : Icons.error_outline, color: isValid ? const Color(0xFF00FFC2).withOpacity(0.3) : Colors.redAccent, size: 16),
                   )))),
-                  DataCell(SizedBox(width: ctrlWidth, child: Center(child: IconButton(padding: EdgeInsets.zero, constraints: const BoxConstraints(), icon: const Icon(Icons.delete_outline, color: Colors.white24, size: 16), onPressed: () => ref.read(calcProvider.notifier).deleteGame(game.id))))),
+                  DataCell(SizedBox(width: ctrlWidth, child: Center(child: IconButton(padding: EdgeInsets.zero, constraints: const BoxConstraints(), icon: const Icon(Icons.delete_outline, color: Colors.white24, size: 16), onPressed: () {
+                    ref.read(calcProvider.notifier).deleteGame(game.id);
+                    ref.read(calcProvider.notifier).resetGame(); // Force transition to new input state
+                  })))),
                 ]);
               }),
               DataRow(color: MaterialStateProperty.all(Colors.black12), cells: [
@@ -553,9 +556,11 @@ class _PlayerInputCardState extends ConsumerState<PlayerInputCard> {
             controller: _s, 
             textAlign: TextAlign.center, 
             keyboardType: const TextInputType.numberWithOptions(signed: true), 
+            maxLength: 6, // #2 Allow up to 6 digits (999,999)
             style: const TextStyle(color: Color(0xFF00FFC2), fontSize: 16, fontWeight: FontWeight.bold), 
             decoration: InputDecoration(
                 isDense: true, 
+                counterText: '', // Hide the length counter text
                 contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4), 
                 hintText: '0', 
                 hintStyle: const TextStyle(color: Colors.white12), 
