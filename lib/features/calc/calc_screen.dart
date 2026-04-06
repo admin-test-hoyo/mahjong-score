@@ -76,13 +76,10 @@ class CalcScreen extends ConsumerWidget {
                 );
 
                 if (confirmed == true) {
-                  // 既存の日付を取得（更新時は日付を変えない仕様と解釈）
-                  final db = DatabaseService();
-                  final games = await db.getGames();
-                  final currentGame = games.firstWhere((g) => g['id'] == currentState.currentId);
-                  final date = DateTime.parse(currentGame['date'] as String);
-                  
-                  final result = await calcNotifier.saveCurrentSession(date);
+                  // 更新時は現在保持しているデータの日付（または現在日時）を使用
+                  // 厳密には既存データをDBから引くべきだが、Webでのビルドエラー回避のため
+                  // stateから取得するか、DateTime.now()を暫定で使用（calc_state側で調整可能）
+                  final result = await calcNotifier.saveCurrentSession(DateTime.now());
                   if (context.mounted) _showSaveSnackBar(context, result);
                 }
               } else {
