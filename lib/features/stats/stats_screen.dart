@@ -25,10 +25,15 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
 
   Future<void> _loadData() async {
     setState(() => _loading = true);
-    final db = DatabaseService();
-    final rows = await db.getGames(type: _isThreePlayer ? '3-player' : '4-player');
-    _games = rows.map((e) => SavedGame.fromMap(e)).toList();
-    setState(() => _loading = false);
+    try {
+      final db = DatabaseService();
+      final rows = await db.getGames(type: _isThreePlayer ? '3-player' : '4-player');
+      _games = rows.map((e) => SavedGame.fromMap(e)).toList();
+    } catch (e) {
+      print('Stats load error: $e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override

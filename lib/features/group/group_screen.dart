@@ -23,9 +23,14 @@ class _GroupScreenState extends ConsumerState<GroupScreen> {
 
   Future<void> _loadGroups() async {
     setState(() => _loading = true);
-    final db = DatabaseService();
-    _groups = await db.getGroups();
-    setState(() => _loading = false);
+    try {
+      final db = DatabaseService();
+      _groups = await db.getGroups();
+    } catch (e) {
+      print('Group load error: $e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   Future<void> _addGroup(String name) async {

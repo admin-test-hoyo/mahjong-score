@@ -26,7 +26,10 @@ class CalcScreen extends ConsumerWidget {
       backgroundColor: const Color(0xFF004D40),
       drawer: const MainDrawer(),
       appBar: AppBar(
-        title: Text('麻雀スコア表', style: GoogleFonts.robotoMono(color: const Color(0xFF00FFC2), fontWeight: FontWeight.bold, fontSize: 16)),
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text('麻雀スコア表', style: GoogleFonts.robotoMono(color: const Color(0xFF00FFC2), fontWeight: FontWeight.bold, fontSize: 16)),
+        ),
         backgroundColor: Colors.black.withOpacity(0.3),
         elevation: 0,
         actions: [
@@ -54,9 +57,17 @@ class CalcScreen extends ConsumerWidget {
           ),
           IconButton(icon: const Icon(Icons.settings, color: Color(0xFF00FFC2), size: 18), onPressed: () => _showSettingsModal(context, ref)),
           IconButton(icon: const Icon(Icons.save, color: Color(0xFF00FFC2), size: 18), onPressed: () async {
-            await ref.read(calcProvider.notifier).saveCurrentSession();
+            final result = await ref.read(calcProvider.notifier).saveCurrentSession();
             if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('対局データを保存しました'), behavior: SnackBarBehavior.floating));
+              String msg = '保存に失敗しました。';
+              if (result == SaveResult.registered) msg = '対局情報を登録しました。';
+              if (result == SaveResult.updated) msg = '対局情報を更新しました。';
+              
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text(msg),
+                behavior: SnackBarBehavior.floating,
+                duration: const Duration(seconds: 2),
+              ));
             }
           }),
           IconButton(icon: const Icon(Icons.refresh, color: Color(0xFFFF5252), size: 18), onPressed: () => _confirmReset(context, ref)),

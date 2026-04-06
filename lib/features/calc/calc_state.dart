@@ -4,6 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/calculator.dart';
 import '../../core/models/app_config.dart';
 import '../../core/database/database_service.dart';
+import '../../core/models/db_models.dart';
+
+enum SaveResult { registered, updated, failed }
 
 final sharedPrefsProvider = Provider<SharedPreferences>((ref) {
   throw UnimplementedError();
@@ -58,9 +61,10 @@ class CalcState {
   const CalcState({
     this.playerNames = const ['A', 'B', 'C', 'D'],
     this.globalChips = const [0, 0, 0, 0],
-    required this.games,
+    this.games,
     this.rule = const MahjongRule(),
     this.selectedGroupId,
+    this.currentId,
   });
 
   CalcState copyWith({
@@ -69,6 +73,7 @@ class CalcState {
     List<GameRecord>? games,
     MahjongRule? rule,
     int? selectedGroupId,
+    int? currentId,
   }) {
     return CalcState(
       playerNames: playerNames ?? this.playerNames,
@@ -76,6 +81,7 @@ class CalcState {
       games: games ?? this.games,
       rule: rule ?? this.rule,
       selectedGroupId: selectedGroupId ?? this.selectedGroupId,
+      currentId: currentId ?? this.currentId,
     );
   }
 
@@ -85,6 +91,7 @@ class CalcState {
     'games': games.map((e) => e.toJson()).toList(),
     'rule': rule.toJson(),
     'selectedGroupId': selectedGroupId,
+    'currentId': currentId,
   };
 
   factory CalcState.fromJson(Map<String, dynamic> json) {
@@ -94,6 +101,7 @@ class CalcState {
       games: (json['games'] as List<dynamic>?)?.map((e) => GameRecord.fromJson(e as Map<String, dynamic>)).toList() ?? [],
       rule: json['rule'] != null ? MahjongRule.fromJson(json['rule'] as Map<String, dynamic>) : const MahjongRule(),
       selectedGroupId: json['selectedGroupId'] as int?,
+      currentId: json['currentId'] as int?,
     );
   }
 }
@@ -311,80 +319,127 @@ class CalcNotifier extends Notifier<CalcState> {
     return isThreePlayer ? [20, 0, -20] : [20, 10, -10, -20];
   }
 
-  Future<void> saveCurrentSession() async {
-    final config = ref.read(configProvider);
-    final players = config.isThreePlayer ? 3 : 4;
-    if (state.games.isEmpty) return;
+  Future<SaveResult> saveCurrentSession() async {
+    try {
+      final config = ref.read(configProvider);
+      final players = config.isThreePlayer ? 3 : 4;
+      if (state.games.isEmpty) return SaveResult.failed;
 
-    // Calculate final stats
-    List<List<PlayerResult>> allResults = [];
-    for (var g in state.games) {
-      if (g.inputs.where((p) => p.id <= players).fold(0, (s, p) => s + p.score) == config.targetTotalScore) {
-        try {
-          allResults.add(MahjongCalculator.calculate(
-            inputs: g.inputs.where((p) => p.id <= players).toList(),
-            rule: state.rule.copyWith(
-              oka: config.oka,
-              uma: _buildUmaList(config.umaText, config.isThreePlayer),
-            ),
-            config: config,
-          ));
-        } catch (_) {}
+      // Calculate final stats
+      List<List<PlayerResult>> allResults = [];
+      for (var g in state.games) {
+        if (g.inputs.where((p) => p.id <= players).fold(0, (s, p) => s + p.score) == config.targetTotalScore) {
+          try {
+            allResults.add(MahjongCalculator.calculate(
+              inputs: g.inputs.where((p) => p.id <= players).toList(),
+              rule: state.rule.copyWith(
+                oka: config.oka,
+                uma: _buildUmaList(config.umaText, config.isThreePlayer),
+              ),
+              config: config,
+            ));
+          } catch (_) {}
+        }
       }
-    }
 
-    if (allResults.isEmpty) return;
+      if (allResults.isEmpty) return SaveResult.failed;
 
-    final summaries = { for (int i = 1; i <= players; i++) i: {'pt': 0, 'chip': state.globalChips[i - 1], 'tobi': 0} };
-    for (var res in allResults) {
-      for (var p in res) {
-        summaries[p.id]!['pt'] = summaries[p.id]!['pt']! + p.finalPoint;
+      final summaries = { for (int i = 1; i <= players; i++) i: {'pt': 0, 'chip': state.globalChips[i - 1], 'tobi': 0, 'score': 0} };
+      for (var res in allResults) {
+        for (var p in res) {
+          summaries[p.id]!['pt'] = summaries[p.id]!['pt']! + p.finalPoint;
+          summaries[p.id]!['score'] = summaries[p.id]!['score']! + p.score;
+        }
       }
+      
+      // Check for tobis
+      for (int i = 1; i <= players; i++) {
+         bool isTobi = false;
+         for (var g in state.games) {
+           if (g.inputs.any((inp) => inp.id == i && (inp.tobiPt < 0))) isTobi = true;
+         }
+         summaries[i]!['tobi'] = isTobi ? 1 : 0;
+      }
+
+      // Final Ranks based on cumulative Pt
+      final sortedIds = summaries.keys.toList()
+        ..sort((a, b) => summaries[b]!['pt']!.compareTo(summaries[a]!['pt']!));
+      
+      final ranks = { for (int i = 1; i <= players; i++) i: sortedIds.indexOf(i) + 1 };
+
+      final Map<String, dynamic> row = {
+        if (state.currentId != null) 'id': state.currentId,
+        'type': config.isThreePlayer ? '3-player' : '4-player',
+        'date': DateTime.now().toIso8601String(),
+        'group_id': state.selectedGroupId,
+        'p1_name': state.playerNames[0],
+        'p2_name': state.playerNames[1],
+        'p3_name': state.playerNames[2],
+        'p4_name': players == 4 ? state.playerNames[3] : '',
+        'p1_score': summaries[1]!['score'],
+        'p2_score': summaries[2]!['score'],
+        'p3_score': summaries[3]!['score'],
+        'p4_score': players == 4 ? summaries[4]!['score'] : 0,
+        'p1_pt': summaries[1]!['pt'],
+        'p2_pt': summaries[2]!['pt'],
+        'p3_pt': summaries[3]!['pt'],
+        'p4_pt': players == 4 ? summaries[4]!['pt'] : 0,
+        'p1_ch': summaries[1]!['chip'],
+        'p2_ch': summaries[2]!['chip'],
+        'p3_ch': summaries[3]!['chip'],
+        'p4_ch': players == 4 ? summaries[4]!['chip'] : 0,
+        'p1_tobi': summaries[1]!['tobi'],
+        'p2_tobi': summaries[2]!['tobi'],
+        'p3_tobi': summaries[3]!['tobi'],
+        'p4_tobi': players == 4 ? summaries[4]!['tobi'] : 0,
+        'p1_rank': ranks[1],
+        'p2_rank': ranks[2],
+        'p3_rank': ranks[3],
+        'p4_rank': players == 4 ? ranks[4] : 4,
+      };
+
+      final db = DatabaseService();
+      final isUpdate = state.currentId != null;
+      final id = await db.upsertGame(row);
+      
+      if (!isUpdate) {
+        state = state.copyWith(currentId: id);
+      }
+      return isUpdate ? SaveResult.updated : SaveResult.registered;
+    } catch (e) {
+      print('Save error: $e');
+      return SaveResult.failed;
     }
+  }
+
+  void loadGame(SavedGame game) {
+    final is3P = game.type == '3-player';
     
-    // Check for tobis
-    for (int i = 1; i <= players; i++) {
-       bool isTobi = false;
-       for (var g in state.games) {
-         if (g.inputs.any((inp) => inp.id == i && (inp.tobiPt < 0))) isTobi = true;
-       }
-       summaries[i]!['tobi'] = isTobi ? 1 : 0;
-    }
-
-    // Final Ranks based on cumulative Pt
-    final sortedIds = summaries.keys.toList()
-      ..sort((a, b) => summaries[b]!['pt']!.compareTo(summaries[a]!['pt']!));
+    // Update config first
+    ref.read(configProvider.notifier).updateIsThreePlayer(is3P);
     
-    final ranks = { for (int i = 1; i <= players; i++) i: sortedIds.indexOf(i) + 1 };
+    // Construct a single GameRecord from the aggregated scores
+    final inputs = List.generate(is3P ? 3 : 4, (i) => PlayerInput(
+      id: i + 1,
+      score: game.scores[i],
+      tobiPt: game.tobis[i] ? -1 : 0,
+    ));
 
-    final Map<String, dynamic> row = {
-      'type': config.isThreePlayer ? '3-player' : '4-player',
-      'date': DateTime.now().toIso8601String(),
-      'group_id': state.selectedGroupId,
-      'p1_name': state.playerNames[0],
-      'p2_name': state.playerNames[1],
-      'p3_name': state.playerNames[2],
-      'p4_name': players == 4 ? state.playerNames[3] : '',
-      'p1_pt': summaries[1]!['pt'],
-      'p2_pt': summaries[2]!['pt'],
-      'p3_pt': summaries[3]!['pt'],
-      'p4_pt': players == 4 ? summaries[4]!['pt'] : 0,
-      'p1_ch': summaries[1]!['chip'],
-      'p2_ch': summaries[2]!['chip'],
-      'p3_ch': summaries[3]!['chip'],
-      'p4_ch': players == 4 ? summaries[4]!['chip'] : 0,
-      'p1_tobi': summaries[1]!['tobi'],
-      'p2_tobi': summaries[2]!['tobi'],
-      'p3_tobi': summaries[3]!['tobi'],
-      'p4_tobi': players == 4 ? summaries[4]!['tobi'] : 0,
-      'p1_rank': ranks[1],
-      'p2_rank': ranks[2],
-      'p3_rank': ranks[3],
-      'p4_rank': players == 4 ? ranks[4] : 4,
-    };
+    state = state.copyWith(
+      currentId: game.id,
+      playerNames: game.playerNames,
+      globalChips: game.chips,
+      games: [GameRecord(inputs: inputs)],
+      selectedGroupId: game.groupId,
+    );
+  }
 
-    final db = DatabaseService();
-    await db.insertGame(row);
+  void resetSession() {
+    state = state.copyWith(
+      currentId: null,
+      globalChips: [0, 0, 0, 0],
+      games: [],
+    );
   }
 }
 

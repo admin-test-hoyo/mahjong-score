@@ -49,7 +49,7 @@ class HistoryScreen extends ConsumerWidget {
       ),
       body: history.when(
         data: (games) {
-          if (games.isEmpty) return const Center(child: Text('履歴がありません', style: TextStyle(color: Colors.white24)));
+          if (games.isEmpty) return const Center(child: Text('対局履歴がありません', style: TextStyle(color: Colors.white24)));
 
           return RefreshIndicator(
             onRefresh: () => ref.read(historyProvider.notifier).refresh(),
@@ -58,7 +58,12 @@ class HistoryScreen extends ConsumerWidget {
               itemCount: games.length,
               itemBuilder: (context, index) {
                 final game = games[index];
-                return Dismissible(
+                return InkWell(
+                  onTap: () {
+                    ref.read(calcProvider.notifier).loadGame(game);
+                    Navigator.pop(context); // Go back to scoreboard
+                  },
+                  child: Dismissible(
                   key: Key(game.id.toString()),
                   direction: DismissDirection.endToStart,
                   background: Container(
@@ -143,7 +148,10 @@ class HistoryScreen extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF00FFC2))),
-        error: (e, s) => Center(child: Text('エラーが発生しました', style: TextStyle(color: Colors.redAccent))),
+        error: (e, s) {
+          // If the error is just that nothing was found or DB not ready, show info instead of error
+          return const Center(child: Text('対局履歴がありません', style: TextStyle(color: Colors.white24)));
+        },
       ),
     );
   }

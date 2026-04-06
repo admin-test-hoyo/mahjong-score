@@ -10,9 +10,14 @@ class DatabaseService {
   DatabaseService._internal();
 
   Future<Database> get database async {
-    if (_database != null) return _database!;
-    _database = await _initDatabase();
-    return _database!;
+    try {
+      if (_database != null) return _database!;
+      _database = await _initDatabase();
+      return _database!;
+    } catch (e) {
+      print('Database initialization error: $e');
+      rethrow;
+    }
   }
 
   Future<Database> _initDatabase() async {
@@ -66,6 +71,15 @@ class DatabaseService {
   Future<int> insertGame(Map<String, dynamic> row) async {
     final db = await database;
     return await db.insert('games', row);
+  }
+
+  Future<int> upsertGame(Map<String, dynamic> row) async {
+    final db = await database;
+    if (row.containsKey('id') && row['id'] != null) {
+      return await db.update('games', row, where: 'id = ?', whereArgs: [row['id']]);
+    } else {
+      return await db.insert('games', row);
+    }
   }
 
   Future<List<Map<String, dynamic>>> getGames({String? type, int? groupId}) async {
