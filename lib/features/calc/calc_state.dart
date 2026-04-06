@@ -52,6 +52,7 @@ class CalcState {
   final List<int> globalChips; // [p1, p2, p3, p4]
   final List<GameRecord> games;
   final MahjongRule rule;
+  final int? selectedGroupId;
 
   const CalcState({
     this.playerNames = const ['A', 'B', 'C', 'D'],

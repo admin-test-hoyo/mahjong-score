@@ -76,7 +76,7 @@ class _GroupScreenState extends ConsumerState<GroupScreen> {
                       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: isSelected ? const Color(0xFF00FFC2) : Colors.white10),
+                        side: BorderSide(color: isSelected ? const Color(0xFF00FFC2) : Colors.white10),
                       ),
                       child: Column(
                         children: [
