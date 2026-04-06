@@ -18,14 +18,18 @@ void main() {
       child: const MahjongApp(),
     ));
 
-    // Verify header exists
-    expect(find.text('Rate'), findsOneWidget);
-    expect(find.text('場代'), findsOneWidget);
+    // Verify title exists
+    expect(find.text('麻雀スコア表'), findsWidgets);
     
-    // Verify columns exist
+    // Verify player names 'A', 'B', 'C' exist
     expect(find.text('A'), findsWidgets);
+    expect(find.text('B'), findsWidgets);
+    expect(find.text('C'), findsWidgets);
     
-    // Verify first row check mechanism (check_circle icon instead of OK text)
-    expect(find.byIcon(Icons.add_circle), findsWidgets);
+    // Verify add game button
+    expect(find.byIcon(Icons.add_circle_outline), findsWidgets);
+    
+    // Verify settings button
+    expect(find.byIcon(Icons.settings), findsWidgets);
   });
 }
