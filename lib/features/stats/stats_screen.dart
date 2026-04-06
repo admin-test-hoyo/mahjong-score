@@ -33,9 +33,6 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
     try {
       final db = DatabaseService();
       _players = await db.getAllPlayerNames();
-      if (_selectedPlayer == null && _players.isNotEmpty) {
-        _selectedPlayer = _players.first;
-      }
       _groupList = await db.getGroups();
       await _loadGames();
     } catch (e) {
@@ -64,19 +61,22 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
   }
 
   List<SavedGame> get _filteredGames {
+    if (_selectedPlayer == null) return [];
+
     var filtered = _allGames;
     
-    // Group filter: include game if ANY of its players is in the selected group
-    if (_selectedGroupId != null && _groupMembers.isNotEmpty) {
+    // Group filter: exclude if selected player is not in the group, otherwise filter games by group
+    if (_selectedGroupId != null) {
+      if (_groupMembers.isEmpty || !_groupMembers.contains(_selectedPlayer)) {
+        return [];
+      }
       filtered = filtered.where((g) {
         return g.playerNames.any((name) => _groupMembers.contains(name));
       }).toList();
     }
 
     // Player filter: include game if it contains the selected player
-    if (_selectedPlayer != null && _selectedPlayer!.isNotEmpty) {
-      filtered = filtered.where((g) => g.playerNames.contains(_selectedPlayer)).toList();
-    }
+    filtered = filtered.where((g) => g.playerNames.contains(_selectedPlayer)).toList();
 
     return filtered;
   }
@@ -121,25 +121,27 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
             children: [
               _buildFilters(),
               Expanded(
-                child: games.isEmpty 
-                  ? const Center(child: Text('データがありません', style: TextStyle(color: Colors.white24)))
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildGeneralStats(games),
-                          const SizedBox(height: 24),
-                          _buildRankChart(games),
-                          const SizedBox(height: 24),
-                          _buildRevenueChart(games),
-                          if (_selectedGroupId != null) ...[
+                child: _selectedPlayer == null
+                  ? const Center(child: Text('プレイヤーを選択してください', style: TextStyle(color: Colors.white54, fontSize: 14)))
+                  : games.isEmpty 
+                    ? const Center(child: Text('データがありません', style: TextStyle(color: Colors.white24)))
+                    : SingleChildScrollView(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildGeneralStats(games),
                             const SizedBox(height: 24),
-                            _buildGroupRanking(),
+                            _buildRankChart(games),
+                            const SizedBox(height: 24),
+                            _buildRevenueChart(games),
+                            if (_selectedGroupId != null) ...[
+                              const SizedBox(height: 24),
+                              _buildGroupRanking(),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
-                    ),
               ),
             ],
           ),
