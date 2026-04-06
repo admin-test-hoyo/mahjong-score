@@ -259,13 +259,12 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                     ),
                   ),
                 );
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ],
-          );
+              },
+            ),
+          ),
+        ),
+      ],
+    );
         },
         loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF00FFC2))),
         error: (e, s) {
