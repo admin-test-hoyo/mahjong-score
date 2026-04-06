@@ -51,8 +51,8 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
               setState(() => _isThreePlayer = val);
               _loadData();
             },
-            activeColor: const Color(0xFF00FFC2),
-            activeTrackColor: const Color(0xFF00FFC2).withOpacity(0.3),
+            activeColor: const Color(0xFF00BFA5),
+            activeTrackColor: const Color(0xFF00BFA5).withOpacity(0.3),
           ),
           Center(
             child: Padding(

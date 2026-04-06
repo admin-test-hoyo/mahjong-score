@@ -406,7 +406,7 @@ class CalcNotifier extends Notifier<CalcState> {
         'p1_rank': ranks[1],
         'p2_rank': ranks[2],
         'p3_rank': ranks[3],
-        'p4_rank': players == 4 ? ranks[4] : 4,
+        'p4_rank': players == 4 ? ranks[4] : 0,
       };
 
       final db = DatabaseService();

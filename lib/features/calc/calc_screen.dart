@@ -26,7 +26,7 @@ class CalcScreen extends ConsumerWidget {
       backgroundColor: const Color(0xFF004D40),
       drawer: const MainDrawer(),
       appBar: AppBar(
-        title: Text('麻雀スコア表', style: GoogleFonts.robotoMono(color: const Color(0xFF00FFC2), fontWeight: FontWeight.bold, fontSize: 18)),
+        title: const Text('麻雀スコア表', style: TextStyle(color: Color(0xFF00FFC2), fontWeight: FontWeight.bold, fontSize: 18.0)),
         backgroundColor: Colors.black.withOpacity(0.3),
         elevation: 0,
         actions: [
@@ -35,8 +35,8 @@ class CalcScreen extends ConsumerWidget {
             scale: 0.8,
             child: SegmentedButton<bool>(
               segments: const [
-                ButtonSegment(value: false, label: Padding(padding: EdgeInsets.symmetric(horizontal: 0), child: Text('4人', style: TextStyle(fontSize: 12)))),
-                ButtonSegment(value: true, label: Padding(padding: EdgeInsets.symmetric(horizontal: 0), child: Text('3人', style: TextStyle(fontSize: 12)))),
+                ButtonSegment(value: false, label: Padding(padding: EdgeInsets.zero, child: Text('4人', style: TextStyle(fontSize: 11.0)))),
+                ButtonSegment(value: true, label: Padding(padding: EdgeInsets.zero, child: Text('3人', style: TextStyle(fontSize: 11.0)))),
               ],
               selected: {config.isThreePlayer},
               onSelectionChanged: (val) => ref.read(configProvider.notifier).updateIsThreePlayer(val.first),
@@ -48,13 +48,21 @@ class CalcScreen extends ConsumerWidget {
                 foregroundColor: Colors.white60,
                 side: BorderSide(color: const Color(0xFF00FFC2).withOpacity(0.2)),
                 visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
             ),
           ),
-          IconButton(icon: const Icon(Icons.settings, color: Color(0xFF00FFC2), size: 18), onPressed: () => _showSettingsModal(context, ref)),
+          IconButton(
+            icon: const Icon(Icons.settings, color: Color(0xFF00FFC2), size: 18),
+            padding: const EdgeInsets.symmetric(horizontal: 4.0),
+            constraints: const BoxConstraints(),
+            onPressed: () => _showSettingsModal(context, ref)
+          ),
           IconButton(
             icon: const Icon(Icons.save, color: Color(0xFF00FFC2), size: 18),
+            padding: const EdgeInsets.symmetric(horizontal: 4.0),
+            constraints: const BoxConstraints(),
             onPressed: () async {
               final calcNotifier = ref.read(calcProvider.notifier);
               final currentState = ref.read(calcProvider);
@@ -89,10 +97,11 @@ class CalcScreen extends ConsumerWidget {
                   initialDate: DateTime.now(),
                   firstDate: DateTime(2000),
                   lastDate: DateTime(2100),
+                  locale: const Locale('ja'),
                   builder: (context, child) => Theme(
                     data: Theme.of(context).copyWith(
                       colorScheme: const ColorScheme.dark(
-                        primary: Color(0xFF00FFC2),
+                        primary: Color(0xFF00BFA5),
                         onPrimary: Color(0xFF004D40),
                         surface: Color(0xFF001F1A),
                         onSurface: Colors.white,
@@ -125,7 +134,12 @@ class CalcScreen extends ConsumerWidget {
               }
             },
           ),
-          IconButton(icon: const Icon(Icons.refresh, color: Color(0xFFFF5252), size: 18), onPressed: () => _confirmReset(context, ref)),
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Color(0xFFFF5252), size: 18),
+            padding: const EdgeInsets.symmetric(horizontal: 4.0),
+            constraints: const BoxConstraints(),
+            onPressed: () => _confirmReset(context, ref)
+          ),
           const SizedBox(width: 4),
         ],
       ),
