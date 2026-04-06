@@ -134,6 +134,26 @@ class DatabaseService {
     return await db.delete('games', where: 'id = ?', whereArgs: [id]);
   }
 
+  Future<void> updateGameGroupIdToNull(int groupId) async {
+    if (kIsWeb) {
+      final allGames = await _webQuery('web_db_games');
+      bool changed = false;
+      for (var g in allGames) {
+        if (g['group_id'] == groupId) {
+          g['group_id'] = null;
+          changed = true;
+        }
+      }
+      if (changed) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('web_db_games', jsonEncode(allGames));
+      }
+      return;
+    }
+    final db = await database;
+    await db.update('games', {'group_id': null}, where: 'group_id = ?', whereArgs: [groupId]);
+  }
+
   // Basic CRUD for Groups
   Future<int> insertGroup(String name) async {
     if (kIsWeb) return _webInsert('web_db_groups', {'name': name});
@@ -147,10 +167,44 @@ class DatabaseService {
     return await db.query('groups');
   }
 
+  Future<int> updateGroupName(int id, String newName) async {
+    if (kIsWeb) return _webUpdate('web_db_groups', {'id': id, 'name': newName});
+    final db = await database;
+    return await db.update('groups', {'name': newName}, where: 'id = ?', whereArgs: [id]);
+  }
+
   Future<int> deleteGroup(int id) async {
+    // Ver 1.3: Dissociate games first instead of CASCADE or leaving broken IDs
+    await updateGameGroupIdToNull(id);
+    
     if (kIsWeb) return _webDelete('web_db_groups', id);
     final db = await database;
     return await db.delete('groups', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // Statistics helpers
+  Future<List<String>> getAllPlayerNames() async {
+    if (kIsWeb) {
+      final games = await _webQuery('web_db_games');
+      final Set<String> names = {};
+      for (var g in games) {
+        if (g['p1_name'] != null && g['p1_name'] != '') names.add(g['p1_name']);
+        if (g['p2_name'] != null && g['p2_name'] != '') names.add(g['p2_name']);
+        if (g['p3_name'] != null && g['p3_name'] != '') names.add(g['p3_name']);
+        if (g['p4_name'] != null && g['p4_name'] != '') names.add(g['p4_name']);
+      }
+      return names.toList()..sort();
+    }
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query('games', columns: ['p1_name', 'p2_name', 'p3_name', 'p4_name']);
+    final Set<String> names = {};
+    for (var m in maps) {
+      if (m['p1_name'] != null && m['p1_name'] != '') names.add(m['p1_name']);
+      if (m['p2_name'] != null && m['p2_name'] != '') names.add(m['p2_name']);
+      if (m['p3_name'] != null && m['p3_name'] != '') names.add(m['p3_name']);
+      if (m['p4_name'] != null && m['p4_name'] != '') names.add(m['p4_name']);
+    }
+    return names.toList()..sort();
   }
 
   // Basic CRUD for Members

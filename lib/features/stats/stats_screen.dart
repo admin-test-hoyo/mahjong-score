@@ -14,30 +14,52 @@ class StatsScreen extends ConsumerStatefulWidget {
 
 class _StatsScreenState extends ConsumerState<StatsScreen> {
   bool _isThreePlayer = false;
-  List<SavedGame> _games = [];
+  String? _selectedPlayer;
+  int? _selectedGroupId;
+  
+  List<SavedGame> _allGames = []; // Cache all games for filtering
+  List<String> _players = [];
+  List<Map<String, dynamic>> _groupList = [];
   bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _loadInitialData();
   }
 
-  Future<void> _loadData() async {
+  Future<void> _loadInitialData() async {
     setState(() => _loading = true);
     try {
       final db = DatabaseService();
-      final rows = await db.getGames(type: _isThreePlayer ? '3-player' : '4-player');
-      _games = rows.map((e) => SavedGame.fromMap(e)).toList();
+      _players = await db.getAllPlayerNames();
+      _groupList = await db.getGroups();
+      await _loadGames();
     } catch (e) {
-      print('Stats load error: $e');
+      print('Initial load error: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
+  Future<void> _loadGames() async {
+    final db = DatabaseService();
+    final rows = await db.getGames(
+      type: _isThreePlayer ? '3-player' : '4-player',
+      groupId: _selectedGroupId,
+    );
+    _allGames = rows.map((e) => SavedGame.fromMap(e)).toList();
+  }
+
+  List<SavedGame> get _filteredGames {
+    if (_selectedPlayer == null || _selectedPlayer!.isEmpty) return _allGames;
+    return _allGames.where((g) => g.playerNames.contains(_selectedPlayer)).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final games = _filteredGames;
+
     return Scaffold(
       backgroundColor: const Color(0xFF004D40),
       appBar: AppBar(
@@ -47,9 +69,10 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
         actions: [
           Switch(
             value: _isThreePlayer,
-            onChanged: (val) {
+            onChanged: (val) async {
               setState(() => _isThreePlayer = val);
-              _loadData();
+              await _loadGames();
+              setState(() {});
             },
             activeColor: const Color(0xFF00BFA5),
             activeTrackColor: const Color(0xFF00BFA5).withOpacity(0.3),
@@ -67,40 +90,101 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
       ),
       body: _loading 
         ? const Center(child: CircularProgressIndicator(color: Color(0xFF00FFC2)))
-        : _games.isEmpty 
-          ? const Center(child: Text('データがありません', style: TextStyle(color: Colors.white24)))
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildGeneralStats(),
-                  const SizedBox(height: 24),
-                  _buildRankChart(),
-                  const SizedBox(height: 24),
-                  _buildRevenueChart(),
-                ],
+        : Column(
+            children: [
+              _buildFilters(),
+              Expanded(
+                child: games.isEmpty 
+                  ? const Center(child: Text('データがありません', style: TextStyle(color: Colors.white24)))
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildGeneralStats(games),
+                          const SizedBox(height: 24),
+                          _buildRankChart(games),
+                          const SizedBox(height: 24),
+                          _buildRevenueChart(games),
+                          if (_selectedGroupId != null) ...[
+                            const SizedBox(height: 24),
+                            _buildGroupRanking(),
+                          ],
+                        ],
+                      ),
+                    ),
               ),
-            ),
+            ],
+          ),
     );
   }
 
-  Widget _buildGeneralStats() {
-    // Current user's stats (Assuming p1 is always the user for this iteration or overall aggregate)
-    // Actually the user wants statistics for "Members". For now we'll calculate simple overall averages for p1.
-    final totalGames = _games.length;
+  Widget _buildFilters() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: Colors.black12,
+      child: Row(
+        children: [
+          Expanded(
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: _selectedPlayer,
+                hint: const Text('プレイヤー選択', style: TextStyle(color: Colors.white24, fontSize: 12)),
+                dropdownColor: const Color(0xFF001F1A),
+                isExpanded: true,
+                items: [
+                  const DropdownMenuItem<String>(value: null, child: Text('全員', style: TextStyle(color: Colors.white70, fontSize: 12))),
+                  ..._players.map((p) => DropdownMenuItem(value: p, child: Text(p, style: const TextStyle(color: Colors.white, fontSize: 12)))),
+                ],
+                onChanged: (val) => setState(() => _selectedPlayer = val),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<int>(
+                value: _selectedGroupId,
+                hint: const Text('グループ選択', style: TextStyle(color: Colors.white24, fontSize: 12)),
+                dropdownColor: const Color(0xFF001F1A),
+                isExpanded: true,
+                items: [
+                  const DropdownMenuItem<int>(value: null, child: Text('全グループ', style: TextStyle(color: Colors.white70, fontSize: 12))),
+                  ..._groupList.map((g) => DropdownMenuItem(value: g['id'] as int, child: Text(g['name'], style: const TextStyle(color: Colors.white, fontSize: 12)))),
+                ],
+                onChanged: (val) async {
+                  setState(() => _selectedGroupId = val);
+                  await _loadGames();
+                  setState(() {});
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGeneralStats(List<SavedGame> games) {
+    final totalGames = games.length;
     double avgRank = 0;
     int totalPt = 0;
     int tobiCount = 0;
     int topCount = 0;
     int rentaiCount = 0;
 
-    for (var g in _games) {
-      avgRank += g.ranks[0];
-      totalPt += g.points[0];
-      if (g.tobis[0]) tobiCount++;
-      if (g.ranks[0] == 1) topCount++;
-      if (g.ranks[0] <= 2) rentaiCount++;
+    for (var g in games) {
+      int idx = 0;
+      if (_selectedPlayer != null) {
+        idx = g.playerNames.indexOf(_selectedPlayer!);
+        if (idx == -1) idx = 0;
+      }
+      
+      avgRank += g.ranks[idx];
+      totalPt += g.points[idx];
+      if (g.tobis[idx]) tobiCount++;
+      if (g.ranks[idx] == 1) topCount++;
+      if (g.ranks[idx] <= 2) rentaiCount++;
     }
 
     avgRank /= totalGames;
@@ -149,9 +233,16 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
     );
   }
 
-  Widget _buildRankChart() {
+  Widget _buildRankChart(List<SavedGame> games) {
     final Map<int, int> counts = {1: 0, 2: 0, 3: 0, 4: 0};
-    for (var g in _games) { counts[g.ranks[0]] = (counts[g.ranks[0]] ?? 0) + 1; }
+    for (var g in games) { 
+      int idx = 0;
+      if (_selectedPlayer != null) {
+        idx = g.playerNames.indexOf(_selectedPlayer!);
+        if (idx == -1) idx = 0;
+      }
+      counts[g.ranks[idx]] = (counts[g.ranks[idx]] ?? 0) + 1; 
+    }
 
     final sections = [
       PieChartSectionData(value: counts[1]!.toDouble(), title: '1', color: const Color(0xFF00FFC2), radius: 40, titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black)),
@@ -177,12 +268,17 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
     );
   }
 
-  Widget _buildRevenueChart() {
+  Widget _buildRevenueChart(List<SavedGame> games) {
     List<FlSpot> spots = [const FlSpot(0, 0)];
     int cumulative = 0;
-    for (int i = 0; i < _games.length; i++) {
-       // Reverse reverse chronological order for the chart (oldest to newest)
-       cumulative += _games[_games.length - 1 - i].points[0];
+    for (int i = 0; i < games.length; i++) {
+       final g = games[games.length - 1 - i];
+       int idx = 0;
+       if (_selectedPlayer != null) {
+         idx = g.playerNames.indexOf(_selectedPlayer!);
+         if (idx == -1) idx = 0;
+       }
+       cumulative += g.points[idx];
        spots.add(FlSpot((i + 1).toDouble(), cumulative.toDouble()));
     }
 
@@ -210,4 +306,45 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
       ),
     );
   }
+
+  Widget _buildGroupRanking() {
+    final Map<String, int> scores = {};
+    for (var g in _allGames) {
+      for (int i = 0; i < g.playerNames.length; i++) {
+        final name = g.playerNames[i];
+        if (name.isNotEmpty) {
+          scores[name] = (scores[name] ?? 0) + g.points[i];
+        }
+      }
+    }
+
+    final sortedEntries = scores.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('グループ内収支ランキング', style: TextStyle(color: Color(0xFF00FFC2), fontWeight: FontWeight.bold, fontSize: 14)),
+        const SizedBox(height: 12),
+        Container(
+          decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(12)),
+          child: Column(
+            children: sortedEntries.map((e) => ListTile(
+              dense: true,
+              title: Text(e.key, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+              trailing: Text(
+                e.value > 0 ? '+${e.value}' : e.value.toString(),
+                style: TextStyle(
+                  color: e.value >= 0 ? const Color(0xFF00FFC2) : Colors.redAccent,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'RobotoMono',
+                ),
+              ),
+            )).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+}
 }

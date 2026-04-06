@@ -123,6 +123,27 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                 DateFormat('yyyy/MM/dd HH:mm').format(game.date),
                                 style: const TextStyle(color: Colors.white24, fontSize: 10),
                               ),
+                              const Spacer(),
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline, color: Colors.white24, size: 18),
+                                onPressed: () async {
+                                  final confirmed = await showDialog<bool>(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      backgroundColor: const Color(0xFF001F1A),
+                                      title: const Text('対局削除', style: TextStyle(color: Colors.white, fontSize: 16)),
+                                      content: const Text('この対局データを削除しますか？', style: TextStyle(color: Colors.white70)),
+                                      actions: [
+                                        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('キャンセル', style: TextStyle(color: Colors.white54))),
+                                        TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('削除', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold))),
+                                      ],
+                                    ),
+                                  );
+                                  if (confirmed == true) {
+                                    ref.read(historyProvider.notifier).deleteGame(game.id!);
+                                  }
+                                },
+                              ),
                             ],
                           ),
                           const SizedBox(height: 12),

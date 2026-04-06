@@ -40,6 +40,19 @@ class _GroupScreenState extends ConsumerState<GroupScreen> {
     _loadGroups();
   }
 
+  Future<void> _editGroup(int id, String name) async {
+    if (name.isEmpty) return;
+    final db = DatabaseService();
+    await db.updateGroupName(id, name);
+    _loadGroups();
+  }
+
+  Future<void> _deleteGroup(int id) async {
+    final db = DatabaseService();
+    await db.deleteGroup(id);
+    _loadGroups();
+  }
+
   void _showAddGroupDialog() {
     final controller = TextEditingController();
     showDialog(
@@ -67,6 +80,63 @@ class _GroupScreenState extends ConsumerState<GroupScreen> {
               _addGroup(controller.text);
             },
             child: const Text('追加', style: TextStyle(color: Color(0xFF00FFC2), fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditGroupDialog(int id, String currentName) {
+    final controller = TextEditingController(text: currentName);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF001F1A),
+        title: const Text('グループ名編集', style: TextStyle(color: Colors.white, fontSize: 16)),
+        content: TextField(
+          controller: controller,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(
+            hintText: '新しい名前を入力',
+            hintStyle: TextStyle(color: Colors.white24),
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('キャンセル', style: TextStyle(color: Colors.white54)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _editGroup(id, controller.text);
+            },
+            child: const Text('保存', style: TextStyle(color: Color(0xFF00FFC2), fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDeleteGroup(int id, String name) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF001F1A),
+        title: const Text('グループ削除', style: TextStyle(color: Colors.white, fontSize: 16)),
+        content: Text('「$name」を削除しますか？\n（注：対局履歴は削除されません）', style: const TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('キャンセル', style: TextStyle(color: Colors.white54)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteGroup(id);
+            },
+            child: const Text('削除', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -124,28 +194,64 @@ class _GroupScreenState extends ConsumerState<GroupScreen> {
                     borderRadius: BorderRadius.circular(12),
                     side: BorderSide(color: isSelected ? const Color(0xFF00FFC2) : Colors.white10),
                   ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: ExpansionTile(
+                    tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     leading: Icon(Icons.group, color: isSelected ? const Color(0xFF00FFC2) : Colors.white54),
                     title: Text(group['name'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                    subtitle: const Text('タップしてメンバーを編集', style: TextStyle(color: Colors.white38, fontSize: 10)),
-                    trailing: IconButton(
-                      icon: Icon(isSelected ? Icons.check_circle : Icons.radio_button_off, color: isSelected ? const Color(0xFF00FFC2) : Colors.white24, size: 28),
-                      onPressed: () => notifier.state = state.copyWith(selectedGroupId: isSelected ? null : groupId),
-                      tooltip: isSelected ? 'このグループを選択中' : 'このグループを選択する',
+                    subtitle: const Text('タップしてメニューを表示', style: TextStyle(color: Colors.white38, fontSize: 10)),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (isSelected) const Icon(Icons.check_circle, color: Color(0xFF00FFC2), size: 18),
+                        const Icon(Icons.expand_more, color: Colors.white24),
+                      ],
                     ),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => MemberEditScreen(groupId: groupId, groupName: group['name']),
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: const BoxDecoration(color: Colors.black12, borderRadius: BorderRadius.only(bottomLeft: Radius.circular(12), bottomRight: Radius.circular(12))),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _actionIcon(Icons.person_outline, 'メンバー編集', () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => MemberEditScreen(groupId: groupId, groupName: group['name']),
+                                ),
+                              ).then((_) => _loadGroups());
+                            }),
+                            _actionIcon(Icons.edit_outlined, '名前変更', () => _showEditGroupDialog(groupId, group['name'])),
+                            _actionIcon(isSelected ? Icons.radio_button_checked : Icons.radio_button_off, isSelected ? '選択解除' : 'グループ選択', () {
+                              notifier.state = state.copyWith(selectedGroupId: isSelected ? null : groupId);
+                            }, color: isSelected ? const Color(0xFF00FFC2) : null),
+                            _actionIcon(Icons.delete_outline, '削除', () => _confirmDeleteGroup(groupId, group['name']), color: Colors.redAccent.withOpacity(0.8)),
+                          ],
                         ),
-                      );
-                    },
+                      ),
+                    ],
                   ),
                 );
               },
             ),
+    );
+  }
+
+  Widget _actionIcon(IconData icon, String label, VoidCallback onTap, {Color? color}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color ?? Colors.white70, size: 20),
+            const SizedBox(height: 4),
+            Text(label, style: TextStyle(color: color ?? Colors.white54, fontSize: 9)),
+          ],
+        ),
+      ),
     );
   }
 }
