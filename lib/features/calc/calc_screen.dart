@@ -22,6 +22,43 @@ class CalcScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(configProvider);
     final state = ref.watch(calcProvider);
+
+    ref.listen<List<Map<String, dynamic>>?>(
+      calcProvider.select((s) => s.possibleGroupMatches),
+      (previous, next) {
+        if (next != null && next.isNotEmpty) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => AlertDialog(
+              backgroundColor: const Color(0xFF001F1A),
+              title: const Text('グループの自動判別', style: TextStyle(color: Colors.white, fontSize: 16)),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('複数のグループが一致しました。保存先を選択してください。', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                  const SizedBox(height: 16),
+                  ...next.map((g) => ListTile(
+                    title: Text(g['name'], style: const TextStyle(color: Color(0xFF00FFC2), fontWeight: FontWeight.bold)),
+                    onTap: () {
+                      ref.read(calcProvider.notifier).setSelectedGroupId(g['id']);
+                      Navigator.pop(context);
+                    },
+                  )),
+                  ListTile(
+                    title: const Text('フリー対局として保存', style: TextStyle(color: Colors.white54)),
+                    onTap: () {
+                      ref.read(calcProvider.notifier).setSelectedGroupId(null);
+                      Navigator.pop(context);
+                    },
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+      },
+    );
     
     return Scaffold(
       backgroundColor: const Color(0xFF004D40),

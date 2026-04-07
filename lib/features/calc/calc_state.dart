@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/calculator.dart';
@@ -59,6 +61,7 @@ class CalcState {
   final int? selectedGroupId;
   final int? currentId;
   final String? preservedStateJson;
+  final List<Map<String, dynamic>>? possibleGroupMatches; // 追加: マッチ候補
 
   const CalcState({
     this.playerNames = const ['A', 'B', 'C', 'D'],
@@ -68,6 +71,7 @@ class CalcState {
     this.selectedGroupId,
     this.currentId,
     this.preservedStateJson,
+    this.possibleGroupMatches,
   });
 
   CalcState copyWith({
@@ -79,6 +83,8 @@ class CalcState {
     int? currentId,
     String? preservedStateJson,
     bool clearPreserved = false,
+    List<Map<String, dynamic>>? possibleGroupMatches,
+    bool clearMatches = false,
   }) {
     return CalcState(
       playerNames: playerNames ?? this.playerNames,
@@ -88,6 +94,7 @@ class CalcState {
       selectedGroupId: selectedGroupId ?? this.selectedGroupId,
       currentId: currentId ?? this.currentId,
       preservedStateJson: clearPreserved ? null : (preservedStateJson ?? this.preservedStateJson),
+      possibleGroupMatches: clearMatches ? null : (possibleGroupMatches ?? this.possibleGroupMatches),
     );
   }
 
@@ -160,6 +167,42 @@ class CalcNotifier extends Notifier<CalcState> {
     final newNames = List<String>.from(state.playerNames);
     newNames[playerId - 1] = name;
     state = state.copyWith(playerNames: newNames);
+    
+    // 4名の名前が埋まったら自動判別を試行
+    if (newNames.every((n) => n.trim().isNotEmpty)) {
+      _checkGroupMatches(newNames);
+    }
+  }
+
+  Future<void> _checkGroupMatches(List<String> names) async {
+    final db = DatabaseService();
+    final allGroups = await db.getGroups();
+    final List<Map<String, dynamic>> matches = [];
+
+    for (var group in allGroups) {
+      final members = await db.getMembers(group['id']);
+      final memberNames = members.map((m) => m['name'] as String).toList()..sort();
+      final inputNames = List<String>.from(names.map((e) => e.trim()))..sort();
+      
+      if (memberNames.join(',') == inputNames.join(',')) {
+        matches.add(group);
+      }
+    }
+
+    if (matches.length == 1) {
+      // 1つだけ一致なら自動選択
+      state = state.copyWith(selectedGroupId: matches.first['id'], clearMatches: true);
+    } else if (matches.length > 1) {
+      // 複数一致なら候補を保存して選択を促す
+      state = state.copyWith(possibleGroupMatches: matches);
+    } else {
+       // 一致なし
+       state = state.copyWith(clearMatches: true);
+    }
+  }
+
+  void setSelectedGroupId(int? id) {
+    state = state.copyWith(selectedGroupId: id, clearMatches: true);
   }
 
   void updateGlobalChip(int playerId, int chip) {
@@ -331,6 +374,14 @@ class CalcNotifier extends Notifier<CalcState> {
       final db = DatabaseService();
       final isUpdate = state.currentId != null;
 
+      // ヘッダー（セッション）を特定または作成
+      final sessionDay = DateFormat('yyyy/MM/dd').format(date);
+      final sessionId = await db.findOrCreateSession(
+        date: sessionDay,
+        playerNames: state.playerNames,
+        groupId: state.selectedGroupId,
+      );
+
       // セッション内の各有効なゲーム（半荘）ごとにレコードを保存する
       int savedCount = 0;
       for (int i = 0; i < state.games.length; i++) {
@@ -363,10 +414,7 @@ class CalcNotifier extends Notifier<CalcState> {
           }
 
           final Map<String, dynamic> row = {
-            // 更新時(currentIdあり)でも、セッションをバラして保存するため
-            // 既存の1行を上書きするのではなく、連番で保存し直す仕様に寄せる場合は
-            // 古いIDを消してから再作成するか、検討が必要。
-            // ここでは「常に個別の半荘として保存」を優先。
+            'session_id': sessionId,
             'type': '4-player',
             'date': date.toIso8601String(),
             'group_id': state.selectedGroupId,
@@ -390,12 +438,8 @@ class CalcNotifier extends Notifier<CalcState> {
             'p2_tobi': g.inputs.firstWhere((p) => p.id == 2).score < 0 ? 1 : 0,
             'p3_tobi': g.inputs.firstWhere((p) => p.id == 3).score < 0 ? 1 : 0,
             'p4_tobi': (players == 4 && g.inputs.firstWhere((p) => p.id == 4).score < 0) ? 1 : 0,
-            'p1_rank': result.firstWhere((r) => r.id == 1).money >= 0 ? 1 : 2, // 暫定。MahjongCalculatorが順位を返さないため。
-            // 実際にはCalculator内部でソートした順を使用すべきだが、後段の統計で再計算されるため
-            // ここではPtに応じて rank をセットする。
           };
           
-          // 正確な順位を計算
           final sortedByPt = List<PlayerResult>.from(result)..sort((a, b) => b.finalPoint.compareTo(a.finalPoint));
           row['p1_rank'] = sortedByPt.indexWhere((r) => r.id == 1) + 1;
           row['p2_rank'] = sortedByPt.indexWhere((r) => r.id == 2) + 1;
@@ -404,7 +448,6 @@ class CalcNotifier extends Notifier<CalcState> {
             row['p4_rank'] = sortedByPt.indexWhere((r) => r.id == 4) + 1;
           }
 
-          // 収支 (Money)
           row['p1_money'] = sessionMoneys['1'];
           row['p2_money'] = sessionMoneys['2'];
           row['p3_money'] = sessionMoneys['3'];
@@ -421,8 +464,6 @@ class CalcNotifier extends Notifier<CalcState> {
 
       if (savedCount == 0) return SaveResult.failed;
 
-      // 更新モードだった場合は、古いセッションを（便宜上）残すか消すか。
-      // 指示は「完全正常化」なので、重複を避けるために古い ID のレコードを消す処理を追加。
       if (isUpdate && state.currentId != null) {
          await db.deleteGame(state.currentId!);
       }

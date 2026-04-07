@@ -1,5 +1,6 @@
 class SavedGame {
   final int? id;
+  final int? sessionId; // 追加: セッションID (ヘッダー)
   final String type; // '3-player' / '4-player'
   final DateTime date;
   final int? groupId;
@@ -9,10 +10,11 @@ class SavedGame {
   final List<int> chips;  // Final Chip money or just count? User said 'p1_ch'
   final List<bool> tobis;
   final List<int> ranks;
-  final List<int> moneys; // 追加: マネー収支 (円)
+  final List<int> moneys; // マネー収支 (円)
 
   SavedGame({
     this.id,
+    this.sessionId,
     required this.type,
     required this.date,
     this.groupId,
@@ -28,6 +30,7 @@ class SavedGame {
   Map<String, dynamic> toMap() {
     return {
       if (id != null) 'id': id,
+      'session_id': sessionId,
       'type': type,
       'date': date.toIso8601String(),
       'group_id': groupId,
@@ -65,6 +68,7 @@ class SavedGame {
   factory SavedGame.fromMap(Map<String, dynamic> map) {
     return SavedGame(
       id: map['id'],
+      sessionId: map['session_id'],
       type: map['type'],
       date: DateTime.parse(map['date']),
       groupId: map['group_id'],
@@ -109,6 +113,46 @@ class SavedGame {
         map['p2_money'] ?? 0,
         map['p3_money'] ?? 0,
         if (map['type'] == '4-player') map['p4_money'] ?? 0,
+      ],
+    );
+  }
+}
+
+class Session {
+  final int? id;
+  final String date; // YYYY/MM/DD
+  final int? groupId;
+  final List<String> playerNames;
+
+  Session({
+    this.id,
+    required this.date,
+    this.groupId,
+    required this.playerNames,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      if (id != null) 'id': id,
+      'date': date,
+      'group_id': groupId,
+      'p1_name': playerNames[0],
+      'p2_name': playerNames[1],
+      'p3_name': playerNames[2],
+      'p4_name': playerNames.length > 3 ? playerNames[3] : '',
+    };
+  }
+
+  factory Session.fromMap(Map<String, dynamic> map) {
+    return Session(
+      id: map['id'],
+      date: map['date'] ?? '',
+      groupId: map['group_id'],
+      playerNames: [
+        map['p1_name'] ?? '',
+        map['p2_name'] ?? '',
+        map['p3_name'] ?? '',
+        map['p4_name'] ?? '',
       ],
     );
   }

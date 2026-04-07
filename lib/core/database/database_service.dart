@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
@@ -17,6 +17,7 @@ class DatabaseService {
       if (_database != null) return _database!;
       if (!kIsWeb) {
         _database = await _initDatabase();
+        await _migrateToHeaderDetail(_database!);
       }
       return _database!;
     } catch (e) {
@@ -32,16 +33,51 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2, // バージョンアップ
       onCreate: _createDb,
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await _upgradeToV2(db);
+        }
+      },
     );
   }
 
+  Future<void> _upgradeToV2(Database db) async {
+    // games テーブルに session_id を追加
+    try {
+      await db.execute('ALTER TABLE games ADD COLUMN session_id INTEGER');
+    } catch (e) {
+      print('Column already exists or error: $e');
+    }
+    
+    // sessions テーブルを作成
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date TEXT NOT NULL,
+        group_id INTEGER,
+        p1_name TEXT, p2_name TEXT, p3_name TEXT, p4_name TEXT
+      )
+    ''');
+  }
+
   Future<void> _createDb(Database db, int version) async {
+    // Sessions table
+    await db.execute('''
+      CREATE TABLE sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date TEXT NOT NULL,
+        group_id INTEGER,
+        p1_name TEXT, p2_name TEXT, p3_name TEXT, p4_name TEXT
+      )
+    ''');
+
     // Games table
     await db.execute('''
       CREATE TABLE games (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id INTEGER,
         type TEXT NOT NULL,
         date TEXT NOT NULL,
         group_id INTEGER,
@@ -51,7 +87,8 @@ class DatabaseService {
         p1_tobi INTEGER, p2_tobi INTEGER, p3_tobi INTEGER, p4_tobi INTEGER,
         p1_pt INTEGER, p2_pt INTEGER, p3_pt INTEGER, p4_pt INTEGER,
         p1_rank INTEGER, p2_rank INTEGER, p3_rank INTEGER, p4_rank INTEGER,
-        p1_money INTEGER, p2_money INTEGER, p3_money INTEGER, p4_money INTEGER
+        p1_money INTEGER, p2_money INTEGER, p3_money INTEGER, p4_money INTEGER,
+        FOREIGN KEY (session_id) REFERENCES sessions (id) ON DELETE SET NULL
       )
     ''');
 
@@ -72,6 +109,120 @@ class DatabaseService {
         FOREIGN KEY (group_id) REFERENCES groups (id) ON DELETE CASCADE
       )
     ''');
+  }
+
+  /// Ver 1.7 データ移行: フラットな games をセッションに統合
+  Future<void> _migrateToHeaderDetail(dynamic dbSource) async {
+    // Web版 (SharedPreferences) とモバイル版 (sqflite) の両方に対応
+    final isWeb = kIsWeb;
+    final prefs = isWeb ? await SharedPreferences.getInstance() : null;
+    
+    if (isWeb) {
+      if (prefs!.getBool('migration_v17_done') == true) return;
+      final allGames = await _webQuery('web_db_games');
+      if (allGames.isEmpty) {
+        await prefs.setBool('migration_v17_done', true);
+        return;
+      }
+
+      final sessions = <Map<String, dynamic>>[];
+      int lastSessionId = 5000;
+
+      for (var game in allGames) {
+        if (game['session_id'] != null) continue;
+
+        final dateStr = (game['date'] as String).substring(0, 10).replaceAll('-', '/');
+        final names = [
+          (game['p1_name'] ?? '').toString().trim(),
+          (game['p2_name'] ?? '').toString().trim(),
+          (game['p3_name'] ?? '').toString().trim(),
+          (game['p4_name'] ?? '').toString().trim(),
+        ]..sort();
+
+        // 既存セッションの検索
+        int? sid;
+        for (var s in sessions) {
+          final sNames = [s['p1_name'], s['p2_name'], s['p3_name'], s['p4_name']]..sort();
+          if (s['date'] == dateStr && 
+              s['group_id'] == game['group_id'] && 
+              names.join(',') == sNames.join(',')) {
+            sid = s['id'];
+            break;
+          }
+        }
+
+        if (sid == null) {
+          lastSessionId++;
+          sid = lastSessionId;
+          final newNames = [
+            (game['p1_name'] ?? '').toString().trim(),
+            (game['p2_name'] ?? '').toString().trim(),
+            (game['p3_name'] ?? '').toString().trim(),
+            (game['p4_name'] ?? '').toString().trim(),
+          ];
+          sessions.add({
+            'id': sid,
+            'date': dateStr,
+            'group_id': game['group_id'],
+            'p1_name': newNames[0],
+            'p2_name': newNames[1],
+            'p3_name': newNames[2],
+            'p4_name': newNames[3],
+          });
+        }
+        game['session_id'] = sid;
+      }
+
+      await prefs.setString('web_db_sessions', jsonEncode(sessions));
+      await prefs.setString('web_db_games', jsonEncode(allGames));
+      await prefs.setBool('migration_v17_done', true);
+    } else {
+      final db = dbSource as Database;
+      final status = await db.query('sqlite_master', where: 'name = ?', whereArgs: ['migration_v17_done']);
+      // 簡易的なフラグ管理としてテーブル存在チェック等も可能だが、
+      // ここでは ALTER 後の session_id が NULL のものを処理する
+      final games = await db.query('games', where: 'session_id IS NULL');
+      if (games.isEmpty) return;
+
+      for (var game in games) {
+        final dateStr = (game['date'] as String).substring(0, 10).replaceAll('-', '/');
+        final names = [
+          (game['p1_name'] ?? '').toString().trim(),
+          (game['p2_name'] ?? '').toString().trim(),
+          (game['p3_name'] ?? '').toString().trim(),
+          (game['p4_name'] ?? '').toString().trim(),
+        ]..sort();
+
+        final sessionQuery = await db.query('sessions', 
+          where: 'date = ? AND group_id ${game['group_id'] == null ? 'IS NULL' : '= ?'}',
+          whereArgs: [dateStr, if (game['group_id'] != null) game['group_id']],
+        );
+
+        int? sid;
+        for (var s in sessionQuery) {
+          final sNames = [s['p1_name'], s['p2_name'], s['p3_name'], s['p4_name']]..sort();
+          if (names.join(',') == sNames.join(',')) { sid = s['id'] as int; break; }
+        }
+
+        if (sid == null) {
+          final rawNames = [
+            (game['p1_name'] ?? '').toString().trim(),
+            (game['p2_name'] ?? '').toString().trim(),
+            (game['p3_name'] ?? '').toString().trim(),
+            (game['p4_name'] ?? '').toString().trim(),
+          ];
+          sid = await db.insert('sessions', {
+            'date': dateStr,
+            'group_id': game['group_id'],
+            'p1_name': rawNames[0],
+            'p2_name': rawNames[1],
+            'p3_name': rawNames[2],
+            'p4_name': rawNames[3],
+          });
+        }
+        await db.update('games', {'session_id': sid}, where: 'id = ?', whereArgs: [game['id']]);
+      }
+    }
   }
 
   // Basic CRUD for Games
@@ -129,6 +280,8 @@ class DatabaseService {
   Future<void> updateGameGroupIdToNull(int groupId) async {
     if (kIsWeb) {
       final allGames = await _webQuery('web_db_games');
+      final allSessions = await _webQuery('web_db_sessions');
+      
       bool changed = false;
       for (var g in allGames) {
         if (g['group_id'] == groupId) {
@@ -136,14 +289,101 @@ class DatabaseService {
           changed = true;
         }
       }
+      for (var s in allSessions) {
+        if (s['group_id'] == groupId) {
+          s['group_id'] = null;
+          changed = true;
+        }
+      }
+      
       if (changed) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('web_db_games', jsonEncode(allGames));
+        await prefs.setString('web_db_sessions', jsonEncode(allSessions));
       }
       return;
     }
     final db = await database;
     await db.update('games', {'group_id': null}, where: 'group_id = ?', whereArgs: [groupId]);
+    await db.update('sessions', {'group_id': null}, where: 'group_id = ?', whereArgs: [groupId]);
+  }
+
+  // Session Management
+  Future<List<Map<String, dynamic>>> getSessions() async {
+    if (kIsWeb) return _webQuery('web_db_sessions');
+    final db = await database;
+    return await db.query('sessions', orderBy: 'date DESC');
+  }
+
+  Future<int> findOrCreateSession({
+    required String date, // YYYY/MM/DD
+    required List<String> playerNames,
+    int? groupId,
+  }) async {
+    final names = List<String>.from(playerNames.map((e) => e.trim()))..sort();
+    
+    if (kIsWeb) {
+      final sessions = await _webQuery('web_db_sessions');
+      for (var s in sessions) {
+        final sNames = [(s['p1_name']??''), (s['p2_name']??''), (s['p3_name']??''), (s['p4_name']??'')]..sort();
+        if (s['date'] == date && s['group_id'] == groupId && names.join(',') == sNames.join(',')) {
+          return s['id'];
+        }
+      }
+      // Create new
+      return _webInsert('web_db_sessions', {
+        'date': date,
+        'group_id': groupId,
+        'p1_name': playerNames[0],
+        'p2_name': playerNames[1],
+        'p3_name': playerNames[2],
+        'p4_name': playerNames.length > 3 ? playerNames[3] : '',
+      });
+    } else {
+      final db = await database;
+      final results = await db.query('sessions', 
+        where: 'date = ? AND group_id ${groupId == null ? 'IS NULL' : '= ?'}',
+        whereArgs: [date, if (groupId != null) groupId],
+      );
+      
+      for (var s in results) {
+        final sNames = [(s['p1_name']??''), (s['p2_name']??''), (s['p3_name']??''), (s['p4_name']??'')]..sort();
+        if (names.join(',') == sNames.join(',')) return s['id'] as int;
+      }
+      
+      return await db.insert('sessions', {
+        'date': date,
+        'group_id': groupId,
+        'p1_name': playerNames[0],
+        'p2_name': playerNames[1],
+        'p3_name': playerNames[2],
+        'p4_name': playerNames.length > 3 ? playerNames[3] : '',
+      });
+    }
+  }
+
+  Future<void> updateSessionGroupId(int sessionId, int? groupId) async {
+    if (kIsWeb) {
+      final sessions = await _webQuery('web_db_sessions');
+      final games = await _webQuery('web_db_games');
+      
+      final idx = sessions.indexWhere((e) => e['id'] == sessionId);
+      if (idx != -1) {
+        sessions[idx]['group_id'] = groupId;
+        for (var g in games) {
+          if (g['session_id'] == sessionId) {
+            g['group_id'] = groupId;
+          }
+        }
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('web_db_sessions', jsonEncode(sessions));
+        await prefs.setString('web_db_games', jsonEncode(games));
+      }
+    } else {
+      final db = await database;
+      await db.update('sessions', {'group_id': groupId}, where: 'id = ?', whereArgs: [sessionId]);
+      await db.update('games', {'group_id': groupId}, where: 'session_id = ?', whereArgs: [sessionId]);
+    }
   }
 
   // Basic CRUD for Groups
