@@ -151,7 +151,7 @@ class _GroupScreenState extends ConsumerState<GroupScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF004D40),
       appBar: AppBar(
-        title: Text('グループ管理', style: GoogleFonts.robotoMono(color: const Color(0xFF00FFC2), fontWeight: FontWeight.bold, fontSize: 16)),
+        title: Text('グループ管理', style: GoogleFonts.robotoMono(color: const Color(0xFF00FFC2), fontWeight: FontWeight.bold, fontSize: 22)),
         backgroundColor: Colors.black.withOpacity(0.3),
         elevation: 0,
       ),
@@ -305,7 +305,7 @@ class _MemberEditScreenState extends State<MemberEditScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF004D40),
       appBar: AppBar(
-        title: Text('${widget.groupName} のメンバー', style: GoogleFonts.robotoMono(color: const Color(0xFF00FFC2), fontWeight: FontWeight.bold, fontSize: 16)),
+        title: Text('${widget.groupName} のメンバー', style: GoogleFonts.robotoMono(color: const Color(0xFF00FFC2), fontWeight: FontWeight.bold, fontSize: 22)),
         backgroundColor: Colors.black.withOpacity(0.3),
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white70),

@@ -21,37 +21,40 @@ class CalcScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(configProvider);
+    final state = ref.watch(calcProvider);
     
     return Scaffold(
       backgroundColor: const Color(0xFF004D40),
       drawer: const MainDrawer(),
       appBar: AppBar(
+        leading: state.currentId != null 
+          ? IconButton(
+              icon: const Icon(Icons.arrow_back, color: Color(0xFF00FFC2)),
+              onPressed: () async {
+                final result = await Navigator.push(context, MaterialPageRoute(builder: (context) => const HistoryScreen()));
+                if (result != true) {
+                  ref.read(calcProvider.notifier).exitHistoryMode();
+                }
+              },
+            )
+          : null,
         title: GestureDetector(
           onTap: () => ref.read(calcProvider.notifier).resetGame(),
-          child: const FittedBox(fit: BoxFit.scaleDown, child: Text('麻雀スコア表', style: TextStyle(color: Color(0xFF00FFC2), fontWeight: FontWeight.bold, fontSize: 18.0))),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              state.currentId == null ? '麻雀スコア表' : '麻雀スコア表(履歴)',
+              style: const TextStyle(
+                color: Color(0xFF00FFC2),
+                fontWeight: FontWeight.bold,
+                fontSize: 22.0, // 一回り大きく (18.0 -> 22.0)
+              ),
+            ),
+          ),
         ),
         backgroundColor: Colors.black.withOpacity(0.3),
         elevation: 0,
         actions: [
-          // More compact 3P/4P Toggle
-          Padding(
-            padding: const EdgeInsets.only(right: 8.0, top: 12.0, bottom: 12.0),
-            child: ToggleButtons(
-              constraints: const BoxConstraints(minWidth: 40, minHeight: 30),
-              isSelected: [!config.isThreePlayer, config.isThreePlayer],
-              onPressed: (index) => ref.read(configProvider.notifier).updateIsThreePlayer(index == 1),
-              color: Colors.white60,
-              selectedColor: const Color(0xFF004D40),
-              fillColor: const Color(0xFF00FFC2),
-              borderColor: const Color(0xFF00FFC2).withOpacity(0.2),
-              selectedBorderColor: const Color(0xFF00FFC2).withOpacity(0.2),
-              borderRadius: BorderRadius.circular(20),
-              children: const [
-                Text('4人', style: TextStyle(fontSize: 11.0)),
-                Text('3人', style: TextStyle(fontSize: 11.0)),
-              ],
-            ),
-          ),
           IconButton(
             icon: const Icon(Icons.settings, color: Color(0xFF00FFC2), size: 18),
             padding: const EdgeInsets.symmetric(horizontal: 4.0),
@@ -183,21 +186,21 @@ class CalcScreen extends ConsumerWidget {
     showDialog(context: context, builder: (context) => AlertDialog(backgroundColor: const Color(0xFF001F1A), title: Text('全データをリセットしますか？', style: GoogleFonts.robotoMono(color: Colors.white, fontSize: 16)), content: Text('入力済みのスコアはすべて削除され、プレイヤー名も初期化されます。', style: GoogleFonts.robotoMono(color: Colors.white70, fontSize: 12)), actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text('キャンセル', style: GoogleFonts.robotoMono(color: Colors.white54))), TextButton(onPressed: () { ref.read(calcProvider.notifier).resetGame(); Navigator.pop(context); }, child: Text('リセット', style: GoogleFonts.robotoMono(color: const Color(0xFFFF5252), fontWeight: FontWeight.bold)))]));
   }
 
-  List<int> _buildUmaList(String umaText, bool isThreePlayer) {
+  List<int> _buildUmaList(String umaText) {
     final parts = umaText.split('-');
     if (parts.length == 2) {
       final a = int.tryParse(parts[0]) ?? 10;
       final b = int.tryParse(parts[1]) ?? 20;
-      return isThreePlayer ? [a + b, -a, -b] : [b, a, -a, -b];
+      return [b, a, -a, -b];
     }
-    return isThreePlayer ? [20, 0, -20] : [20, 10, -10, -20];
+    return [20, 10, -10, -20];
   }
 
   Widget _buildMainDataTable(BuildContext context, WidgetRef ref) {
     final state = ref.watch(calcProvider);
     final games = state.games;
     final config = ref.watch(configProvider);
-    final expectedPlayers = config.isThreePlayer ? 3 : 4;
+    const expectedPlayers = 4;
 
     return LayoutBuilder(builder: (context, constraints) {
       const double ctrlWidth = 35;
@@ -226,7 +229,7 @@ class CalcScreen extends ConsumerWidget {
                 final isValid = sum == config.targetTotalScore;
                 List<PlayerResult>? results;
                 if (isValid) {
-                  try { results = MahjongCalculator.calculate(inputs: game.inputs.where((p) => p.id <= expectedPlayers).toList(), rule: state.rule.copyWith(oka: config.oka, uma: _buildUmaList(config.umaText, config.isThreePlayer)), config: config, startingOyaIndex: game.startingOyaIndex); } catch (_) {}
+                  try { results = MahjongCalculator.calculate(inputs: game.inputs.where((p) => p.id <= expectedPlayers).toList(), rule: state.rule.copyWith(oka: config.oka, uma: _buildUmaList(config.umaText)), config: config, startingOyaIndex: game.startingOyaIndex); } catch (_) {}
                 }
                 return DataRow(onSelectChanged: (_) => _showEditModal(context, ref, game), cells: [
                   DataCell(SizedBox(width: ctrlWidth, child: Center(child: Text('${idx + 1}', style: const TextStyle(fontSize: 10, color: Colors.white24))))),
@@ -270,8 +273,7 @@ class CalcScreen extends ConsumerWidget {
 
   void _showYakumanDialog(BuildContext context, WidgetRef ref, GameRecord game, int winnerId) {
     final state = ref.read(calcProvider);
-    final config = ref.read(configProvider);
-    final players = config.isThreePlayer ? 3 : 4;
+    const players = 4;
     
     showDialog(context: context, builder: (ctx) => AlertDialog(
       backgroundColor: const Color(0xFF001F1A),
@@ -311,8 +313,7 @@ class CalcScreen extends ConsumerWidget {
 
   void _showTobiDialog(BuildContext context, WidgetRef ref, GameRecord game, int blownPlayerId) {
     final state = ref.read(calcProvider);
-    final config = ref.read(configProvider);
-    final players = config.isThreePlayer ? 3 : 4;
+    const players = 4;
     
     showDialog(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx, setState) {
       final updatedGame = ref.watch(calcProvider).games.firstWhere((g) => g.id == game.id);
@@ -351,7 +352,7 @@ class CalcScreen extends ConsumerWidget {
   }
 
   void _showEditModal(BuildContext context, WidgetRef ref, GameRecord game) {
-    final config = ref.read(configProvider); final players = config.isThreePlayer ? 3 : 4;
+    const players = 4;
     showModalBottomSheet(context: context, backgroundColor: const Color(0xFF001F1A), isScrollControlled: true, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (context) => Consumer(builder: (context, ref, child) {
         final updatedGame = ref.watch(calcProvider).games.firstWhere((g) => g.id == game.id);
         return Padding(padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 16, right: 16, top: 24), child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -388,11 +389,11 @@ class CalcScreen extends ConsumerWidget {
   }
 
   Widget _buildBottomSummaryFooter(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(calcProvider); final config = ref.watch(configProvider); final players = config.isThreePlayer ? 3 : 4;
+    final state = ref.watch(calcProvider); final config = ref.watch(configProvider); const players = 4;
     List<List<PlayerResult>> all = [];
     for (var g in state.games) {
         if (g.inputs.where((p) => p.id <= players).fold(0, (s, p) => s + p.score) == config.targetTotalScore) {
-            try { all.add(MahjongCalculator.calculate(inputs: g.inputs.where((p) => p.id <= players).toList(), rule: state.rule.copyWith(oka: config.oka, uma: _buildUmaList(config.umaText, config.isThreePlayer)), config: config)); } catch (_) {}
+            try { all.add(MahjongCalculator.calculate(inputs: g.inputs.where((p) => p.id <= players).toList(), rule: state.rule.copyWith(oka: config.oka, uma: _buildUmaList(config.umaText)), config: config)); } catch (_) {}
         }
     }
     final summaries = { for (int i = 1; i <= players; i++) i: {'pt': 0, 'chip': state.globalChips[i - 1]} };
@@ -458,7 +459,7 @@ class MainDrawer extends ConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 Text('麻雀スコア表', style: GoogleFonts.robotoMono(color: const Color(0xFF00FFC2), fontWeight: FontWeight.bold, fontSize: 20)),
-                const Text('Ver 1.2', style: TextStyle(color: Colors.white24, fontSize: 10)),
+                const Text('Ver 1.5', style: TextStyle(color: Colors.white24, fontSize: 10)),
               ],
             ),
           ),
@@ -478,7 +479,11 @@ class MainDrawer extends ConsumerWidget {
       onTap: () {
         Navigator.pop(context); // Close drawer
         if (screen != null) {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => screen));
+          Navigator.push(context, MaterialPageRoute(builder: (context) => screen)).then((result) {
+            if (screen is HistoryScreen && result != true) {
+              ref.read(calcProvider.notifier).exitHistoryMode();
+            }
+          });
         } else {
           // If no screen and it's "スコア計算", act as home button / reset game
           ref.read(calcProvider.notifier).resetGame();

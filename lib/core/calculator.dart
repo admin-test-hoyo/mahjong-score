@@ -212,7 +212,7 @@ class MahjongCalculator {
     required AppConfig config,
     int startingOyaIndex = 0,
   }) {
-    final expectedPlayers = config.isThreePlayer ? 3 : 4;
+    const expectedPlayers = 4;
     if (inputs.length != expectedPlayers) {
       throw ArgumentError('There must be exactly $expectedPlayers players.');
     }

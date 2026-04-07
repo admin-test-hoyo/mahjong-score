@@ -55,10 +55,24 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   Widget build(BuildContext context) {
     final history = ref.watch(historyProvider);
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF004D40),
-      appBar: AppBar(
-        title: Text('対局履歴', style: GoogleFonts.robotoMono(color: const Color(0xFF00FFC2), fontWeight: FontWeight.bold, fontSize: 16)),
+    return PopScope(
+      canPop: true,
+      onPopInvoked: (didPop) {
+        if (didPop) {
+          // Navigator.pop の戻り値を直接ここで取得することは難しいため、
+          // 呼び出し元の then や await での処理と合わせ、
+          // 万が一の漏れを防ぐためにここでも必要なら処理を行う。
+          // ただし、現在は各呼び出し元で exitHistoryMode を呼ぶ実装に寄せている。
+        }
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFF004D40),
+        appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF00FFC2)),
+          onPressed: () => Navigator.pop(context, false),
+        ),
+        title: Text('対局履歴', style: GoogleFonts.robotoMono(color: const Color(0xFF00FFC2), fontWeight: FontWeight.bold, fontSize: 22)),
         backgroundColor: Colors.black.withOpacity(0.3),
         elevation: 0,
         actions: [
@@ -141,7 +155,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                 return InkWell(
                   onTap: () {
                     ref.read(calcProvider.notifier).loadGame(game);
-                    Navigator.pop(context);
+                    Navigator.pop(context, true); // 選択時は true を返す
                   },
                   child: Dismissible(
                     key: Key(game.id.toString()),
@@ -152,11 +166,11 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                       color: Colors.redAccent.withOpacity(0.2),
                       child: const Icon(Icons.delete, color: Colors.redAccent),
                     ),
-                    onDismissed: (_) {
-                      ref.read(historyProvider.notifier).refresh();
-                      ref.read(calcProvider.notifier).resetGame();
-                      if (context.mounted) {
-                        Navigator.of(context).popUntil((route) => route.isFirst);
+                    onDismissed: (_) async {
+                      final currentId = ref.read(calcProvider).currentId;
+                      await ref.read(historyProvider.notifier).deleteGame(game.id!);
+                      if (currentId == game.id) {
+                        ref.read(calcProvider.notifier).resetToNewEntry();
                       }
                     },
                     child: Container(
@@ -176,15 +190,13 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: game.type == '3-player'
-                                      ? Colors.orangeAccent.withOpacity(0.2)
-                                      : Colors.blueAccent.withOpacity(0.2),
+                                  color: Colors.blueAccent.withOpacity(0.2),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
-                                child: Text(
-                                  game.type == '3-player' ? '3人' : '4人',
+                                child: const Text(
+                                  '4人',
                                   style: TextStyle(
-                                    color: game.type == '3-player' ? Colors.orangeAccent : Colors.blueAccent,
+                                    color: Colors.blueAccent,
                                     fontSize: 10,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -211,10 +223,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                     ),
                                   );
                                   if (confirmed == true) {
-                                    ref.read(historyProvider.notifier).deleteGame(game.id!);
-                                    ref.read(calcProvider.notifier).resetGame();
-                                    if (context.mounted) {
-                                      Navigator.of(context).popUntil((route) => route.isFirst);
+                                    final currentId = ref.read(calcProvider).currentId;
+                                    await ref.read(historyProvider.notifier).deleteGame(game.id!);
+                                    if (currentId == game.id) {
+                                      ref.read(calcProvider.notifier).resetToNewEntry();
                                     }
                                   }
                                 },
@@ -272,6 +284,6 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           return const Center(child: Text('対局履歴がありません', style: TextStyle(color: Colors.white24)));
         },
       ),
-    );
+    ));
   }
 }

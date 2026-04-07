@@ -58,6 +58,7 @@ class CalcState {
   final MahjongRule rule;
   final int? selectedGroupId;
   final int? currentId;
+  final String? preservedStateJson;
 
   const CalcState({
     this.playerNames = const ['A', 'B', 'C', 'D'],
@@ -66,6 +67,7 @@ class CalcState {
     this.rule = const MahjongRule(),
     this.selectedGroupId,
     this.currentId,
+    this.preservedStateJson,
   });
 
   CalcState copyWith({
@@ -75,6 +77,8 @@ class CalcState {
     MahjongRule? rule,
     int? selectedGroupId,
     int? currentId,
+    String? preservedStateJson,
+    bool clearPreserved = false,
   }) {
     return CalcState(
       playerNames: playerNames ?? this.playerNames,
@@ -83,6 +87,7 @@ class CalcState {
       rule: rule ?? this.rule,
       selectedGroupId: selectedGroupId ?? this.selectedGroupId,
       currentId: currentId ?? this.currentId,
+      preservedStateJson: clearPreserved ? null : (preservedStateJson ?? this.preservedStateJson),
     );
   }
 
@@ -93,6 +98,7 @@ class CalcState {
     'rule': rule.toJson(),
     'selectedGroupId': selectedGroupId,
     'currentId': currentId,
+    'preservedStateJson': preservedStateJson,
   };
 
   factory CalcState.fromJson(Map<String, dynamic> json) {
@@ -103,6 +109,7 @@ class CalcState {
       rule: json['rule'] != null ? MahjongRule.fromJson(json['rule'] as Map<String, dynamic>) : const MahjongRule(),
       selectedGroupId: json['selectedGroupId'] as int?,
       currentId: json['currentId'] as int?,
+      preservedStateJson: json['preservedStateJson'] as String?,
     );
   }
 }
@@ -254,9 +261,7 @@ class CalcNotifier extends Notifier<CalcState> {
 
   void setYakumanTsumo(String gameId, int winnerId) {
     final yakumanTsumoPrize = ref.read(configProvider).yakumanTsumoPrize;
-    final config = ref.read(configProvider);
-    final isThreePlayer = config.isThreePlayer;
-    final numPlayers = isThreePlayer ? 3 : 4;
+    const numPlayers = 4;
     final totalWin = yakumanTsumoPrize * (numPlayers - 1);
 
     final newGames = state.games.map((game) {
@@ -266,7 +271,6 @@ class CalcNotifier extends Notifier<CalcState> {
       final newInputs = game.inputs.map((p) {
         if (isAlreadySet) return p.copyWith(yakumanPt: 0);
         if (p.id == winnerId) return p.copyWith(yakumanPt: totalWin);
-        if (isThreePlayer && p.id == 4) return p.copyWith(yakumanPt: 0);
         return p.copyWith(yakumanPt: -yakumanTsumoPrize);
       }).toList();
       return game.copyWith(inputs: newInputs);
@@ -308,20 +312,20 @@ class CalcNotifier extends Notifier<CalcState> {
     state = state.copyWith(games: newGames);
   }
 
-  List<int> _buildUmaList(String umaText, bool isThreePlayer) {
+  List<int> _buildUmaList(String umaText) {
     final parts = umaText.split('-');
     if (parts.length == 2) {
       final a = int.tryParse(parts[0]) ?? 10;
       final b = int.tryParse(parts[1]) ?? 20;
-      return isThreePlayer ? [a + b, -a, -b] : [b, a, -a, -b];
+      return [b, a, -a, -b];
     }
-    return isThreePlayer ? [20, 0, -20] : [20, 10, -10, -20];
+    return [20, 10, -10, -20];
   }
 
   Future<SaveResult> saveCurrentSession(DateTime date) async {
     try {
       final config = ref.read(configProvider);
-      final players = config.isThreePlayer ? 3 : 4;
+      const players = 4;
       if (state.games.isEmpty) return SaveResult.failed;
 
       // Calculate final stats
@@ -333,7 +337,7 @@ class CalcNotifier extends Notifier<CalcState> {
               inputs: g.inputs.where((p) => p.id <= players).toList(),
               rule: state.rule.copyWith(
                 oka: config.oka,
-                uma: _buildUmaList(config.umaText, config.isThreePlayer),
+                uma: _buildUmaList(config.umaText),
               ),
               config: config,
             ));
@@ -379,7 +383,7 @@ class CalcNotifier extends Notifier<CalcState> {
 
       final Map<String, dynamic> row = {
         if (state.currentId != null) 'id': state.currentId,
-        'type': config.isThreePlayer ? '3-player' : '4-player',
+        'type': '4-player',
         'date': date.toIso8601String(),
         'group_id': state.selectedGroupId,
         'p1_name': state.playerNames[0],
@@ -419,7 +423,7 @@ class CalcNotifier extends Notifier<CalcState> {
       
       if (!isUpdate) {
         // 新規登録成功時は状態をリセットする（ユーザー指示）
-        resetSession();
+        resetToNewEntry();
       }
       return isUpdate ? SaveResult.updated : SaveResult.registered;
     } catch (e) {
@@ -429,17 +433,15 @@ class CalcNotifier extends Notifier<CalcState> {
   }
 
   void loadGame(SavedGame game) {
-    final is3P = game.type == '3-player';
-    
-    // Update config first
-    ref.read(configProvider.notifier).updateIsThreePlayer(is3P);
-    
     // Construct a single GameRecord from the aggregated scores
-    final inputs = List.generate(is3P ? 3 : 4, (i) => PlayerInput(
+    final inputs = List.generate(4, (i) => PlayerInput(
       id: i + 1,
       score: game.scores[i],
       tobiPt: game.tobis[i] ? -1 : 0,
     ));
+
+    // 新規入力中（currentId == null）であれば現在の状態を一時保存する
+    final currentPreserved = state.currentId == null ? jsonEncode(state.toJson()) : state.preservedStateJson;
 
     state = state.copyWith(
       currentId: game.id,
@@ -447,14 +449,41 @@ class CalcNotifier extends Notifier<CalcState> {
       globalChips: game.chips,
       games: [GameRecord(id: 'load_${game.id}', inputs: inputs)],
       selectedGroupId: game.groupId,
+      preservedStateJson: currentPreserved,
     );
   }
 
-  void resetSession() {
-    state = state.copyWith(
+  void resetToNewEntry() {
+    state = CalcState(
+      playerNames: const ['A', 'B', 'C', 'D'],
+      globalChips: const [0, 0, 0, 0],
+      games: const [],
+      rule: state.rule,
+      preservedStateJson: null, // 明示的なリセット時は一時保存もクリア
+    );
+  }
+
+  void exitHistoryMode() {
+    if (state.preservedStateJson != null) {
+      try {
+        final preserved = CalcState.fromJson(jsonDecode(state.preservedStateJson!));
+        // 中身だけ復元し、自分自身のバックアップ(preservedStateJson)はクリアする
+        state = preserved.copyWith(clearPreserved: true);
+        return;
+      } catch (e) {
+        print('Restore error: $e');
+      }
+    }
+    
+    // バックアップがない場合は通常通り ID のみ解除
+    state = CalcState(
+      playerNames: state.playerNames,
+      globalChips: state.globalChips,
+      games: state.games,
+      rule: state.rule,
+      selectedGroupId: state.selectedGroupId,
       currentId: null,
-      globalChips: [0, 0, 0, 0],
-      games: [],
+      preservedStateJson: null,
     );
   }
 }
@@ -508,14 +537,8 @@ class ConfigNotifier extends Notifier<AppConfig> {
     state = state.copyWith(oka: oka);
   }
 
-  void updateIsThreePlayer(bool isThreePlayer) {
-    final numPlayers = isThreePlayer ? 3 : 4;
-    final targetScore = state.startingPoints * numPlayers;
-    state = state.copyWith(isThreePlayer: isThreePlayer, targetTotalScore: targetScore);
-  }
-
   void updateStartingPoints(int startingPoints) {
-    final numPlayers = state.isThreePlayer ? 3 : 4;
+    const numPlayers = 4;
     final targetScore = startingPoints * numPlayers;
     state = state.copyWith(startingPoints: startingPoints, targetTotalScore: targetScore);
   }

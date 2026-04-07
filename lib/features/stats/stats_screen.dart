@@ -18,7 +18,6 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
   late TabController _tabController;
 
   // ── 個人分析 ──────────────────────────────────────────
-  bool _isThreePlayer = false;
   String? _selectedPlayer;
   int? _selectedGroupId;
   List<SavedGame> _allGames = [];
@@ -66,9 +65,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
 
   Future<void> _loadGames() async {
     final db = DatabaseService();
-    final rows = await db.getGames(
-      type: _isThreePlayer ? '3-player' : '4-player',
-    );
+    final rows = await db.getGames();
     _allGames = rows.map((e) => SavedGame.fromMap(e)).toList();
 
     if (_selectedGroupId != null) {
@@ -148,34 +145,11 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
             style: GoogleFonts.robotoMono(
               color: const Color(0xFF00FFC2),
               fontWeight: FontWeight.bold,
-              fontSize: 16,
+              fontSize: 22,
             ),
           ),
           backgroundColor: Colors.black.withOpacity(0.3),
           elevation: 0,
-          actions: [
-            Switch(
-              value: _isThreePlayer,
-              onChanged: (val) async {
-                setState(() => _isThreePlayer = val);
-                await _loadGames();
-                setState(() {});
-              },
-              activeColor: const Color(0xFF00BFA5),
-              activeTrackColor: const Color(0xFF00BFA5).withOpacity(0.3),
-              inactiveThumbColor: const Color(0xFF00BFA5),
-              inactiveTrackColor: const Color(0xFF00BFA5).withOpacity(0.3),
-            ),
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: Text(
-                  _isThreePlayer ? '3人' : '4人',
-                  style: const TextStyle(fontSize: 10, color: Colors.white70),
-                ),
-              ),
-            ),
-          ],
           bottom: TabBar(
             controller: _tabController,
             indicatorColor: const Color(0xFF00FFC2),
@@ -682,16 +656,15 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
               fontSize: 12,
               fontWeight: FontWeight.bold,
               color: Colors.black)),
-      if (!_isThreePlayer)
-        PieChartSectionData(
-            value: counts[4]!.toDouble(),
-            title: '4',
-            color: Colors.redAccent,
-            radius: 40,
-            titleStyle: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: Colors.black)),
+      PieChartSectionData(
+          value: counts[4]!.toDouble(),
+          title: '4',
+          color: Colors.redAccent,
+          radius: 40,
+          titleStyle: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: Colors.black)),
     ];
 
     return Container(
