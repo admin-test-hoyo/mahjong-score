@@ -5,7 +5,6 @@ class AppConfig {
   final bool roundingTenYen;
   final String umaText;
   final int oka;
-  final bool isThreePlayer;
   final int targetTotalScore;
   final int startingPoints;
   final int tobiPrize;
@@ -19,7 +18,6 @@ class AppConfig {
     this.roundingTenYen = true,
     this.umaText = '10-30',
     this.oka = 20,
-    this.isThreePlayer = false,
     this.targetTotalScore = 100000,
     this.startingPoints = 25000,
     this.tobiPrize = 10,
@@ -34,7 +32,6 @@ class AppConfig {
     bool? roundingTenYen,
     String? umaText,
     int? oka,
-    bool? isThreePlayer,
     int? targetTotalScore,
     int? startingPoints,
     int? tobiPrize,
@@ -48,7 +45,6 @@ class AppConfig {
       roundingTenYen: roundingTenYen ?? this.roundingTenYen,
       umaText: umaText ?? this.umaText,
       oka: oka ?? this.oka,
-      isThreePlayer: isThreePlayer ?? this.isThreePlayer,
       targetTotalScore: targetTotalScore ?? this.targetTotalScore,
       startingPoints: startingPoints ?? this.startingPoints,
       tobiPrize: tobiPrize ?? this.tobiPrize,
@@ -64,7 +60,6 @@ class AppConfig {
     'roundingTenYen': roundingTenYen,
     'umaText': umaText,
     'oka': oka,
-    'isThreePlayer': isThreePlayer,
     'targetTotalScore': targetTotalScore,
     'startingPoints': startingPoints,
     'tobiPrize': tobiPrize,
@@ -80,7 +75,6 @@ class AppConfig {
       roundingTenYen: json['roundingTenYen'] as bool? ?? true,
       umaText: json['umaText'] as String? ?? '10-30',
       oka: json['oka'] as int? ?? 20,
-      isThreePlayer: json['isThreePlayer'] as bool? ?? false,
       targetTotalScore: json['targetTotalScore'] as int? ?? 100000,
       startingPoints: json['startingPoints'] as int? ?? 25000,
       tobiPrize: json['tobiPrize'] as int? ?? 10,

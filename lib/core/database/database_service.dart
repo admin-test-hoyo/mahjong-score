@@ -97,13 +97,10 @@ class DatabaseService {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getGames({String? type, int? groupId}) async {
+  Future<List<Map<String, dynamic>>> getGames({int? groupId}) async {
     if (kIsWeb) {
       final allGames = await _webQuery('web_db_games');
       var filtered = allGames;
-      if (type != null) {
-        filtered = filtered.where((e) => e['type'] == type).toList();
-      }
       if (groupId != null) {
         filtered = filtered.where((e) => e['group_id'] == groupId).toList();
       }
@@ -115,13 +112,7 @@ class DatabaseService {
     String? where;
     List<dynamic>? whereArgs;
 
-    if (type != null && groupId != null) {
-      where = 'type = ? AND group_id = ?';
-      whereArgs = [type, groupId];
-    } else if (type != null) {
-      where = 'type = ?';
-      whereArgs = [type];
-    } else if (groupId != null) {
+    if (groupId != null) {
       where = 'group_id = ?';
       whereArgs = [groupId];
     }

@@ -254,9 +254,7 @@ class CalcNotifier extends Notifier<CalcState> {
 
   void setYakumanTsumo(String gameId, int winnerId) {
     final yakumanTsumoPrize = ref.read(configProvider).yakumanTsumoPrize;
-    final config = ref.read(configProvider);
-    final isThreePlayer = config.isThreePlayer;
-    final numPlayers = isThreePlayer ? 3 : 4;
+    const numPlayers = 4;
     final totalWin = yakumanTsumoPrize * (numPlayers - 1);
 
     final newGames = state.games.map((game) {
@@ -266,7 +264,6 @@ class CalcNotifier extends Notifier<CalcState> {
       final newInputs = game.inputs.map((p) {
         if (isAlreadySet) return p.copyWith(yakumanPt: 0);
         if (p.id == winnerId) return p.copyWith(yakumanPt: totalWin);
-        if (isThreePlayer && p.id == 4) return p.copyWith(yakumanPt: 0);
         return p.copyWith(yakumanPt: -yakumanTsumoPrize);
       }).toList();
       return game.copyWith(inputs: newInputs);
@@ -308,20 +305,20 @@ class CalcNotifier extends Notifier<CalcState> {
     state = state.copyWith(games: newGames);
   }
 
-  List<int> _buildUmaList(String umaText, bool isThreePlayer) {
+  List<int> _buildUmaList(String umaText) {
     final parts = umaText.split('-');
     if (parts.length == 2) {
       final a = int.tryParse(parts[0]) ?? 10;
       final b = int.tryParse(parts[1]) ?? 20;
-      return isThreePlayer ? [a + b, -a, -b] : [b, a, -a, -b];
+      return [b, a, -a, -b];
     }
-    return isThreePlayer ? [20, 0, -20] : [20, 10, -10, -20];
+    return [20, 10, -10, -20];
   }
 
   Future<SaveResult> saveCurrentSession(DateTime date) async {
     try {
       final config = ref.read(configProvider);
-      final players = config.isThreePlayer ? 3 : 4;
+      const players = 4;
       if (state.games.isEmpty) return SaveResult.failed;
 
       // Calculate final stats
@@ -333,7 +330,7 @@ class CalcNotifier extends Notifier<CalcState> {
               inputs: g.inputs.where((p) => p.id <= players).toList(),
               rule: state.rule.copyWith(
                 oka: config.oka,
-                uma: _buildUmaList(config.umaText, config.isThreePlayer),
+                uma: _buildUmaList(config.umaText),
               ),
               config: config,
             ));
@@ -379,7 +376,7 @@ class CalcNotifier extends Notifier<CalcState> {
 
       final Map<String, dynamic> row = {
         if (state.currentId != null) 'id': state.currentId,
-        'type': config.isThreePlayer ? '3-player' : '4-player',
+        'type': '4-player',
         'date': date.toIso8601String(),
         'group_id': state.selectedGroupId,
         'p1_name': state.playerNames[0],
@@ -429,13 +426,8 @@ class CalcNotifier extends Notifier<CalcState> {
   }
 
   void loadGame(SavedGame game) {
-    final is3P = game.type == '3-player';
-    
-    // Update config first
-    ref.read(configProvider.notifier).updateIsThreePlayer(is3P);
-    
     // Construct a single GameRecord from the aggregated scores
-    final inputs = List.generate(is3P ? 3 : 4, (i) => PlayerInput(
+    final inputs = List.generate(4, (i) => PlayerInput(
       id: i + 1,
       score: game.scores[i],
       tobiPt: game.tobis[i] ? -1 : 0,
@@ -508,14 +500,8 @@ class ConfigNotifier extends Notifier<AppConfig> {
     state = state.copyWith(oka: oka);
   }
 
-  void updateIsThreePlayer(bool isThreePlayer) {
-    final numPlayers = isThreePlayer ? 3 : 4;
-    final targetScore = state.startingPoints * numPlayers;
-    state = state.copyWith(isThreePlayer: isThreePlayer, targetTotalScore: targetScore);
-  }
-
   void updateStartingPoints(int startingPoints) {
-    final numPlayers = state.isThreePlayer ? 3 : 4;
+    const numPlayers = 4;
     final targetScore = startingPoints * numPlayers;
     state = state.copyWith(startingPoints: startingPoints, targetTotalScore: targetScore);
   }
