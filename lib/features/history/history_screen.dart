@@ -55,9 +55,19 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   Widget build(BuildContext context) {
     final history = ref.watch(historyProvider);
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF004D40),
-      appBar: AppBar(
+    return PopScope(
+      canPop: true,
+      onPopInvoked: (didPop) {
+        if (didPop) {
+          // Navigator.pop の戻り値を直接ここで取得することは難しいため、
+          // 呼び出し元の then や await での処理と合わせ、
+          // 万が一の漏れを防ぐためにここでも必要なら処理を行う。
+          // ただし、現在は各呼び出し元で exitHistoryMode を呼ぶ実装に寄せている。
+        }
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFF004D40),
+        appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Color(0xFF00FFC2)),
           onPressed: () => Navigator.pop(context, false),
@@ -274,6 +284,6 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           return const Center(child: Text('対局履歴がありません', style: TextStyle(color: Colors.white24)));
         },
       ),
-    );
+    ));
   }
 }

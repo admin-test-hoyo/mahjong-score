@@ -443,15 +443,23 @@ class CalcNotifier extends Notifier<CalcState> {
   }
 
   void resetToNewEntry() {
-    state = state.copyWith(
-      currentId: null,
-      globalChips: [0, 0, 0, 0],
-      games: [],
+    state = CalcState(
+      playerNames: const ['A', 'B', 'C', 'D'],
+      globalChips: const [0, 0, 0, 0],
+      games: const [],
+      rule: state.rule,
     );
   }
 
   void exitHistoryMode() {
-    state = state.copyWith(currentId: null);
+    state = CalcState(
+      playerNames: state.playerNames,
+      globalChips: state.globalChips,
+      games: state.games,
+      rule: state.rule,
+      selectedGroupId: state.selectedGroupId,
+      currentId: null,
+    );
   }
 }
 
