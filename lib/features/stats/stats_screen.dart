@@ -85,9 +85,9 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
       final db = DatabaseService();
       final data = await db.getGroupRanking(groupId);
       // デフォルトソート: 総Pt 降順
-      _sortColumnIndex = 2;
+      _sortColumnIndex = 1;
       _sortAscending = false;
-      _rankingData = _sortedData(data, 2, false);
+      _rankingData = _sortedData(data, 1, false);
     } catch (e) {
       debugPrint('Group ranking error: $e');
       _rankingData = [];

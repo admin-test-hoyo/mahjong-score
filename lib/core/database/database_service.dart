@@ -208,36 +208,26 @@ class DatabaseService {
   }
 
   /// グループ内全メンバーのスタッツを集計して返す。
-  /// 集計対象: 全参加者がグループメンバーに含まれる対局のみ（厳格フィルタ）。
+  /// 集計対象: group_idに依存せず、メンバー名が一致する全対局を対象とする。
   /// 返り値: メンバーごとの Map リスト（ソート前）
   Future<List<Map<String, dynamic>>> getGroupRanking(int groupId) async {
     // 1. メンバー名リストを取得
     final memberRows = await getMembers(groupId);
-    final memberNames = memberRows.map((e) => e['name'] as String).toSet();
+    final memberNames = memberRows.map((e) => e['name'] as String).toList();
 
     if (memberNames.isEmpty) return [];
+    final memberNameSet = memberNames.toSet();
 
-    // 2. グループ紐付きの全対局を取得（3人・4人両方）
+    // 2. 全対局を取得（group_idフィルタなし：名前で突き合わせる）
     List<Map<String, dynamic>> allRows;
     if (kIsWeb) {
       allRows = await _webQuery('web_db_games');
-      allRows = allRows.where((e) => e['group_id'] == groupId).toList();
     } else {
       final db = await database;
-      allRows = await db.query('games', where: 'group_id = ?', whereArgs: [groupId]);
+      allRows = await db.query('games');
     }
 
-    // 3. 厳格フィルタ：全参加者がメンバーに含まれる対局のみ
-    final filteredRows = allRows.where((row) {
-      final participants = <String>[];
-      for (final key in ['p1_name', 'p2_name', 'p3_name', 'p4_name']) {
-        final n = row[key];
-        if (n != null && (n as String).isNotEmpty) participants.add(n);
-      }
-      return participants.isNotEmpty && participants.every((n) => memberNames.contains(n));
-    }).toList();
-
-    // 4. メンバーごとに集計
+    // 3. メンバーごとに集計マップを初期化
     final Map<String, Map<String, dynamic>> stats = {};
     for (final name in memberNames) {
       stats[name] = {
@@ -252,17 +242,20 @@ class DatabaseService {
       };
     }
 
-    for (final row in filteredRows) {
+    // 4. 各対局をスキャンし、メンバー名が一致するスロットを集計
+    for (final row in allRows) {
       for (int i = 1; i <= 4; i++) {
-        final name = row['p${i}_name'] as String? ?? '';
-        if (name.isEmpty || !stats.containsKey(name)) continue;
+        final name = (row['p${i}_name'] as Object?)?.toString() ?? '';
+        if (name.isEmpty || !memberNameSet.contains(name)) continue;
         final s = stats[name]!;
         s['games'] = (s['games'] as int) + 1;
         s['totalPt'] = (s['totalPt'] as int) + ((row['p${i}_pt'] as num?)?.toInt() ?? 0);
         s['totalChip'] = (s['totalChip'] as int) + ((row['p${i}_ch'] as num?)?.toInt() ?? 0);
         final rank = (row['p${i}_rank'] as num?)?.toInt() ?? 1;
         s['rankSum'] = (s['rankSum'] as int) + rank;
-        if ((row['p${i}_tobi'] as num?)?.toInt() == 1) s['tobiCount'] = (s['tobiCount'] as int) + 1;
+        if ((row['p${i}_tobi'] as num?)?.toInt() == 1) {
+          s['tobiCount'] = (s['tobiCount'] as int) + 1;
+        }
         if (rank == 1) s['topCount'] = (s['topCount'] as int) + 1;
         if (rank <= 2) s['rentaiCount'] = (s['rentaiCount'] as int) + 1;
       }
