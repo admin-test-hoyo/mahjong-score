@@ -386,6 +386,48 @@ class DatabaseService {
     }
   }
 
+  Future<void> deleteHistoryBefore(String dateStr) async {
+    if (kIsWeb) {
+      final sessions = await _webQuery('web_db_sessions');
+      final games = await _webQuery('web_db_games');
+      
+      final sessionsToDelete = sessions.where((s) => (s['date'] as String).compareTo(dateStr) < 0).map((s) => s['id']).toSet();
+      
+      final newSessions = sessions.where((s) => !sessionsToDelete.contains(s['id'])).toList();
+      final newGames = games.where((g) => !sessionsToDelete.contains(g['session_id'])).toList();
+      
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('web_db_sessions', jsonEncode(newSessions));
+      await prefs.setString('web_db_games', jsonEncode(newGames));
+    } else {
+      final db = await database;
+      await db.transaction((txn) async {
+        // セッションIDを取得
+        final sessions = await txn.query('sessions', columns: ['id'], where: 'date < ?', whereArgs: [dateStr]);
+        final ids = sessions.map((s) => s['id']).toList();
+        if (ids.isNotEmpty) {
+          final idList = ids.join(',');
+          await txn.delete('games', where: 'session_id IN ($idList)');
+          await txn.delete('sessions', where: 'id IN ($idList)');
+        }
+      });
+    }
+  }
+
+  Future<void> deleteAllHistory() async {
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('web_db_sessions');
+      await prefs.remove('web_db_games');
+    } else {
+      final db = await database;
+      await db.transaction((txn) async {
+        await txn.delete('games');
+        await txn.delete('sessions');
+      });
+    }
+  }
+
   // Basic CRUD for Groups
   Future<int> insertGroup(String name) async {
     if (kIsWeb) return _webInsert('web_db_groups', {'name': name});

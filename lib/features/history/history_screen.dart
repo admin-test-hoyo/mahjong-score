@@ -65,6 +65,19 @@ class HistoryNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
     await db.updateSessionGroupId(sessionId, groupId);
     await refresh();
   }
+
+  Future<void> clearHistory({bool all = false, int months = 0}) async {
+    final db = DatabaseService();
+    if (all) {
+      await db.deleteAllHistory();
+    } else {
+      final now = DateTime.now();
+      final targetDate = DateTime(now.year, now.month - months, now.day);
+      final dateStr = DateFormat('yyyy/MM/dd').format(targetDate);
+      await db.deleteHistoryBefore(dateStr);
+    }
+    await refresh();
+  }
 }
 
 final historyProvider = AsyncNotifierProvider<HistoryNotifier, List<Map<String, dynamic>>>(() {
@@ -141,7 +154,11 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                 setState(() => _selectedDateRange = null);
               }
             },
-          )
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_sweep, color: Color(0xFF00FFC2), size: 18),
+            onPressed: () => _showCleanupDialog(context, ref),
+          ),
         ],
       ),
       body: history.when(
@@ -316,6 +333,75 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     ),
   );
 }
+
+  void _showCleanupDialog(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF001F1A),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('履歴のクリーンアップ', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            const Text('指定した期間より前のデータを削除します。', style: TextStyle(color: Colors.white54, fontSize: 12)),
+            const SizedBox(height: 20),
+            _cleanupOption(context, ref, '3ヶ月以上前を削除', 3),
+            _cleanupOption(context, ref, '6ヶ月以上前を削除', 6),
+            _cleanupOption(context, ref, '1年以上前を削除', 12),
+            const Divider(color: Colors.white10),
+            ListTile(
+              leading: const Icon(Icons.delete_forever, color: Colors.redAccent),
+              title: const Text('すべての履歴を削除', style: TextStyle(color: Colors.redAccent)),
+              onTap: () => _confirmAndClear(context, ref, all: true),
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _cleanupOption(BuildContext context, WidgetRef ref, String label, int months) {
+    return ListTile(
+      leading: const Icon(Icons.history, color: Color(0xFF00FFC2)),
+      title: Text(label, style: const TextStyle(color: Colors.white70)),
+      onTap: () => _confirmAndClear(context, ref, months: months),
+    );
+  }
+
+  void _confirmAndClear(BuildContext context, WidgetRef ref, {bool all = false, int months = 0}) async {
+    Navigator.pop(context); // Close bottom sheet
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF001F1A),
+        title: const Text('削除の確認', style: TextStyle(color: Colors.white, fontSize: 16)),
+        content: Text(
+          all ? '本当にすべての対局履歴を削除しますか？\nこの操作は取り消せません。' : '$monthsヶ月以上前の履歴を削除しますか？',
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('キャンセル', style: TextStyle(color: Colors.white54))),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('削除する', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await ref.read(historyProvider.notifier).clearHistory(all: all, months: months);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('履歴を削除しました'), backgroundColor: Colors.black87),
+        );
+      }
+    }
+  }
 
   void _showGroupAssignmentDialog(BuildContext context, WidgetRef ref, Session session) async {
     final db = DatabaseService();
