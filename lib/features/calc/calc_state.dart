@@ -449,6 +449,10 @@ class CalcNotifier extends Notifier<CalcState> {
       games: [],
     );
   }
+
+  void exitHistoryMode() {
+    state = state.copyWith(currentId: null);
+  }
 }
 
 final calcProvider = NotifierProvider<CalcNotifier, CalcState>(() {

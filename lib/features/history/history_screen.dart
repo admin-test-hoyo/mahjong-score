@@ -58,6 +58,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF004D40),
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF00FFC2)),
+          onPressed: () => Navigator.pop(context, false),
+        ),
         title: Text('対局履歴', style: GoogleFonts.robotoMono(color: const Color(0xFF00FFC2), fontWeight: FontWeight.bold, fontSize: 22)),
         backgroundColor: Colors.black.withOpacity(0.3),
         elevation: 0,
@@ -141,7 +145,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                 return InkWell(
                   onTap: () {
                     ref.read(calcProvider.notifier).loadGame(game);
-                    Navigator.pop(context);
+                    Navigator.pop(context, true); // 選択時は true を返す
                   },
                   child: Dismissible(
                     key: Key(game.id.toString()),

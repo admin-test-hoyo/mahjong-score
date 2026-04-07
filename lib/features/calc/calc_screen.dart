@@ -30,9 +30,11 @@ class CalcScreen extends ConsumerWidget {
         leading: state.currentId != null 
           ? IconButton(
               icon: const Icon(Icons.arrow_back, color: Color(0xFF00FFC2)),
-              onPressed: () {
-                ref.read(calcProvider.notifier).resetToNewEntry();
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const HistoryScreen()));
+              onPressed: () async {
+                final result = await Navigator.push(context, MaterialPageRoute(builder: (context) => const HistoryScreen()));
+                if (result != true) {
+                  ref.read(calcProvider.notifier).exitHistoryMode();
+                }
               },
             )
           : null,
@@ -477,7 +479,11 @@ class MainDrawer extends ConsumerWidget {
       onTap: () {
         Navigator.pop(context); // Close drawer
         if (screen != null) {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => screen));
+          Navigator.push(context, MaterialPageRoute(builder: (context) => screen)).then((result) {
+            if (screen is HistoryScreen && result != true) {
+              ref.read(calcProvider.notifier).exitHistoryMode();
+            }
+          });
         } else {
           // If no screen and it's "スコア計算", act as home button / reset game
           ref.read(calcProvider.notifier).resetGame();
