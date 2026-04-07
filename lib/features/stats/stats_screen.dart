@@ -81,10 +81,10 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
     try {
       final db = DatabaseService();
       final data = await db.getGroupRanking(groupId);
-      // デフォルトソート: 総Pt 降順
-      _sortColumnIndex = 1;
+      // デフォルトソート: 総Pt (インデックス 2) 降順
+      _sortColumnIndex = 2;
       _sortAscending = false;
-      _rankingData = _sortedData(data, 1, false);
+      _rankingData = _sortedData(data, 2, false);
     } catch (e) {
       debugPrint('Group ranking error: $e');
       _rankingData = [];
@@ -383,7 +383,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
               ),
               // 列5: 平均順位
               DataColumn(
-                label: const Text('平均順'),
+                label: const Text('平均順位'),
                 numeric: true,
                 onSort: (col, asc) => _onSort(col, asc),
               ),
@@ -569,13 +569,20 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
       avgRank += g.ranks[idx];
       totalPt += g.points[idx];
       totalChips += g.chips[idx];
+      
+      // 収支 (マネー): DB 保存値をそのまま合算
       totalMoney += g.moneys[idx];
-      if (g.tobis[idx]) tobiCount++;
+      
+      // トび判定: 指示通り「点数が0未満」で判定
+      if (g.scores[idx] < 0) tobiCount++;
+      
       if (g.ranks[idx] == 1) topCount++;
       if (g.ranks[idx] <= 2) rentaiCount++;
     }
 
     avgRank /= totalGames;
+    // 指示名に基づき 1着% と表記しても良いが、UI項目名は「トップ率」として定義されているため維持または修正。
+    // ここではロジックの正確性を優先。
     final winRate = (topCount / totalGames * 100).toStringAsFixed(1);
     final rentaiRate = (rentaiCount / totalGames * 100).toStringAsFixed(1);
     final tobiRate = (tobiCount / totalGames * 100).toStringAsFixed(1);

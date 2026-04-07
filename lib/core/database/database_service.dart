@@ -239,7 +239,9 @@ class DatabaseService {
     // 4. 各対局をスキャンし、メンバー名が一致するスロットを集計
     for (final row in allRows) {
       final dateStr = (row['date'] as String?) ?? '';
-      final sessionDay = dateStr.length >= 10 ? dateStr.substring(0, 10) : dateStr;
+      // YYYY-MM-DD を YYYY/MM/DD に変換（指示通り）
+      String sessionDay = dateStr.length >= 10 ? dateStr.substring(0, 10) : dateStr;
+      sessionDay = sessionDay.replaceAll('-', '/');
 
       for (int i = 1; i <= 4; i++) {
         final rawName = (row['p${i}_name'] as Object?)?.toString() ?? '';
@@ -251,15 +253,19 @@ class DatabaseService {
         s['totalPt'] = (s['totalPt'] as int) + ((row['p${i}_pt'] as num?)?.toInt() ?? 0);
         s['totalChip'] = (s['totalChip'] as int) + ((row['p${i}_ch'] as num?)?.toInt() ?? 0);
         
-        // 収支 (マネー) の集計
+        // 収支 (マネー) の集計: 指示通り DB 保存値をそのまま合算
         final money = (row['p${i}_money'] as num?)?.toInt() ?? 0;
         s['totalMoney'] = (s['totalMoney'] as int) + money;
         
         final rank = (row['p${i}_rank'] as num?)?.toInt() ?? 1;
         s['rankSum'] = (s['rankSum'] as int) + rank;
-        if ((row['p${i}_tobi'] as num?)?.toInt() == 1) {
+        
+        // トび判定: 指示通り「点数が0未満」で判定
+        final score = (row['p${i}_score'] as num?)?.toInt() ?? 0;
+        if (score < 0) {
           s['tobiCount'] = (s['tobiCount'] as int) + 1;
         }
+        
         if (rank == 1) s['topCount'] = (s['topCount'] as int) + 1;
         if (rank <= 2) s['rentaiCount'] = (s['rentaiCount'] as int) + 1;
 
