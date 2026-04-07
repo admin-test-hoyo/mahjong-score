@@ -30,7 +30,10 @@ class CalcScreen extends ConsumerWidget {
         leading: state.currentId != null 
           ? IconButton(
               icon: const Icon(Icons.arrow_back, color: Color(0xFF00FFC2)),
-              onPressed: () => ref.read(calcProvider.notifier).resetToNewEntry(),
+              onPressed: () {
+                ref.read(calcProvider.notifier).resetToNewEntry();
+                Navigator.push(context, MaterialPageRoute(builder: (context) => const HistoryScreen()));
+              },
             )
           : null,
         title: GestureDetector(
