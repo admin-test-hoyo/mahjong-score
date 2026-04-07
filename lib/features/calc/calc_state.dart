@@ -328,112 +328,106 @@ class CalcNotifier extends Notifier<CalcState> {
       const players = 4;
       if (state.games.isEmpty) return SaveResult.failed;
 
-      // Calculate final stats
-      List<List<PlayerResult>> allResults = [];
-      for (var g in state.games) {
-        if (g.inputs.where((p) => p.id <= players).fold(0, (s, p) => s + p.score) == config.targetTotalScore) {
-          try {
-            allResults.add(MahjongCalculator.calculate(
-              inputs: g.inputs.where((p) => p.id <= players).toList(),
-              rule: state.rule.copyWith(
-                oka: config.oka,
-                uma: _buildUmaList(config.umaText),
-              ),
-              config: config,
-            ));
-          } catch (_) {}
-        }
-      }
-
-      if (allResults.isEmpty) return SaveResult.failed;
-
-      final summaries = { for (int i = 1; i <= players; i++) i: {'pt': 0, 'chip': state.globalChips[i - 1], 'tobi': 0, 'score': 0, 'money': 0} };
-      for (var res in allResults) {
-        for (var p in res) {
-          summaries[p.id]!['pt'] = (summaries[p.id]!['pt']! as int) + p.finalPoint.toInt();
-          // p.money は (Pt * rate) + (チップ * chipRate) - (場代/4) ですでに計算・丸められている
-          // ここにセッション全体のチップを加算するため、まずは各ゲームの結果（チップ抜き）を累積する
-          summaries[p.id]!['money'] = (summaries[p.id]!['money']! as int) + p.money;
-        }
-      }
-
-      // セッション全体のチップ分を収支に反映させる
-      for (int i = 1; i <= players; i++) {
-        final sessionChip = summaries[i]!['chip'] as int;
-        final chipValue = sessionChip * config.chipRate;
-        summaries[i]!['money'] = (summaries[i]!['money'] as int) + chipValue;
-      }
-
-      // Sum raw scores from all valid games
-      for (var g in state.games) {
-        if (g.inputs.where((p) => p.id <= players).fold(0, (s, p) => s + p.score) == config.targetTotalScore) {
-          for (var inp in g.inputs) {
-            if (inp.id <= players) {
-              summaries[inp.id]!['score'] = (summaries[inp.id]!['score']! as int) + inp.score;
-            }
-          }
-        }
-      }
-      
-      // Check for tobis
-      for (int i = 1; i <= players; i++) {
-         bool isTobi = false;
-         for (var g in state.games) {
-           if (g.inputs.any((inp) => inp.id == i && (inp.tobiPt < 0))) isTobi = true;
-         }
-         summaries[i]!['tobi'] = isTobi ? 1 : 0;
-      }
-
-      // Final Ranks based on cumulative Pt
-      final sortedIds = summaries.keys.toList()
-        ..sort((a, b) => (summaries[b]!['pt']! as int).compareTo(summaries[a]!['pt']! as int));
-      
-      final ranks = { for (int i = 1; i <= players; i++) i: sortedIds.indexOf(i) + 1 };
-
-      final Map<String, dynamic> row = {
-        if (state.currentId != null) 'id': state.currentId,
-        'type': '4-player',
-        'date': date.toIso8601String(),
-        'group_id': state.selectedGroupId,
-        'p1_name': state.playerNames[0],
-        'p2_name': state.playerNames[1],
-        'p3_name': state.playerNames[2],
-        'p4_name': players == 4 ? state.playerNames[3] : "",
-        'p1_score': (summaries[1]?['score'] ?? 0) as int,
-        'p2_score': (summaries[2]?['score'] ?? 0) as int,
-        'p3_score': (summaries[3]?['score'] ?? 0) as int,
-        'p4_score': players == 4 ? ((summaries[4]?['score'] ?? 0) as int) : 0,
-        'p1_pt': (summaries[1]?['pt'] ?? 0) as int,
-        'p2_pt': (summaries[2]?['pt'] ?? 0) as int,
-        'p3_pt': (summaries[3]?['pt'] ?? 0) as int,
-        'p4_pt': players == 4 ? ((summaries[4]?['pt'] ?? 0) as int) : 0,
-        'p1_ch': (summaries[1]?['chip'] ?? 0) as int,
-        'p2_ch': (summaries[2]?['chip'] ?? 0) as int,
-        'p3_ch': (summaries[3]?['chip'] ?? 0) as int,
-        'p4_ch': players == 4 ? ((summaries[4]?['chip'] ?? 0) as int) : 0,
-        'p1_tobi': (summaries[1]?['tobi'] ?? 0) as int,
-        'p2_tobi': (summaries[2]?['tobi'] ?? 0) as int,
-        'p3_tobi': (summaries[3]?['tobi'] ?? 0) as int,
-        'p4_tobi': players == 4 ? ((summaries[4]?['tobi'] ?? 0) as int) : 0,
-        'p1_rank': ranks[1],
-        'p2_rank': ranks[2],
-        'p3_rank': ranks[3],
-        'p4_rank': players == 4 ? ranks[4] : 0,
-        'p1_money': (summaries[1]?['money'] ?? 0) as int,
-        'p2_money': (summaries[2]?['money'] ?? 0) as int,
-        'p3_money': (summaries[3]?['money'] ?? 0) as int,
-        'p4_money': players == 4 ? ((summaries[4]?['money'] ?? 0) as int) : 0,
-      };
-
       final db = DatabaseService();
       final isUpdate = state.currentId != null;
-      print('Saving session: $row'); // Debug log
-      final id = await db.upsertGame(row);
-      
-      if (!isUpdate) {
-        // 新規登録成功時は状態をリセットする（ユーザー指示）
-        resetToNewEntry();
+
+      // セッション内の各有効なゲーム（半荘）ごとにレコードを保存する
+      int savedCount = 0;
+      for (int i = 0; i < state.games.length; i++) {
+        final g = state.games[i];
+        
+        // スコア合計が正しいゲームのみを対象とする
+        if (g.inputs.where((p) => p.id <= players).fold(0, (s, p) => s + p.score) != config.targetTotalScore) {
+          continue;
+        }
+
+        try {
+          final result = MahjongCalculator.calculate(
+            inputs: g.inputs.where((p) => p.id <= players).toList(),
+            rule: state.rule.copyWith(
+              oka: config.oka,
+              uma: _buildUmaList(config.umaText),
+            ),
+            config: config,
+            startingOyaIndex: g.startingOyaIndex,
+          );
+
+          // セッション全体のチップ分を「最初の1ゲーム目」にのみ反映させて、
+          // 統計としての総和（totalBalance）に齟齬が出ないように調整する。
+          final sessionChips = (i == 0) ? state.globalChips : const [0, 0, 0, 0];
+
+          Map<String, int> sessionMoneys = {};
+          for (var r in result) {
+            final chipVal = sessionChips[r.id - 1] * config.chipRate;
+            sessionMoneys[r.id.toString()] = r.money + chipVal;
+          }
+
+          final Map<String, dynamic> row = {
+            // 更新時(currentIdあり)でも、セッションをバラして保存するため
+            // 既存の1行を上書きするのではなく、連番で保存し直す仕様に寄せる場合は
+            // 古いIDを消してから再作成するか、検討が必要。
+            // ここでは「常に個別の半荘として保存」を優先。
+            'type': '4-player',
+            'date': date.toIso8601String(),
+            'group_id': state.selectedGroupId,
+            'p1_name': state.playerNames[0],
+            'p2_name': state.playerNames[1],
+            'p3_name': state.playerNames[2],
+            'p4_name': players == 4 ? state.playerNames[3] : "",
+            'p1_score': g.inputs.firstWhere((p) => p.id == 1).score,
+            'p2_score': g.inputs.firstWhere((p) => p.id == 2).score,
+            'p3_score': g.inputs.firstWhere((p) => p.id == 3).score,
+            'p4_score': players == 4 ? g.inputs.firstWhere((p) => p.id == 4).score : 0,
+            'p1_pt': result.firstWhere((r) => r.id == 1).finalPoint,
+            'p2_pt': result.firstWhere((r) => r.id == 2).finalPoint,
+            'p3_pt': result.firstWhere((r) => r.id == 3).finalPoint,
+            'p4_pt': players == 4 ? result.firstWhere((r) => r.id == 4).finalPoint : 0,
+            'p1_ch': sessionChips[0],
+            'p2_ch': sessionChips[1],
+            'p3_ch': sessionChips[2],
+            'p4_ch': players == 4 ? sessionChips[3] : 0,
+            'p1_tobi': g.inputs.firstWhere((p) => p.id == 1).score < 0 ? 1 : 0,
+            'p2_tobi': g.inputs.firstWhere((p) => p.id == 2).score < 0 ? 1 : 0,
+            'p3_tobi': g.inputs.firstWhere((p) => p.id == 3).score < 0 ? 1 : 0,
+            'p4_tobi': (players == 4 && g.inputs.firstWhere((p) => p.id == 4).score < 0) ? 1 : 0,
+            'p1_rank': result.firstWhere((r) => r.id == 1).money >= 0 ? 1 : 2, // 暫定。MahjongCalculatorが順位を返さないため。
+            // 実際にはCalculator内部でソートした順を使用すべきだが、後段の統計で再計算されるため
+            // ここではPtに応じて rank をセットする。
+          };
+          
+          // 正確な順位を計算
+          final sortedByPt = List<PlayerResult>.from(result)..sort((a, b) => b.finalPoint.compareTo(a.finalPoint));
+          row['p1_rank'] = sortedByPt.indexWhere((r) => r.id == 1) + 1;
+          row['p2_rank'] = sortedByPt.indexWhere((r) => r.id == 2) + 1;
+          row['p3_rank'] = sortedByPt.indexWhere((r) => r.id == 3) + 1;
+          if (players == 4) {
+            row['p4_rank'] = sortedByPt.indexWhere((r) => r.id == 4) + 1;
+          }
+
+          // 収支 (Money)
+          row['p1_money'] = sessionMoneys['1'];
+          row['p2_money'] = sessionMoneys['2'];
+          row['p3_money'] = sessionMoneys['3'];
+          if (players == 4) {
+            row['p4_money'] = sessionMoneys['4'];
+          }
+
+          await db.insertGame(row);
+          savedCount++;
+        } catch (e) {
+          print('Error saving individual game $i: $e');
+        }
       }
+
+      if (savedCount == 0) return SaveResult.failed;
+
+      // 更新モードだった場合は、古いセッションを（便宜上）残すか消すか。
+      // 指示は「完全正常化」なので、重複を避けるために古い ID のレコードを消す処理を追加。
+      if (isUpdate && state.currentId != null) {
+         await db.deleteGame(state.currentId!);
+      }
+
+      resetToNewEntry();
       return isUpdate ? SaveResult.updated : SaveResult.registered;
     } catch (e) {
       print('Save error: $e');
