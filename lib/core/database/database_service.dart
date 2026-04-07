@@ -207,6 +207,86 @@ class DatabaseService {
     return names.toList()..sort();
   }
 
+  /// グループ内全メンバーのスタッツを集計して返す。
+  /// 集計対象: 全参加者がグループメンバーに含まれる対局のみ（厳格フィルタ）。
+  /// 返り値: メンバーごとの Map リスト（ソート前）
+  Future<List<Map<String, dynamic>>> getGroupRanking(int groupId) async {
+    // 1. メンバー名リストを取得
+    final memberRows = await getMembers(groupId);
+    final memberNames = memberRows.map((e) => e['name'] as String).toSet();
+
+    if (memberNames.isEmpty) return [];
+
+    // 2. グループ紐付きの全対局を取得（3人・4人両方）
+    List<Map<String, dynamic>> allRows;
+    if (kIsWeb) {
+      allRows = await _webQuery('web_db_games');
+      allRows = allRows.where((e) => e['group_id'] == groupId).toList();
+    } else {
+      final db = await database;
+      allRows = await db.query('games', where: 'group_id = ?', whereArgs: [groupId]);
+    }
+
+    // 3. 厳格フィルタ：全参加者がメンバーに含まれる対局のみ
+    final filteredRows = allRows.where((row) {
+      final participants = <String>[];
+      for (final key in ['p1_name', 'p2_name', 'p3_name', 'p4_name']) {
+        final n = row[key];
+        if (n != null && (n as String).isNotEmpty) participants.add(n);
+      }
+      return participants.isNotEmpty && participants.every((n) => memberNames.contains(n));
+    }).toList();
+
+    // 4. メンバーごとに集計
+    final Map<String, Map<String, dynamic>> stats = {};
+    for (final name in memberNames) {
+      stats[name] = {
+        'name': name,
+        'games': 0,
+        'totalPt': 0,
+        'totalChip': 0,
+        'rankSum': 0,
+        'topCount': 0,
+        'rentaiCount': 0,
+        'tobiCount': 0,
+      };
+    }
+
+    for (final row in filteredRows) {
+      for (int i = 1; i <= 4; i++) {
+        final name = row['p${i}_name'] as String? ?? '';
+        if (name.isEmpty || !stats.containsKey(name)) continue;
+        final s = stats[name]!;
+        s['games'] = (s['games'] as int) + 1;
+        s['totalPt'] = (s['totalPt'] as int) + ((row['p${i}_pt'] as num?)?.toInt() ?? 0);
+        s['totalChip'] = (s['totalChip'] as int) + ((row['p${i}_ch'] as num?)?.toInt() ?? 0);
+        final rank = (row['p${i}_rank'] as num?)?.toInt() ?? 1;
+        s['rankSum'] = (s['rankSum'] as int) + rank;
+        if ((row['p${i}_tobi'] as num?)?.toInt() == 1) s['tobiCount'] = (s['tobiCount'] as int) + 1;
+        if (rank == 1) s['topCount'] = (s['topCount'] as int) + 1;
+        if (rank <= 2) s['rentaiCount'] = (s['rentaiCount'] as int) + 1;
+      }
+    }
+
+    // 5. 派生値を計算して最終リストに変換
+    return stats.values.map((s) {
+      final games = s['games'] as int;
+      final totalPt = s['totalPt'] as int;
+      final totalChip = s['totalChip'] as int;
+      return {
+        'name': s['name'],
+        'games': games,
+        'totalPt': totalPt,
+        'totalChip': totalChip,
+        'totalScore': totalPt + totalChip,
+        'avgRank': games > 0 ? (s['rankSum'] as int) / games : 0.0,
+        'topRate': games > 0 ? (s['topCount'] as int) / games * 100 : 0.0,
+        'rentaiRate': games > 0 ? (s['rentaiCount'] as int) / games * 100 : 0.0,
+        'tobiRate': games > 0 ? (s['tobiCount'] as int) / games * 100 : 0.0,
+      };
+    }).toList();
+  }
+
   // Basic CRUD for Members
   Future<int> insertMember(int groupId, String name) async {
     if (kIsWeb) return _webInsert('web_db_group_members', {'group_id': groupId, 'name': name});
