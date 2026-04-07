@@ -58,6 +58,7 @@ class CalcState {
   final MahjongRule rule;
   final int? selectedGroupId;
   final int? currentId;
+  final String? preservedStateJson;
 
   const CalcState({
     this.playerNames = const ['A', 'B', 'C', 'D'],
@@ -66,6 +67,7 @@ class CalcState {
     this.rule = const MahjongRule(),
     this.selectedGroupId,
     this.currentId,
+    this.preservedStateJson,
   });
 
   CalcState copyWith({
@@ -75,6 +77,8 @@ class CalcState {
     MahjongRule? rule,
     int? selectedGroupId,
     int? currentId,
+    String? preservedStateJson,
+    bool clearPreserved = false,
   }) {
     return CalcState(
       playerNames: playerNames ?? this.playerNames,
@@ -83,6 +87,7 @@ class CalcState {
       rule: rule ?? this.rule,
       selectedGroupId: selectedGroupId ?? this.selectedGroupId,
       currentId: currentId ?? this.currentId,
+      preservedStateJson: clearPreserved ? null : (preservedStateJson ?? this.preservedStateJson),
     );
   }
 
@@ -93,6 +98,7 @@ class CalcState {
     'rule': rule.toJson(),
     'selectedGroupId': selectedGroupId,
     'currentId': currentId,
+    'preservedStateJson': preservedStateJson,
   };
 
   factory CalcState.fromJson(Map<String, dynamic> json) {
@@ -103,6 +109,7 @@ class CalcState {
       rule: json['rule'] != null ? MahjongRule.fromJson(json['rule'] as Map<String, dynamic>) : const MahjongRule(),
       selectedGroupId: json['selectedGroupId'] as int?,
       currentId: json['currentId'] as int?,
+      preservedStateJson: json['preservedStateJson'] as String?,
     );
   }
 }
@@ -433,12 +440,16 @@ class CalcNotifier extends Notifier<CalcState> {
       tobiPt: game.tobis[i] ? -1 : 0,
     ));
 
+    // 新規入力中（currentId == null）であれば現在の状態を一時保存する
+    final currentPreserved = state.currentId == null ? jsonEncode(state.toJson()) : state.preservedStateJson;
+
     state = state.copyWith(
       currentId: game.id,
       playerNames: game.playerNames,
       globalChips: game.chips,
       games: [GameRecord(id: 'load_${game.id}', inputs: inputs)],
       selectedGroupId: game.groupId,
+      preservedStateJson: currentPreserved,
     );
   }
 
@@ -448,10 +459,23 @@ class CalcNotifier extends Notifier<CalcState> {
       globalChips: const [0, 0, 0, 0],
       games: const [],
       rule: state.rule,
+      preservedStateJson: null, // 明示的なリセット時は一時保存もクリア
     );
   }
 
   void exitHistoryMode() {
+    if (state.preservedStateJson != null) {
+      try {
+        final preserved = CalcState.fromJson(jsonDecode(state.preservedStateJson!));
+        // 中身だけ復元し、自分自身のバックアップ(preservedStateJson)はクリアする
+        state = preserved.copyWith(clearPreserved: true);
+        return;
+      } catch (e) {
+        print('Restore error: $e');
+      }
+    }
+    
+    // バックアップがない場合は通常通り ID のみ解除
     state = CalcState(
       playerNames: state.playerNames,
       globalChips: state.globalChips,
@@ -459,6 +483,7 @@ class CalcNotifier extends Notifier<CalcState> {
       rule: state.rule,
       selectedGroupId: state.selectedGroupId,
       currentId: null,
+      preservedStateJson: null,
     );
   }
 }
