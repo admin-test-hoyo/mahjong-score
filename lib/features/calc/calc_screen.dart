@@ -27,6 +27,12 @@ class CalcScreen extends ConsumerWidget {
       backgroundColor: const Color(0xFF004D40),
       drawer: const MainDrawer(),
       appBar: AppBar(
+        leading: state.currentId != null 
+          ? IconButton(
+              icon: const Icon(Icons.arrow_back, color: Color(0xFF00FFC2)),
+              onPressed: () => ref.read(calcProvider.notifier).resetToNewEntry(),
+            )
+          : null,
         title: GestureDetector(
           onTap: () => ref.read(calcProvider.notifier).resetGame(),
           child: FittedBox(

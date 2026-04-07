@@ -416,7 +416,7 @@ class CalcNotifier extends Notifier<CalcState> {
       
       if (!isUpdate) {
         // 新規登録成功時は状態をリセットする（ユーザー指示）
-        resetSession();
+        resetToNewEntry();
       }
       return isUpdate ? SaveResult.updated : SaveResult.registered;
     } catch (e) {
@@ -442,7 +442,7 @@ class CalcNotifier extends Notifier<CalcState> {
     );
   }
 
-  void resetSession() {
+  void resetToNewEntry() {
     state = state.copyWith(
       currentId: null,
       globalChips: [0, 0, 0, 0],

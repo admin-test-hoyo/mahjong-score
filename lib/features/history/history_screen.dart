@@ -156,7 +156,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                       final currentId = ref.read(calcProvider).currentId;
                       await ref.read(historyProvider.notifier).deleteGame(game.id!);
                       if (currentId == game.id) {
-                        ref.read(calcProvider.notifier).resetGame();
+                        ref.read(calcProvider.notifier).resetToNewEntry();
                         if (context.mounted) {
                           Navigator.of(context).popUntil((route) => route.isFirst);
                         }
@@ -215,7 +215,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                     final currentId = ref.read(calcProvider).currentId;
                                     await ref.read(historyProvider.notifier).deleteGame(game.id!);
                                     if (currentId == game.id) {
-                                      ref.read(calcProvider.notifier).resetGame();
+                                      ref.read(calcProvider.notifier).resetToNewEntry();
                                       if (context.mounted) {
                                         Navigator.of(context).popUntil((route) => route.isFirst);
                                       }
