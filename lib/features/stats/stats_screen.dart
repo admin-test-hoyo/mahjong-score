@@ -396,7 +396,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
               ),
               // 列3: 総収支
               DataColumn(
-                label: const Text('収支'),
+                label: const Text('収支 (円)'),
                 numeric: true,
                 onSort: (col, asc) => _onSort(col, asc),
               ),
@@ -483,14 +483,21 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                         fontFamily: 'RobotoMono',
                         fontSize: 12),
                   )),
-                  // 総収支
-                  DataCell(Text(
-                    totalScore >= 0 ? '+$totalScore' : '$totalScore',
-                    style: TextStyle(
-                        color: scoreColor,
-                        fontFamily: 'RobotoMono',
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12),
+                  // 総収支 (Money)
+                   DataCell(Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: scoreColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      '¥${_formatNumber(totalScore)}',
+                      style: TextStyle(
+                          color: scoreColor,
+                          fontFamily: 'RobotoMono',
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12),
+                    ),
                   )),
                   // 平均順位
                   DataCell(Text(avgRank.toStringAsFixed(2),
@@ -749,5 +756,19 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
         ),
       ),
     );
+  }
+  
+  String _formatNumber(int number) {
+    final s = number.toString();
+    final isNegative = number < 0;
+    final absS = isNegative ? s.substring(1) : s;
+    final buffer = StringBuffer();
+    for (int i = 0; i < absS.length; i++) {
+      if (i > 0 && (absS.length - i) % 3 == 0) {
+        buffer.write(',');
+      }
+      buffer.write(absS[i]);
+    }
+    return (isNegative ? '-' : '+') + buffer.toString();
   }
 }

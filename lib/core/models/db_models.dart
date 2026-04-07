@@ -9,6 +9,7 @@ class SavedGame {
   final List<int> chips;  // Final Chip money or just count? User said 'p1_ch'
   final List<bool> tobis;
   final List<int> ranks;
+  final List<int> moneys; // 追加: マネー収支 (円)
 
   SavedGame({
     this.id,
@@ -21,6 +22,7 @@ class SavedGame {
     required this.chips,
     required this.tobis,
     required this.ranks,
+    required this.moneys,
   });
 
   Map<String, dynamic> toMap() {
@@ -53,6 +55,10 @@ class SavedGame {
       'p2_rank': ranks[1],
       'p3_rank': ranks[2],
       'p4_rank': ranks.length > 3 ? ranks[3] : 4,
+      'p1_money': moneys[0],
+      'p2_money': moneys[1],
+      'p3_money': moneys[2],
+      'p4_money': moneys.length > 3 ? moneys[3] : 0,
     };
   }
 
@@ -97,6 +103,12 @@ class SavedGame {
         map['p2_rank'] ?? 2,
         map['p3_rank'] ?? 3,
         if (map['type'] == '4-player') map['p4_rank'] ?? 4,
+      ],
+      moneys: [
+        map['p1_money'] ?? 0,
+        map['p2_money'] ?? 0,
+        map['p3_money'] ?? 0,
+        if (map['type'] == '4-player') map['p4_money'] ?? 0,
       ],
     );
   }

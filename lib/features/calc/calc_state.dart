@@ -343,10 +343,11 @@ class CalcNotifier extends Notifier<CalcState> {
 
       if (allResults.isEmpty) return SaveResult.failed;
 
-      final summaries = { for (int i = 1; i <= players; i++) i: {'pt': 0, 'chip': state.globalChips[i - 1], 'tobi': 0, 'score': 0} };
+      final summaries = { for (int i = 1; i <= players; i++) i: {'pt': 0, 'chip': state.globalChips[i - 1], 'tobi': 0, 'score': 0, 'money': 0} };
       for (var res in allResults) {
         for (var p in res) {
           summaries[p.id]!['pt'] = (summaries[p.id]!['pt']! as int) + p.finalPoint.toInt();
+          summaries[p.id]!['money'] = (summaries[p.id]!['money']! as int) + p.money;
         }
       }
 
@@ -405,6 +406,10 @@ class CalcNotifier extends Notifier<CalcState> {
         'p2_rank': ranks[2],
         'p3_rank': ranks[3],
         'p4_rank': players == 4 ? ranks[4] : 0,
+        'p1_money': (summaries[1]?['money'] ?? 0) as int,
+        'p2_money': (summaries[2]?['money'] ?? 0) as int,
+        'p3_money': (summaries[3]?['money'] ?? 0) as int,
+        'p4_money': players == 4 ? ((summaries[4]?['money'] ?? 0) as int) : 0,
       };
 
       final db = DatabaseService();

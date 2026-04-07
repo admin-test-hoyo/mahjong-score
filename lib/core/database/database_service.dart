@@ -50,7 +50,8 @@ class DatabaseService {
         p1_ch INTEGER, p2_ch INTEGER, p3_ch INTEGER, p4_ch INTEGER,
         p1_tobi INTEGER, p2_tobi INTEGER, p3_tobi INTEGER, p4_tobi INTEGER,
         p1_pt INTEGER, p2_pt INTEGER, p3_pt INTEGER, p4_pt INTEGER,
-        p1_rank INTEGER, p2_rank INTEGER, p3_rank INTEGER, p4_rank INTEGER
+        p1_rank INTEGER, p2_rank INTEGER, p3_rank INTEGER, p4_rank INTEGER,
+        p1_money INTEGER, p2_money INTEGER, p3_money INTEGER, p4_money INTEGER
       )
     ''');
 
@@ -239,18 +240,27 @@ class DatabaseService {
         'topCount': 0,
         'rentaiCount': 0,
         'tobiCount': 0,
+        'totalMoney': 0,
       };
     }
 
     // 4. 各対局をスキャンし、メンバー名が一致するスロットを集計
     for (final row in allRows) {
       for (int i = 1; i <= 4; i++) {
-        final name = (row['p${i}_name'] as Object?)?.toString() ?? '';
-        if (name.isEmpty || !memberNameSet.contains(name)) continue;
-        final s = stats[name]!;
+        final rawName = (row['p${i}_name'] as Object?)?.toString() ?? '';
+        final trimmedName = rawName.trim();
+        if (trimmedName.isEmpty || !memberNameSet.contains(trimmedName)) continue;
+        
+        final s = stats[trimmedName]!;
         s['games'] = (s['games'] as int) + 1;
         s['totalPt'] = (s['totalPt'] as int) + ((row['p${i}_pt'] as num?)?.toInt() ?? 0);
         s['totalChip'] = (s['totalChip'] as int) + ((row['p${i}_ch'] as num?)?.toInt() ?? 0);
+        
+        // 収支 (マネー) の集計
+        // 保存されていない旧データがある場合は、Ptとチップから概算（レート計算ロジックが必要だが、ここではDB値を優先）
+        final money = (row['p${i}_money'] as num?)?.toInt() ?? 0;
+        s['totalMoney'] = (s['totalMoney'] as int) + money;
+        
         final rank = (row['p${i}_rank'] as num?)?.toInt() ?? 1;
         s['rankSum'] = (s['rankSum'] as int) + rank;
         if ((row['p${i}_tobi'] as num?)?.toInt() == 1) {
@@ -271,7 +281,7 @@ class DatabaseService {
         'games': games,
         'totalPt': totalPt,
         'totalChip': totalChip,
-        'totalScore': totalPt + totalChip,
+        'totalScore': s['totalMoney'] as int, // これを正確な収支として扱う
         'avgRank': games > 0 ? (s['rankSum'] as int) / games : 0.0,
         'topRate': games > 0 ? (s['topCount'] as int) / games * 100 : 0.0,
         'rentaiRate': games > 0 ? (s['rentaiCount'] as int) / games * 100 : 0.0,
