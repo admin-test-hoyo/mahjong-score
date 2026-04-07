@@ -212,8 +212,13 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
 
   Widget _buildPersonalFilters() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: Colors.black12,
+      margin: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black26,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white10),
+      ),
       child: Row(
         children: [
           Expanded(
@@ -224,18 +229,17 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                     style: TextStyle(color: Colors.white24, fontSize: 12)),
                 dropdownColor: const Color(0xFF001F1A),
                 isExpanded: true,
+                style: const TextStyle(color: Color(0xFF00FFC2), fontSize: 13),
                 items: [
                   ..._players.map((p) => DropdownMenuItem(
                       value: p,
-                      child: Text(p,
-                          style: const TextStyle(
-                              color: Colors.white, fontSize: 12)))),
+                      child: Text(p))),
                 ],
                 onChanged: (val) => setState(() => _selectedPlayer = val),
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          Container(width: 1, height: 24, color: Colors.white10, margin: const EdgeInsets.symmetric(horizontal: 12)),
           Expanded(
             child: DropdownButtonHideUnderline(
               child: DropdownButton<int>(
@@ -244,17 +248,14 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                     style: TextStyle(color: Colors.white24, fontSize: 12)),
                 dropdownColor: const Color(0xFF001F1A),
                 isExpanded: true,
+                style: const TextStyle(color: Color(0xFF00FFC2), fontSize: 13),
                 items: [
                   const DropdownMenuItem<int>(
                       value: null,
-                      child: Text('全グループ',
-                          style: TextStyle(
-                              color: Colors.white70, fontSize: 12))),
+                      child: Text('全グループ')),
                   ..._groupList.map((g) => DropdownMenuItem(
                       value: g['id'] as int,
-                      child: Text(g['name'],
-                          style: const TextStyle(
-                              color: Colors.white, fontSize: 12)))),
+                      child: Text(g['name']))),
                 ],
                 onChanged: (val) async {
                   setState(() => _selectedGroupId = val);
@@ -273,10 +274,14 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
   Widget _buildGroupTab() {
     return Column(
       children: [
-        // グループ選択ドロップダウン
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          color: Colors.black12,
+          margin: const EdgeInsets.all(12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.black26,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white10),
+          ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<int>(
               value: _rankingGroupId,
@@ -284,12 +289,11 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                   style: TextStyle(color: Colors.white24, fontSize: 12)),
               dropdownColor: const Color(0xFF001F1A),
               isExpanded: true,
+              style: const TextStyle(color: Color(0xFF00FFC2), fontSize: 13),
               items: [
                 ..._groupList.map((g) => DropdownMenuItem(
                     value: g['id'] as int,
-                    child: Text(g['name'],
-                        style: const TextStyle(
-                            color: Colors.white, fontSize: 13)))),
+                    child: Text(g['name']))),
               ],
               onChanged: (val) async {
                 setState(() => _rankingGroupId = val);
