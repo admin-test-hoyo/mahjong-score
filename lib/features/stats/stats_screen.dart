@@ -212,8 +212,8 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
 
   Widget _buildPersonalFilters() {
     return Container(
-      margin: const EdgeInsets.all(12),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      margin: const EdgeInsets.fromLTRB(12, 16, 12, 8), // Top margin to avoid overlap with tabs
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.black26,
         borderRadius: BorderRadius.circular(12),
@@ -275,8 +275,8 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
     return Column(
       children: [
         Container(
-          margin: const EdgeInsets.all(12),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          margin: const EdgeInsets.fromLTRB(12, 16, 12, 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
             color: Colors.black26,
             borderRadius: BorderRadius.circular(12),

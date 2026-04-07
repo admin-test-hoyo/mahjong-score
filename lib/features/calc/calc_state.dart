@@ -60,7 +60,7 @@ class CalcState {
   final MahjongRule rule;
   final int? selectedGroupId;
   final int? currentId;
-  final String? preservedStateJson;
+  final String? currentDraft;
   final List<Map<String, dynamic>>? possibleGroupMatches; // 追加: マッチ候補
 
   const CalcState({
@@ -70,7 +70,7 @@ class CalcState {
     this.rule = const MahjongRule(),
     this.selectedGroupId,
     this.currentId,
-    this.preservedStateJson,
+    this.currentDraft,
     this.possibleGroupMatches,
   });
 
@@ -81,8 +81,8 @@ class CalcState {
     MahjongRule? rule,
     int? selectedGroupId,
     int? currentId,
-    String? preservedStateJson,
-    bool clearPreserved = false,
+    String? currentDraft,
+    bool clearDraft = false,
     List<Map<String, dynamic>>? possibleGroupMatches,
     bool clearMatches = false,
   }) {
@@ -93,7 +93,7 @@ class CalcState {
       rule: rule ?? this.rule,
       selectedGroupId: selectedGroupId ?? this.selectedGroupId,
       currentId: currentId ?? this.currentId,
-      preservedStateJson: clearPreserved ? null : (preservedStateJson ?? this.preservedStateJson),
+      currentDraft: clearDraft ? null : (currentDraft ?? this.currentDraft),
       possibleGroupMatches: clearMatches ? null : (possibleGroupMatches ?? this.possibleGroupMatches),
     );
   }
@@ -105,7 +105,7 @@ class CalcState {
     'rule': rule.toJson(),
     'selectedGroupId': selectedGroupId,
     'currentId': currentId,
-    'preservedStateJson': preservedStateJson,
+    'currentDraft': currentDraft,
   };
 
   factory CalcState.fromJson(Map<String, dynamic> json) {
@@ -116,7 +116,7 @@ class CalcState {
       rule: json['rule'] != null ? MahjongRule.fromJson(json['rule'] as Map<String, dynamic>) : const MahjongRule(),
       selectedGroupId: json['selectedGroupId'] as int?,
       currentId: json['currentId'] as int?,
-      preservedStateJson: json['preservedStateJson'] as String?,
+      currentDraft: json['currentDraft'] as String?,
     );
   }
 }
@@ -142,14 +142,6 @@ class CalcNotifier extends Notifier<CalcState> {
     return const CalcState(games: []);
   }
 
-  void resetGame() {
-    state = CalcState(
-      playerNames: const ['A', 'B', 'C', 'D'],
-      globalChips: const [0, 0, 0, 0],
-      games: const [],
-      rule: state.rule,
-    );
-  }
 
   GameRecord _createEmptyGame(String id) {
     return GameRecord(
@@ -476,59 +468,84 @@ class CalcNotifier extends Notifier<CalcState> {
     }
   }
 
+  void loadSession(Session session, List<SavedGame> sessionGames) {
+    // 履歴読み込み直前に現在の入力を退避 (新規入力時のみ)
+    final draft = state.currentId == null ? jsonEncode(state.toJson()) : state.currentDraft;
+
+    final List<GameRecord> newGames = sessionGames.map((game) {
+      final inputs = List.generate(4, (i) => PlayerInput(
+        id: i + 1,
+        score: game.scores[i],
+        tobiPt: game.tobis[i] ? -1 : 0, // Simplified tobi logic for display
+        chip: game.chips[i],
+      ));
+      return GameRecord(
+        id: 'load_${game.id}',
+        inputs: inputs,
+        startingOyaIndex: 0, // Placeholder
+      );
+    }).toList();
+
+    state = state.copyWith(
+      currentId: session.id,
+      playerNames: session.playerNames,
+      globalChips: const [0, 0, 0, 0], // Chips are per-game in DB or per-player session? 
+      // In SavedGame, we have chips list. Let's use the first game's chips as global if needed, 
+      // but usually they are per game. Ver 1.7.1 logic stores chips in SavedGame.
+      games: newGames,
+      selectedGroupId: session.groupId,
+      currentDraft: draft,
+    );
+  }
+
   void loadGame(SavedGame game) {
-    // Construct a single GameRecord from the aggregated scores
+    final draft = state.currentId == null ? jsonEncode(state.toJson()) : state.currentDraft;
     final inputs = List.generate(4, (i) => PlayerInput(
       id: i + 1,
       score: game.scores[i],
       tobiPt: game.tobis[i] ? -1 : 0,
+      chip: game.chips[i],
     ));
-
-    // 新規入力中（currentId == null）であれば現在の状態を一時保存する
-    final currentPreserved = state.currentId == null ? jsonEncode(state.toJson()) : state.preservedStateJson;
-
     state = state.copyWith(
       currentId: game.id,
       playerNames: game.playerNames,
-      globalChips: game.chips,
+      globalChips: const [0, 0, 0, 0],
       games: [GameRecord(id: 'load_${game.id}', inputs: inputs)],
       selectedGroupId: game.groupId,
-      preservedStateJson: currentPreserved,
+      currentDraft: draft,
     );
   }
 
-  void resetToNewEntry() {
+  void resetGame() {
+    if (state.currentDraft != null) {
+      try {
+        final draftData = CalcState.fromJson(jsonDecode(state.currentDraft!));
+        state = draftData.copyWith(clearDraft: true);
+        return;
+      } catch (_) {}
+    }
     state = CalcState(
       playerNames: const ['A', 'B', 'C', 'D'],
       globalChips: const [0, 0, 0, 0],
       games: const [],
       rule: state.rule,
-      preservedStateJson: null, // 明示的なリセット時は一時保存もクリア
+      currentDraft: null,
     );
   }
 
+  void resetToNewEntry() => resetGame();
+
   void exitHistoryMode() {
-    if (state.preservedStateJson != null) {
+    if (state.currentDraft != null) {
       try {
-        final preserved = CalcState.fromJson(jsonDecode(state.preservedStateJson!));
-        // 中身だけ復元し、自分自身のバックアップ(preservedStateJson)はクリアする
-        state = preserved.copyWith(clearPreserved: true);
+        final draftData = CalcState.fromJson(jsonDecode(state.currentDraft!));
+        state = draftData.copyWith(clearDraft: true);
         return;
       } catch (e) {
         print('Restore error: $e');
       }
     }
-    
-    // バックアップがない場合は通常通り ID のみ解除
-    state = CalcState(
-      playerNames: state.playerNames,
-      globalChips: state.globalChips,
-      games: state.games,
-      rule: state.rule,
-      selectedGroupId: state.selectedGroupId,
-      currentId: null,
-      preservedStateJson: null,
-    );
+    state = state.copyWith(currentId: null, clearDraft: true);
   }
 }
 

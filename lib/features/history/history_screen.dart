@@ -225,7 +225,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                               border: Border.all(color: Colors.white10),
                             ),
                             child: InkWell(
-                              onTap: () => _showSessionDetailDialog(context, ref, sessionData),
+                              onTap: () {
+                                ref.read(calcProvider.notifier).loadSession(session, sessionData['games']);
+                                Navigator.pop(context, true);
+                              },
                               borderRadius: BorderRadius.circular(12),
                               child: Column(
                                 children: [

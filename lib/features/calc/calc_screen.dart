@@ -290,7 +290,6 @@ class CalcScreen extends ConsumerWidget {
                   )))),
                   DataCell(SizedBox(width: ctrlWidth, child: Center(child: IconButton(padding: EdgeInsets.zero, constraints: const BoxConstraints(), icon: const Icon(Icons.delete_outline, color: Colors.white24, size: 16), onPressed: () {
                     ref.read(calcProvider.notifier).deleteGame(game.id);
-                    ref.read(calcProvider.notifier).resetGame(); // Force transition to new input state
                   })))),
                 ]);
               }),
