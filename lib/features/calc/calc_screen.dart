@@ -459,7 +459,7 @@ class MainDrawer extends ConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 Text('麻雀スコア表', style: GoogleFonts.robotoMono(color: const Color(0xFF00FFC2), fontWeight: FontWeight.bold, fontSize: 20)),
-                const Text('Ver 1.5', style: TextStyle(color: Colors.white24, fontSize: 10)),
+                const Text('Ver 1.6', style: TextStyle(color: Colors.white24, fontSize: 10)),
               ],
             ),
           ),

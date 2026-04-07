@@ -232,11 +232,15 @@ class DatabaseService {
         'rentaiCount': 0,
         'tobiCount': 0,
         'totalMoney': 0,
+        'sessionDates': <String>{}, // ユニークな日付を保持
       };
     }
 
     // 4. 各対局をスキャンし、メンバー名が一致するスロットを集計
     for (final row in allRows) {
+      final dateStr = (row['date'] as String?) ?? '';
+      final sessionDay = dateStr.length >= 10 ? dateStr.substring(0, 10) : dateStr;
+
       for (int i = 1; i <= 4; i++) {
         final rawName = (row['p${i}_name'] as Object?)?.toString() ?? '';
         final trimmedName = rawName.trim();
@@ -248,7 +252,6 @@ class DatabaseService {
         s['totalChip'] = (s['totalChip'] as int) + ((row['p${i}_ch'] as num?)?.toInt() ?? 0);
         
         // 収支 (マネー) の集計
-        // 保存されていない旧データがある場合は、Ptとチップから概算（レート計算ロジックが必要だが、ここではDB値を優先）
         final money = (row['p${i}_money'] as num?)?.toInt() ?? 0;
         s['totalMoney'] = (s['totalMoney'] as int) + money;
         
@@ -259,6 +262,10 @@ class DatabaseService {
         }
         if (rank == 1) s['topCount'] = (s['topCount'] as int) + 1;
         if (rank <= 2) s['rentaiCount'] = (s['rentaiCount'] as int) + 1;
+
+        if (sessionDay.isNotEmpty) {
+          (s['sessionDates'] as Set<String>).add(sessionDay);
+        }
       }
     }
 
@@ -267,12 +274,15 @@ class DatabaseService {
       final games = s['games'] as int;
       final totalPt = s['totalPt'] as int;
       final totalChip = s['totalChip'] as int;
+      final sessionCount = (s['sessionDates'] as Set<String>).length;
+
       return {
         'name': s['name'],
         'games': games,
+        'matches': sessionCount, // 新規追加: 対戦回数 (日数)
         'totalPt': totalPt,
         'totalChip': totalChip,
-        'totalScore': s['totalMoney'] as int, // これを正確な収支として扱う
+        'totalScore': s['totalMoney'] as int,
         'avgRank': games > 0 ? (s['rankSum'] as int) / games : 0.0,
         'topRate': games > 0 ? (s['topCount'] as int) / games * 100 : 0.0,
         'rentaiRate': games > 0 ? (s['rentaiCount'] as int) / games * 100 : 0.0,

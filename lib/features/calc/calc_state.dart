@@ -351,8 +351,17 @@ class CalcNotifier extends Notifier<CalcState> {
       for (var res in allResults) {
         for (var p in res) {
           summaries[p.id]!['pt'] = (summaries[p.id]!['pt']! as int) + p.finalPoint.toInt();
+          // p.money は (Pt * rate) + (チップ * chipRate) - (場代/4) ですでに計算・丸められている
+          // ここにセッション全体のチップを加算するため、まずは各ゲームの結果（チップ抜き）を累積する
           summaries[p.id]!['money'] = (summaries[p.id]!['money']! as int) + p.money;
         }
+      }
+
+      // セッション全体のチップ分を収支に反映させる
+      for (int i = 1; i <= players; i++) {
+        final sessionChip = summaries[i]!['chip'] as int;
+        final chipValue = sessionChip * config.chipRate;
+        summaries[i]!['money'] = (summaries[i]!['money'] as int) + chipValue;
       }
 
       // Sum raw scores from all valid games

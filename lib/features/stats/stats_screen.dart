@@ -96,7 +96,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
   List<Map<String, dynamic>> _sortedData(
       List<Map<String, dynamic>> data, int colIdx, bool ascending) {
     final keys = [
-      'name', 'totalPt', 'totalChip', 'totalScore',
+      'name', 'matches', 'totalPt', 'totalChip', 'totalScore',
       'avgRank', 'games', 'topRate', 'rentaiRate', 'tobiRate',
     ];
     final key = colIdx < keys.length ? keys[colIdx] : 'totalPt';
@@ -356,49 +356,56 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                 label: const Text('名前'),
                 onSort: (col, asc) => _onSort(col, asc),
               ),
-              // 列1: 総Pt
+              // 列1: 対戦回数
+              DataColumn(
+                label: const Text('対戦回数'),
+                tooltip: '打った日数（セッション数）',
+                numeric: true,
+                onSort: (col, asc) => _onSort(col, asc),
+              ),
+              // 列2: 総Pt
               DataColumn(
                 label: const Text('総Pt'),
                 numeric: true,
                 onSort: (col, asc) => _onSort(col, asc),
               ),
-              // 列2: 総Chip
+              // 列3: 総Chip
               DataColumn(
                 label: const Text('総Ch'),
                 numeric: true,
                 onSort: (col, asc) => _onSort(col, asc),
               ),
-              // 列3: 総収支
+              // 列4: 総収支
               DataColumn(
                 label: const Text('収支 (円)'),
                 numeric: true,
                 onSort: (col, asc) => _onSort(col, asc),
               ),
-              // 列4: 平均順位
+              // 列5: 平均順位
               DataColumn(
                 label: const Text('平均順'),
                 numeric: true,
                 onSort: (col, asc) => _onSort(col, asc),
               ),
-              // 列5: 対局数
+              // 列6: 対局数
               DataColumn(
-                label: const Text('対局数'),
+                label: const Text('対局数(半荘)'),
                 numeric: true,
                 onSort: (col, asc) => _onSort(col, asc),
               ),
-              // 列6: トップ率
+              // 列7: トップ率
               DataColumn(
                 label: const Text('1着%'),
                 numeric: true,
                 onSort: (col, asc) => _onSort(col, asc),
               ),
-              // 列7: 連対率
+              // 列8: 連対率
               DataColumn(
                 label: const Text('連対%'),
                 numeric: true,
                 onSort: (col, asc) => _onSort(col, asc),
               ),
-              // 列8: トビ率
+              // 列9: トビ率
               DataColumn(
                 label: const Text('トビ%'),
                 numeric: true,
@@ -407,6 +414,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
             ],
             rows: List.generate(rows.length, (i) {
               final r = rows[i];
+              final matches = r['matches'] as int? ?? 0;
               final totalPt = r['totalPt'] as int;
               final totalChip = r['totalChip'] as int;
               final totalScore = r['totalScore'] as int;
@@ -438,6 +446,9 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                               fontWeight: FontWeight.w600)),
                     ],
                   )),
+                  // 対戦回数
+                  DataCell(Text('$matches',
+                      style: const TextStyle(fontSize: 11))),
                   // 総Pt
                   DataCell(Text(
                     totalPt >= 0 ? '+$totalPt' : '$totalPt',
@@ -543,6 +554,8 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
     final totalGames = games.length;
     double avgRank = 0;
     int totalPt = 0;
+    int totalChips = 0;
+    int totalMoney = 0;
     int tobiCount = 0;
     int topCount = 0;
     int rentaiCount = 0;
@@ -555,6 +568,8 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
       }
       avgRank += g.ranks[idx];
       totalPt += g.points[idx];
+      totalChips += g.chips[idx];
+      totalMoney += g.moneys[idx];
       if (g.tobis[idx]) tobiCount++;
       if (g.ranks[idx] == 1) topCount++;
       if (g.ranks[idx] <= 2) rentaiCount++;
@@ -579,9 +594,29 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
             children: [
               _statItem('平均順位', avgRank.toStringAsFixed(2)),
               _statItem(
-                '総収支',
+                '総Pt',
                 totalPt > 0 ? '+$totalPt' : totalPt.toString(),
                 color: totalPt >= 0
+                    ? const Color(0xFF00FFC2)
+                    : Colors.redAccent,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _statItem(
+                '総Chip',
+                totalChips > 0 ? '+$totalChips' : totalChips.toString(),
+                color: totalChips >= 0
+                    ? Colors.amberAccent
+                    : Colors.redAccent,
+              ),
+              _statItem(
+                '収支 (円)',
+                _formatNumber(totalMoney),
+                color: totalMoney >= 0
                     ? const Color(0xFF00FFC2)
                     : Colors.redAccent,
               ),
