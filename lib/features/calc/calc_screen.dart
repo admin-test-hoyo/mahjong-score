@@ -425,10 +425,12 @@ class CalcScreen extends ConsumerWidget {
     const players = 4;
     
     final summaries = { for (int i = 1; i <= players; i++) i: {'pt': 0, 'chip': 0} };
+    int completedGames = 0;
     
-    // 集計処理
+    // 常に各局の保存値（または計算値）から Pt/Chip を集計する
     for (var g in state.games) {
       if (g.inputs.where((ip) => ip.id <= players).fold(0, (s, ip) => s + ip.score) == config.targetTotalScore) {
+        completedGames++;
         try {
           final res = MahjongCalculator.calculate(
             inputs: g.inputs.where((ip) => ip.id <= players).toList(),
@@ -458,20 +460,23 @@ class CalcScreen extends ConsumerWidget {
             summaries[i]!, 
             config, 
             players,
+            completedGames,
             state.snapshottedMoneys != null && state.snapshottedMoneys!.length >= i ? state.snapshottedMoneys![i-1] : null
           ))
       ])
     );
   }
 
-  Widget _buildSumBlock(String name, Map<String, int> data, AppConfig conf, int players, [int? snapshottedMoney]) {
+  Widget _buildSumBlock(String name, Map<String, int> data, AppConfig conf, int players, int gameCount, [int? snapshottedMoney]) {
     final pt = data['pt']!; final ch = data['chip']!;
     
     // 収支計算 (Strict Formula: (Pt * Rate) + (Chip * ChipRate))
     final int income = (pt * conf.rate).toInt() + (ch * conf.chipRate).toInt();
     
-    // 場代込計算 (Strict Formula: Income - (TotalFee / 4))
-    final int finalBalance = snapshottedMoney ?? (income - (conf.gameFee / players)).round();
+    // 場代込計算 (Strict Formula: Income - (全体の場代 / 4))
+    // 全体の場代 = gameCount * conf.gameFee
+    final int totalFee = gameCount * conf.gameFee;
+    final int finalBalance = snapshottedMoney ?? (income - (totalFee / players)).round();
     
     return Column(mainAxisSize: MainAxisSize.min, children: [
       FittedBox(fit: BoxFit.scaleDown, child: Text(name, style: const TextStyle(color: Color(0xFF00FFC2), fontSize: 13, fontWeight: FontWeight.normal), overflow: TextOverflow.ellipsis)),

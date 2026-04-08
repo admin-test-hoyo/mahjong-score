@@ -37,15 +37,22 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 5, 
+      version: 6, 
       onCreate: _createDb,
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) await _upgradeToV2(db);
         if (oldVersion < 3) await _upgradeToV3(db);
         if (oldVersion < 4) await _upgradeToV4(db);
         if (oldVersion < 5) await _upgradeToV5(db);
+        if (oldVersion < 6) await _upgradeToV6(db);
       },
     );
+  }
+
+  Future<void> _upgradeToV6(Database db) async {
+    try {
+      await db.execute('ALTER TABLE games ADD COLUMN oya_index INTEGER DEFAULT 0');
+    } catch (_) {}
   }
 
   Future<void> _upgradeToV2(Database db) async {
@@ -119,6 +126,7 @@ class DatabaseService {
         p1_money INTEGER, p2_money INTEGER, p3_money INTEGER, p4_money INTEGER,
         p1_blown_by INTEGER, p2_blown_by INTEGER, p3_blown_by INTEGER, p4_blown_by INTEGER,
         p1_yakuman INTEGER, p2_yakuman INTEGER, p3_yakuman INTEGER, p4_yakuman INTEGER,
+        oya_index INTEGER,
         FOREIGN KEY (session_id) REFERENCES sessions (id) ON DELETE SET NULL
       )
     ''');
@@ -149,17 +157,21 @@ class DatabaseService {
           chipRate = (config['chipRate'] as num?)?.toInt() ?? 0;
         }
 
-        final List<int> sums = [0, 0, 0, 0];
+        final List<int> ptSums = [0, 0, 0, 0];
+        final List<int> chipSums = [0, 0, 0, 0];
+        int completedGames = 0;
         for (var g in sGames) {
+          completedGames++;
           for (int i=1; i<=4; i++) {
-            final pt = (g['p${i}_pt'] as num?)?.toInt() ?? 0;
-            final chip = (g['p${i}_ch'] as num?)?.toInt() ?? 0;
-            final income = (pt * rate) + (chip * chipRate);
-            final withFee = income - (fee / 4.0);
-            sums[i-1] += withFee.round();
+            ptSums[i-1] += (g['p${i}_pt'] as num?)?.toInt() ?? 0;
+            chipSums[i-1] += (g['p${i}_ch'] as num?)?.toInt() ?? 0;
           }
         }
-        s['p1_money'] = sums[0]; s['p2_money'] = sums[1]; s['p3_money'] = sums[2]; s['p4_money'] = sums[3];
+        for (int i=0; i<4; i++) {
+          final income = (ptSums[i] * rate) + (chipSums[i] * chipRate);
+          final totalFee = completedGames * fee;
+          s['p${i+1}_money'] = (income - (totalFee / 4.0)).round();
+        }
         changed = true;
       }
       if (changed) {
@@ -182,19 +194,24 @@ class DatabaseService {
         chipRate = (config['chipRate'] as num?)?.toInt() ?? 0;
       }
 
-      final List<int> sums = [0, 0, 0, 0];
+      final List<int> ptSums = [0, 0, 0, 0];
+      final List<int> chipSums = [0, 0, 0, 0];
+      int completedGames = 0;
       for (var g in games) {
+        completedGames++;
         for (int i=1; i<=4; i++) {
-          final pt = (g['p${i}_pt'] as num?)?.toInt() ?? 0;
-          final chip = (g['p${i}_ch'] as num?)?.toInt() ?? 0;
-          final income = (pt * rate) + (chip * chipRate);
-          final withFee = income - (fee / 4.0);
-          sums[i-1] += withFee.round();
+          ptSums[i-1] += (g['p${i}_pt'] as num?)?.toInt() ?? 0;
+          chipSums[i-1] += (g['p${i}_ch'] as num?)?.toInt() ?? 0;
         }
       }
-      await db.update('sessions', {
-        'p1_money': sums[0], 'p2_money': sums[1], 'p3_money': sums[2], 'p4_money': sums[3],
-      }, where: 'id = ?', whereArgs: [sid]);
+      
+      final Map<String, dynamic> updates = {};
+      for (int i=0; i<4; i++) {
+        final income = (ptSums[i] * rate) + (chipSums[i] * chipRate);
+        final totalFee = completedGames * fee;
+        updates['p${i+1}_money'] = (income - (totalFee / 4.0)).round();
+      }
+      await db.update('sessions', updates, where: 'id = ?', whereArgs: [sid]);
     }
   }
 
@@ -468,6 +485,17 @@ class DatabaseService {
         if (((row['p$i\_score'] as num?)?.toInt() ?? 0) < 0) s['tobiCount'] = (s['tobiCount'] as int) + 1;
       }
     }
+    for (final s in stats.values) {
+      final matches = s['matches'] as int? ?? 0;
+      final games = s['games'] as int? ?? 0;
+      final rankSum = s['rankSum'] as int? ?? 0;
+      s['avgRank'] = games > 0 ? rankSum / games : 0.0;
+      s['totalScore'] = s['totalMoney']; // Rename to match UI expectation
+      s['topRate'] = games > 0 ? (s['topCount'] as int) / games * 100 : 0.0;
+      s['rentaiRate'] = games > 0 ? (s['rentaiCount'] as int) / games * 100 : 0.0;
+      s['tobiRate'] = games > 0 ? (s['tobiCount'] as int) / games * 100 : 0.0;
+    }
+
     return stats.values.toList();
   }
 

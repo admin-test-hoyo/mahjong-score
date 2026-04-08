@@ -19,8 +19,9 @@ class SavedGame {
   final List<bool> tobis;
   final List<int> ranks;
   final List<int> moneys; // マネー収支 (円)
-  final List<int?> blownByPlayerIds; // New for Ver 1.9.2: 誰が飛ばしたか (Player ID 1-4 or Null)
-  final List<int> yakumanPts; // New for Ver 1.9.3: 役満賞のポイント (Pt)
+  final List<int?> blownByPlayerIds; 
+  final List<int> yakumanPts; 
+  final int startingOyaIndex; // New for Ver 1.9.4: 全局の起家(親)を保存
 
   SavedGame({
     this.id,
@@ -37,6 +38,7 @@ class SavedGame {
     required this.moneys,
     required this.blownByPlayerIds,
     required this.yakumanPts,
+    this.startingOyaIndex = 0,
   });
 
   Map<String, dynamic> toMap() {
@@ -80,6 +82,7 @@ class SavedGame {
       'p2_yakuman': yakumanPts[1],
       'p3_yakuman': yakumanPts[2],
       'p4_yakuman': yakumanPts.length > 3 ? yakumanPts[3] : 0,
+      'oya_index': startingOyaIndex,
     };
   }
 
@@ -144,6 +147,7 @@ class SavedGame {
         map['p3_yakuman'] ?? 0,
         if (map['type'] == '4-player') map['p4_yakuman'] ?? 0,
       ],
+      startingOyaIndex: map['oya_index'] ?? 0,
     );
   }
 }

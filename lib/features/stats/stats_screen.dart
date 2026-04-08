@@ -418,15 +418,15 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
             ],
             rows: List.generate(rows.length, (i) {
               final r = rows[i];
-              final matches = r['matches'] as int? ?? 0;
-              final totalPt = r['totalPt'] as int;
-              final totalChip = r['totalChip'] as int;
-              final totalScore = r['totalScore'] as int;
-              final avgRank = r['avgRank'] as double;
-              final games = r['games'] as int;
-              final topRate = r['topRate'] as double;
-              final rentaiRate = r['rentaiRate'] as double;
-              final tobiRate = r['tobiRate'] as double;
+              final matches = (r['matches'] as num?)?.toInt() ?? 0;
+              final totalPt = (r['totalPt'] as num?)?.toInt() ?? 0;
+              final totalChip = (r['totalChip'] as num?)?.toInt() ?? 0;
+              final totalScore = (r['totalScore'] as num?)?.toInt() ?? 0;
+              final avgRank = (r['avgRank'] as num?)?.toDouble() ?? 0.0;
+              final games = (r['games'] as num?)?.toInt() ?? 0;
+              final topRate = (r['topRate'] as num?)?.toDouble() ?? 0.0;
+              final rentaiRate = (r['rentaiRate'] as num?)?.toDouble() ?? 0.0;
+              final tobiRate = (r['tobiRate'] as num?)?.toDouble() ?? 0.0;
 
               Color ptColor = totalPt >= 0
                   ? const Color(0xFF00FFC2)

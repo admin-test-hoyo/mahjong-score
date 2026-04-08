@@ -421,6 +421,27 @@ class CalcNotifier extends Notifier<CalcState> {
 
       if (calculatedGames.isEmpty) return SaveResult.failed;
 
+      // フッターUIと同一のロジックでセッション全体の収支を確定（一括計算・一回丸め）
+      final int completedCount = calculatedGames.length;
+      final List<int> ptTotals = [0, 0, 0, 0];
+      final List<int> chipTotals = [0, 0, 0, 0];
+      for (var cg in calculatedGames) {
+        final resList = cg['result'] as List<PlayerResult>;
+        final g = cg['game'] as GameRecord;
+        final addCh = cg['addChips'] as List<int>;
+        for (var r in resList) {
+          ptTotals[r.id - 1] += r.finalPoint;
+          chipTotals[r.id - 1] += g.inputs[r.id - 1].chip + addCh[r.id - 1];
+        }
+      }
+      
+      final List<int> sessionFinalMoneys = [0, 0, 0, 0];
+      for (int i=0; i<players; i++) {
+        final double income = (ptTotals[i] * config.rate) + (chipTotals[i] * config.chipRate);
+        final double totalFee = (completedCount * config.gameFee).toDouble();
+        sessionFinalMoneys[i] = (income - (totalFee / players.toDouble())).round();
+      }
+
       // 2. セッション（ヘッダー）の特定または作成
       final sessionDay = DateFormat('yyyy/MM/dd').format(date);
       final int sessionId;
@@ -434,7 +455,7 @@ class CalcNotifier extends Notifier<CalcState> {
           groupId: state.selectedGroupId,
           configJson: configJson,
           globalChipsJson: jsonEncode(state.globalChips),
-          totalMoneys: totalMoneys,
+          totalMoneys: sessionFinalMoneys,
         ));
         // 明細の重複を防ぐため、既存の対局データを一度すべて削除
         await db.deleteGamesBySessionId(sessionId);
@@ -445,7 +466,7 @@ class CalcNotifier extends Notifier<CalcState> {
           groupId: state.selectedGroupId,
           configJson: configJson,
           globalChipsJson: jsonEncode(state.globalChips),
-          totalMoneys: totalMoneys,
+          totalMoneys: sessionFinalMoneys,
         );
       }
 
@@ -493,6 +514,7 @@ class CalcNotifier extends Notifier<CalcState> {
           'p2_money': gameMoneys['2'] ?? 0,
           'p3_money': gameMoneys['3'] ?? 0,
           'p4_money': gameMoneys['4'] ?? 0,
+          'oya_index': g.startingOyaIndex,
         };
 
         final sortedByPt = List<PlayerResult>.from(result)..sort((a, b) => b.finalPoint.compareTo(a.finalPoint));
@@ -551,7 +573,7 @@ class CalcNotifier extends Notifier<CalcState> {
       return GameRecord(
         id: 'load_${game.id}',
         inputs: _recalculateTobi(inputs),
-        startingOyaIndex: 0, 
+        startingOyaIndex: game.startingOyaIndex, 
       );
     }).toList();
 
@@ -581,7 +603,7 @@ class CalcNotifier extends Notifier<CalcState> {
       currentId: game.id,
       playerNames: game.playerNames,
       globalChips: const [0, 0, 0, 0],
-      games: [GameRecord(id: 'load_${game.id}', inputs: _recalculateTobi(inputs))],
+      games: [GameRecord(id: 'load_${game.id}', inputs: _recalculateTobi(inputs), startingOyaIndex: game.startingOyaIndex)],
       selectedGroupId: game.groupId,
       currentDraft: draft,
       snapshottedMoneys: game.moneys,
