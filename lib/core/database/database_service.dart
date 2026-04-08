@@ -465,11 +465,18 @@ class DatabaseService {
     final memberNameSet = memberNames.toSet();
 
     List<Map<String, dynamic>> allRows = kIsWeb ? await _webQuery('web_db_games') : await (await database).query('games', where: 'group_id = ?', whereArgs: [groupId]);
+    if (kIsWeb) {
+      allRows = allRows.where((e) => e['group_id'] == groupId).toList();
+    }
+    
     final Map<String, Map<String, dynamic>> stats = { for (var name in memberNames) name: {
       'name': name, 'games': 0, 'totalPt': 0, 'totalChip': 0, 'rankSum': 0, 'topCount': 0, 'rentaiCount': 0, 'tobiCount': 0, 'totalMoney': 0, 'session_dates': <String>{},
     } };
 
-    final sRows = kIsWeb ? await _webQuery('web_db_sessions') : await (await database).query('sessions', where: 'group_id = ?', whereArgs: [groupId]);
+    List<Map<String, dynamic>> sRows = kIsWeb ? await _webQuery('web_db_sessions') : await (await database).query('sessions', where: 'group_id = ?', whereArgs: [groupId]);
+    if (kIsWeb) {
+      sRows = sRows.where((e) => e['group_id'] == groupId).toList();
+    }
     final sessionIds = sRows.map((s) => s['id'] as int).toSet();
 
     for (final s in sRows) {

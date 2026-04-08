@@ -7,6 +7,8 @@ import '../../core/calculator.dart';
 import '../../core/models/app_config.dart';
 import '../../core/database/database_service.dart';
 import '../../core/models/db_models.dart';
+import '../history/history_screen.dart';
+import '../stats/stats_providers.dart';
 
 enum SaveResult { registered, updated, failed }
 
@@ -533,6 +535,15 @@ class CalcNotifier extends Notifier<CalcState> {
       }
 
       resetToNewEntry();
+      // 統計・履歴プロバイダーのリフレッシュ
+      ref.invalidate(historyProvider);
+      ref.invalidate(groupListProvider);
+      ref.invalidate(playerNamesProvider);
+      ref.invalidate(allGamesProvider);
+      ref.invalidate(allSessionsProvider);
+      if (state.selectedGroupId != null) {
+        ref.invalidate(groupRankingProvider(state.selectedGroupId!));
+      }
       return isUpdate ? SaveResult.updated : SaveResult.registered;
     } catch (e) {
       print('Save error: $e');
@@ -634,6 +645,8 @@ class CalcNotifier extends Notifier<CalcState> {
       rule: state.rule,
       currentDraft: null,
     );
+    // 場代をリセット
+    ref.read(configProvider.notifier).updateGameFee(0);
   }
 
   void resetToNewEntry() => resetGame();

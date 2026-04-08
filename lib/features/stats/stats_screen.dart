@@ -5,6 +5,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'dart:convert';
 import '../../core/database/database_service.dart';
 import '../../core/models/db_models.dart';
+import 'stats_providers.dart';
 
 class StatsScreen extends ConsumerStatefulWidget {
   const StatsScreen({super.key});
@@ -52,6 +53,9 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
   }
 
   Future<void> _loadInitialData() async {
+    // 既存の非同期ロード処理を、プロバイダー経由に変更するか、
+    // またはリフレッシュ目的で明示的に呼び出す。
+    // ここでは互換性のため _loadGames を残しつつ、プロバイダーの恩恵も受ける。
     setState(() => _loading = true);
     try {
       final db = DatabaseService();
@@ -156,6 +160,19 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
   // ─────────────────── BUILD ───────────────────────────
   @override
   Widget build(BuildContext context) {
+    // 統計データプロバイダーの状態を監視し、変更があればデータを再ロードする
+    ref.listen(allGamesProvider, (_, __) => _loadInitialData());
+    ref.listen(allSessionsProvider, (_, __) => _loadInitialData());
+    if (_rankingGroupId != null) {
+      ref.listen(groupRankingProvider(_rankingGroupId!), (prev, next) {
+        if (next is AsyncData<List<Map<String, dynamic>>>) {
+          setState(() {
+            _rankingData = next.value;
+          });
+        }
+      });
+    }
+
     return DefaultTabController(
       length: 2,
       child: Scaffold(
