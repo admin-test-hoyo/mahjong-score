@@ -88,6 +88,7 @@ class CalcState {
     List<Map<String, dynamic>>? possibleGroupMatches,
     bool clearMatches = false,
     List<int>? snapshottedMoneys,
+    bool clearSnapshot = false,
   }) {
     return CalcState(
       playerNames: playerNames ?? this.playerNames,
@@ -97,7 +98,7 @@ class CalcState {
       selectedGroupId: selectedGroupId ?? this.selectedGroupId,
       currentId: currentId ?? this.currentId,
       currentDraft: clearDraft ? null : (currentDraft ?? this.currentDraft),
-      snapshottedMoneys: snapshottedMoneys ?? this.snapshottedMoneys,
+      snapshottedMoneys: clearSnapshot ? null : (snapshottedMoneys ?? this.snapshottedMoneys),
       possibleGroupMatches: clearMatches ? null : (possibleGroupMatches ?? this.possibleGroupMatches),
     );
   }
@@ -212,13 +213,13 @@ class CalcNotifier extends Notifier<CalcState> {
   void updateGlobalChip(int playerId, int chip) {
     final newChips = List<int>.from(state.globalChips);
     newChips[playerId - 1] = chip;
-    state = state.copyWith(globalChips: newChips);
+    state = state.copyWith(globalChips: newChips, clearSnapshot: true);
   }
 
   void addGame() {
     final newId = DateTime.now().millisecondsSinceEpoch.toString();
     final newGames = [...state.games, _createEmptyGame(newId)];
-    state = state.copyWith(games: newGames);
+    state = state.copyWith(games: newGames, clearSnapshot: true);
   }
 
   void updateScore(String gameId, int playerId, int score) {
@@ -241,7 +242,7 @@ class CalcNotifier extends Notifier<CalcState> {
       return game.copyWith(inputs: tempInputs);
     }).toList();
     
-    state = state.copyWith(games: newGames);
+    state = state.copyWith(games: newGames, clearSnapshot: true);
   }
 
   void updateChip(String gameId, int playerId, int chip) {
@@ -251,12 +252,12 @@ class CalcNotifier extends Notifier<CalcState> {
       return game.copyWith(inputs: newInputs);
     }).toList();
     
-    state = state.copyWith(games: newGames);
+    state = state.copyWith(games: newGames, clearSnapshot: true);
   }
 
   void deleteGame(String gameId) {
     final newGames = state.games.where((game) => game.id != gameId).toList();
-    state = state.copyWith(games: newGames);
+    state = state.copyWith(games: newGames, clearSnapshot: true);
   }
 
   List<PlayerInput> _recalculateTobi(List<PlayerInput> inputs) {
@@ -286,7 +287,7 @@ class CalcNotifier extends Notifier<CalcState> {
       tempInputs = _recalculateTobi(tempInputs);
       return game.copyWith(inputs: tempInputs);
     }).toList();
-    state = state.copyWith(games: newGames);
+    state = state.copyWith(games: newGames, clearSnapshot: true);
   }
 
   void setYakumanRon(String gameId, int winnerId, int loserId) {
@@ -303,7 +304,7 @@ class CalcNotifier extends Notifier<CalcState> {
       }).toList();
       return game.copyWith(inputs: newInputs);
     }).toList();
-    state = state.copyWith(games: newGames);
+    state = state.copyWith(games: newGames, clearSnapshot: true);
   }
 
   void setYakumanTsumo(String gameId, int winnerId) {
@@ -322,7 +323,7 @@ class CalcNotifier extends Notifier<CalcState> {
       }).toList();
       return game.copyWith(inputs: newInputs);
     }).toList();
-    state = state.copyWith(games: newGames);
+    state = state.copyWith(games: newGames, clearSnapshot: true);
   }
 
   void clearYakuman(String gameId) {
@@ -331,7 +332,7 @@ class CalcNotifier extends Notifier<CalcState> {
       final newInputs = game.inputs.map((p) => p.copyWith(yakumanPt: 0)).toList();
       return game.copyWith(inputs: newInputs);
     }).toList();
-    state = state.copyWith(games: newGames);
+    state = state.copyWith(games: newGames, clearSnapshot: true);
   }
 
   void setStartingOya(String gameId, int playerIndex) {
@@ -340,7 +341,7 @@ class CalcNotifier extends Notifier<CalcState> {
       if (game.id != gameId) return game;
       return game.copyWith(startingOyaIndex: playerIndex);
     }).toList();
-    state = state.copyWith(games: newGames);
+    state = state.copyWith(games: newGames, clearSnapshot: true);
   }
 
   void resetGameRecord(String gameId) {
@@ -356,7 +357,7 @@ class CalcNotifier extends Notifier<CalcState> {
       )).toList();
       return game.copyWith(inputs: newInputs);
     }).toList();
-    state = state.copyWith(games: newGames);
+    state = state.copyWith(games: newGames, clearSnapshot: true);
   }
 
   List<int> _buildUmaList(String umaText) {
