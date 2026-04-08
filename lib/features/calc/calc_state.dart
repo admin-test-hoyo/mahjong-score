@@ -444,10 +444,15 @@ class CalcNotifier extends Notifier<CalcState> {
       }
 
       // 2. セッション（ヘッダー）の特定または作成
-      final sessionDay = DateFormat('yyyy/MM/dd').format(date);
+      String sessionDay = DateFormat('yyyy/MM/dd').format(date);
       final int sessionId;
       if (isUpdate) {
         sessionId = state.currentId!;
+        // 既存のセッション情報を取得して日付を維持する
+        final existing = await db.getSessionById(sessionId);
+        if (existing != null) {
+          sessionDay = existing.date;
+        }
         // セッション情報を更新（設定値と合計収支のスナップショットを保存）
         await db.updateSession(Session(
           id: sessionId,

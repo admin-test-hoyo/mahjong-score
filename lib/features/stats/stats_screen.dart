@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'dart:convert';
 import '../../core/database/database_service.dart';
 import '../../core/models/db_models.dart';
 
@@ -97,11 +98,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
       if (_groupMembers.isEmpty || !_groupMembers.contains(_selectedPlayer)) {
         return [];
       }
-      filtered = filtered.where((s) {
-        final participants = s.playerNames.where((n) => n.isNotEmpty);
-        return participants.isNotEmpty &&
-            participants.every((name) => _groupMembers.contains(name));
-      }).toList();
+      filtered = filtered.where((s) => s.groupId == _selectedGroupId).toList();
     }
     filtered = filtered.where((s) => s.playerNames.contains(_selectedPlayer)).toList();
     return filtered;
@@ -150,14 +147,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
     if (_selectedPlayer == null) return [];
     var filtered = _allGames;
     if (_selectedGroupId != null) {
-      if (_groupMembers.isEmpty || !_groupMembers.contains(_selectedPlayer)) {
-        return [];
-      }
-      filtered = filtered.where((g) {
-        final participants = g.playerNames.where((n) => n.isNotEmpty);
-        return participants.isNotEmpty &&
-            participants.every((name) => _groupMembers.contains(name));
-      }).toList();
+      filtered = filtered.where((g) => g.groupId == _selectedGroupId).toList();
     }
     filtered = filtered.where((g) => g.playerNames.contains(_selectedPlayer)).toList();
     return filtered;
@@ -600,25 +590,30 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
       int idx = 0;
       if (_selectedPlayer != null) {
         idx = g.playerNames.indexOf(_selectedPlayer!);
-        if (idx == -1) idx = 0;
+        if (idx == -1) continue;
       }
       avgRank += g.ranks[idx];
       totalPt += g.points[idx];
       totalChips += g.chips[idx];
       
-      // トび判定: 指示通り「点数が0未満」で判定
       if (g.scores[idx] < 0) tobiCount++;
-      
       if (g.ranks[idx] == 1) topCount++;
       if (g.ranks[idx] <= 2) rentaiCount++;
     }
 
-    // 収支 (Money): ユーザー指示に基づき、sessions テーブルの pX_money を合算
     for (var s in sessions) {
       int idx = 0;
       if (_selectedPlayer != null) {
         idx = s.playerNames.indexOf(_selectedPlayer!);
         if (idx == -1) continue;
+      }
+      if (s.globalChipsJson != null) {
+        try {
+          final List<dynamic> gc = jsonDecode(s.globalChipsJson!);
+          if (idx < gc.length) {
+            totalChips += (gc[idx] as num).toInt();
+          }
+        } catch (_) {}
       }
       totalMoney += (s.totalMoneys?[idx] ?? 0);
     }

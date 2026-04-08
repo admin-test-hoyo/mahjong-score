@@ -190,6 +190,7 @@ class CalcScreen extends ConsumerWidget {
       body: SafeArea(
         child: Column(
           children: [
+            _buildQuickRuleBar(context, ref),
             Expanded(child: _buildMainDataTable(context, ref)),
             _buildBottomSummaryFooter(context, ref),
           ],
@@ -216,6 +217,70 @@ class CalcScreen extends ConsumerWidget {
 
   void _confirmReset(BuildContext context, WidgetRef ref) {
     showDialog(context: context, builder: (context) => AlertDialog(backgroundColor: const Color(0xFF001F1A), title: Text('全データをリセットしますか？', style: GoogleFonts.robotoMono(color: Colors.white, fontSize: 16)), content: Text('入力済みのスコアはすべて削除され、プレイヤー名も初期化されます。', style: GoogleFonts.robotoMono(color: Colors.white70, fontSize: 12)), actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text('キャンセル', style: GoogleFonts.robotoMono(color: Colors.white54))), TextButton(onPressed: () { ref.read(calcProvider.notifier).resetGame(); Navigator.pop(context); }, child: Text('リセット', style: GoogleFonts.robotoMono(color: const Color(0xFFFF5252), fontWeight: FontWeight.bold)))]));
+  }
+
+  Widget _buildQuickRuleBar(BuildContext context, WidgetRef ref) {
+    final config = ref.watch(configProvider);
+    final textStyle = GoogleFonts.robotoMono(color: const Color(0xFF00FFC2), fontSize: 13, fontWeight: FontWeight.bold);
+    final labelStyle = const TextStyle(color: Colors.white38, fontSize: 10);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.2),
+        border: const Border(bottom: BorderSide(color: Colors.white10)),
+      ),
+      child: Row(
+        children: [
+          _quickField(
+            label: 'レート',
+            value: config.rate.toString(),
+            onChanged: (v) => ref.read(configProvider.notifier).updateRate(double.tryParse(v) ?? 0),
+            width: 60,
+          ),
+          const SizedBox(width: 12),
+          _quickField(
+            label: 'チップ',
+            value: config.chipRate.toString(),
+            onChanged: (v) => ref.read(configProvider.notifier).updateChipRate(int.tryParse(v) ?? 0),
+            width: 60,
+          ),
+          const SizedBox(width: 12),
+          _quickField(
+            label: '場代',
+            value: config.gameFee.toString(),
+            onChanged: (v) => ref.read(configProvider.notifier).updateGameFee(int.tryParse(v) ?? 0),
+            width: 80,
+          ),
+          const Spacer(),
+          const Text('Ver 1.9.8', style: TextStyle(color: Colors.white12, fontSize: 9)),
+        ],
+      ),
+    );
+  }
+
+  Widget _quickField({required String label, required String value, required Function(String) onChanged, required double width}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(color: Colors.white38, fontSize: 9)),
+        SizedBox(
+          width: width,
+          height: 24,
+          child: TextField(
+            controller: TextEditingController(text: value)..selection = TextSelection.fromPosition(TextPosition(offset: value.length)),
+            keyboardType: TextInputType.number,
+            style: GoogleFonts.robotoMono(color: const Color(0xFF00FFC2), fontSize: 13, fontWeight: FontWeight.bold),
+            decoration: const InputDecoration(
+              isDense: true,
+              contentPadding: EdgeInsets.zero,
+              border: InputBorder.none,
+            ),
+            onChanged: onChanged,
+          ),
+        ),
+      ],
+    );
   }
 
   List<int> _buildUmaList(String umaText) {
@@ -571,15 +636,11 @@ class SettingsModal extends ConsumerWidget {
     return Padding(padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 20, right: 20, top: 24), child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text('アプリ設定', style: GoogleFonts.robotoMono(color: const Color(0xFF00FFC2), fontSize: 18, fontWeight: FontWeight.bold)), IconButton(icon: const Icon(Icons.close, color: Colors.white38), onPressed: () => Navigator.pop(context))]),
         const SizedBox(height: 16),
-        _row([_field(ref, 'Rate', config.rate.toString(), (v) => ref.read(configProvider.notifier).updateRate(double.tryParse(v) ?? 0), isDec: true), _field(ref, '場代', config.gameFee.toString(), (v) => ref.read(configProvider.notifier).updateGameFee(int.tryParse(v) ?? 0))]),
+        _row([_field(ref, 'Uma (例: 10-30)', config.umaText, (v) => ref.read(configProvider.notifier).updateUmaText(v)), _field(ref, '配給原点', config.startingPoints.toString(), (v) => ref.read(configProvider.notifier).updateStartingPoints(int.tryParse(v) ?? 25000))]),
         const SizedBox(height: 12),
-        _row([_field(ref, 'Chip', config.chipRate.toString(), (v) => ref.read(configProvider.notifier).updateChipRate(int.tryParse(v) ?? 0)), _field(ref, 'Uma (例: 10-30)', config.umaText, (v) => ref.read(configProvider.notifier).updateUmaText(v))]),
-        const SizedBox(height: 12),
-        _row([_field(ref, '配給原点', config.startingPoints.toString(), (v) => ref.read(configProvider.notifier).updateStartingPoints(int.tryParse(v) ?? 25000)), _field(ref, 'Oka', config.oka.toString(), (v) => ref.read(configProvider.notifier).updateOka(int.tryParse(v) ?? 0))]),
+        _row([_field(ref, 'Oka', config.oka.toString(), (v) => ref.read(configProvider.notifier).updateOka(int.tryParse(v) ?? 0)), _field(ref, 'トビ賞', config.tobiPrize.toString(), (v) => ref.read(configProvider.notifier).updateTobiPrize(int.tryParse(v) ?? 10), suffixText: 'Pt')]),
         const SizedBox(height: 12),
         _row([_field(ref, '役満賞(ツモ)', config.yakumanTsumoPrize.toString(), (v) => ref.read(configProvider.notifier).updateYakumanTsumoPrize(int.tryParse(v) ?? 5), suffixText: 'Pt'), _field(ref, '役満賞(ロン)', config.yakumanRonPrize.toString(), (v) => ref.read(configProvider.notifier).updateYakumanRonPrize(int.tryParse(v) ?? 10), suffixText: 'Pt')]),
-        const SizedBox(height: 12),
-        _row([_field(ref, 'トビ賞', config.tobiPrize.toString(), (v) => ref.read(configProvider.notifier).updateTobiPrize(int.tryParse(v) ?? 10), suffixText: 'Pt'), const SizedBox()]),
         const SizedBox(height: 32),
     ]));
   }

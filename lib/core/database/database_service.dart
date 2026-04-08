@@ -322,6 +322,19 @@ class DatabaseService {
   }
 
   // Groups
+  Future<Session?> getSessionById(int id) async {
+    if (kIsWeb) {
+      final rows = await _webQuery('web_db_sessions');
+      final map = rows.firstWhere((e) => e['id'] == id, orElse: () => {});
+      if (map.isEmpty) return null;
+      return Session.fromMap(map);
+    }
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query('sessions', where: 'id = ?', whereArgs: [id]);
+    if (maps.isEmpty) return null;
+    return Session.fromMap(maps.first);
+  }
+
   Future<List<Map<String, dynamic>>> getGroups() async {
     if (kIsWeb) return _webQuery('web_db_groups');
     final db = await database;
@@ -451,32 +464,48 @@ class DatabaseService {
     if (memberNames.isEmpty) return [];
     final memberNameSet = memberNames.toSet();
 
-    List<Map<String, dynamic>> allRows = kIsWeb ? await _webQuery('web_db_games') : await (await database).query('games');
+    List<Map<String, dynamic>> allRows = kIsWeb ? await _webQuery('web_db_games') : await (await database).query('games', where: 'group_id = ?', whereArgs: [groupId]);
     final Map<String, Map<String, dynamic>> stats = { for (var name in memberNames) name: {
       'name': name, 'games': 0, 'totalPt': 0, 'totalChip': 0, 'rankSum': 0, 'topCount': 0, 'rentaiCount': 0, 'tobiCount': 0, 'totalMoney': 0, 'session_dates': <String>{},
     } };
 
-    final sRows = kIsWeb ? await _webQuery('web_db_sessions') : await (await database).query('sessions');
+    final sRows = kIsWeb ? await _webQuery('web_db_sessions') : await (await database).query('sessions', where: 'group_id = ?', whereArgs: [groupId]);
+    final sessionIds = sRows.map((s) => s['id'] as int).toSet();
+
     for (final s in sRows) {
       final names = [(s['p1_name']??''), (s['p2_name']??''), (s['p3_name']??''), (s['p4_name']??'')];
       final dateStr = (s['date'] as String?) ?? '';
       String day = dateStr.length >= 10 ? dateStr.substring(0, 10).replaceAll('-', '/') : dateStr;
+
+      List<int> globalChips = [0, 0, 0, 0];
+      if (s['global_chips_json'] != null) {
+        try { globalChips = (jsonDecode(s['global_chips_json'] as String) as List).cast<int>(); } catch(_) {}
+      }
+
       for (int i=0; i<4; i++) {
         final name = (names[i] as String? ?? '').trim();
         if (name.isEmpty || !memberNameSet.contains(name)) continue;
         final stat = stats[name]!;
         stat['totalMoney'] = (stat['totalMoney'] as int) + ((s['p${i+1}_money'] as num?)?.toInt() ?? 0);
+        // チップ集計にセッション全体のチップを加算
+        if (i < globalChips.length) {
+           stat['totalChip'] = (stat['totalChip'] as int) + globalChips[i];
+        }
         if (day.isNotEmpty) (stat['session_dates'] as Set<String>).add(day);
       }
     }
 
     for (final row in allRows) {
+      // #2 混入バグ修正: 所属セッションがこのグループのものであるか、または直接 group_id をチェック
+      if (row['group_id'] != groupId && !sessionIds.contains(row['session_id'])) continue;
+
       for (int i=1; i<=4; i++) {
         final name = (row['p$i\_name'] ?? '').toString().trim();
         if (name.isEmpty || !memberNameSet.contains(name)) continue;
         final s = stats[name]!;
         s['games'] = (s['games'] as int) + 1;
         s['totalPt'] = (s['totalPt'] as int) + ((row['p$i\_pt'] as num?)?.toInt() ?? 0);
+        // 各局のチップを加算
         s['totalChip'] = (s['totalChip'] as int) + ((row['p$i\_ch'] as num?)?.toInt() ?? 0);
         final rank = (row['p$i\_rank'] as num?)?.toInt() ?? 1;
         s['rankSum'] = (s['rankSum'] as int) + rank;
@@ -484,6 +513,10 @@ class DatabaseService {
         if (rank <= 2) s['rentaiCount'] = (s['rentaiCount'] as int) + 1;
         if (((row['p$i\_score'] as num?)?.toInt() ?? 0) < 0) s['tobiCount'] = (s['tobiCount'] as int) + 1;
       }
+    }
+    for (final name in memberNames) {
+      final s = stats[name]!;
+      s['matches'] = (s['session_dates'] as Set<String>).length;
     }
     for (final s in stats.values) {
       final matches = s['matches'] as int? ?? 0;

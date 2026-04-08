@@ -98,6 +98,8 @@ class HistoryNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
     final db = DatabaseService();
     if (all) {
       await db.deleteAllHistory();
+      // 全削除時は設定の場代も 0 にリセット
+      ref.read(configProvider.notifier).updateGameFee(0);
     } else {
       final now = DateTime.now();
       final targetDate = DateTime(now.year, now.month - months, now.day);
