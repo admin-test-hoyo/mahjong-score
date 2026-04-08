@@ -138,6 +138,12 @@ class CalcNotifier extends Notifier<CalcState> {
 
   @override
   CalcState build() {
+    // 起動時に過去データの収支不整合を自動修復する
+    Future.microtask(() async {
+      final db = DatabaseService();
+      await db.recalculateAllSessionTotals();
+    });
+
     final prefs = ref.watch(sharedPrefsProvider);
     final str = prefs.getString('calcState');
     if (str != null) {
@@ -467,10 +473,10 @@ class CalcNotifier extends Notifier<CalcState> {
           'p2_pt': result.firstWhere((r) => r.id == 2).finalPoint,
           'p3_pt': result.firstWhere((r) => r.id == 3).finalPoint,
           'p4_pt': result.firstWhere((r) => r.id == 4).finalPoint,
-          'p1_ch': addChips[0], 
-          'p2_ch': addChips[1],
-          'p3_ch': addChips[2],
-          'p4_ch': addChips[3],
+          'p1_ch': g.inputs[0].chip + addChips[0], 
+          'p2_ch': g.inputs[1].chip + addChips[1],
+          'p3_ch': g.inputs[2].chip + addChips[2],
+          'p4_ch': g.inputs[3].chip + addChips[3],
           'p1_tobi': g.inputs[0].score < 0 ? 1 : 0,
           'p2_tobi': g.inputs[1].score < 0 ? 1 : 0,
           'p3_tobi': g.inputs[2].score < 0 ? 1 : 0,
@@ -479,6 +485,14 @@ class CalcNotifier extends Notifier<CalcState> {
           'p2_blown_by': g.inputs[1].blownByPlayerId,
           'p3_blown_by': g.inputs[2].blownByPlayerId,
           'p4_blown_by': g.inputs[3].blownByPlayerId,
+          'p1_yakuman': g.inputs[0].yakumanPt,
+          'p2_yakuman': g.inputs[1].yakumanPt,
+          'p3_yakuman': g.inputs[2].yakumanPt,
+          'p4_yakuman': g.inputs[3].yakumanPt,
+          'p1_money': gameMoneys['1'] ?? 0,
+          'p2_money': gameMoneys['2'] ?? 0,
+          'p3_money': gameMoneys['3'] ?? 0,
+          'p4_money': gameMoneys['4'] ?? 0,
         };
 
         final sortedByPt = List<PlayerResult>.from(result)..sort((a, b) => b.finalPoint.compareTo(a.finalPoint));
@@ -486,11 +500,6 @@ class CalcNotifier extends Notifier<CalcState> {
         row['p2_rank'] = sortedByPt.indexWhere((r) => r.id == 2) + 1;
         row['p3_rank'] = sortedByPt.indexWhere((r) => r.id == 3) + 1;
         row['p4_rank'] = sortedByPt.indexWhere((r) => r.id == 4) + 1;
-
-        row['p1_money'] = gameMoneys['1'];
-        row['p2_money'] = gameMoneys['2'];
-        row['p3_money'] = gameMoneys['3'];
-        row['p4_money'] = gameMoneys['4'];
 
         await db.insertGame(row);
       }
@@ -537,6 +546,7 @@ class CalcNotifier extends Notifier<CalcState> {
         tobiPt: game.tobis[i] ? -1 : 0, 
         chip: game.chips[i],
         blownByPlayerId: game.blownByPlayerIds[i],
+        yakumanPt: game.yakumanPts[i],
       ));
       return GameRecord(
         id: 'load_${game.id}',
@@ -565,6 +575,7 @@ class CalcNotifier extends Notifier<CalcState> {
       tobiPt: game.tobis[i] ? -1 : 0,
       chip: game.chips[i],
       blownByPlayerId: game.blownByPlayerIds[i],
+      yakumanPt: game.yakumanPts[i],
     ));
     state = state.copyWith(
       currentId: game.id,

@@ -20,6 +20,7 @@ class SavedGame {
   final List<int> ranks;
   final List<int> moneys; // マネー収支 (円)
   final List<int?> blownByPlayerIds; // New for Ver 1.9.2: 誰が飛ばしたか (Player ID 1-4 or Null)
+  final List<int> yakumanPts; // New for Ver 1.9.3: 役満賞のポイント (Pt)
 
   SavedGame({
     this.id,
@@ -35,6 +36,7 @@ class SavedGame {
     required this.ranks,
     required this.moneys,
     required this.blownByPlayerIds,
+    required this.yakumanPts,
   });
 
   Map<String, dynamic> toMap() {
@@ -72,10 +74,12 @@ class SavedGame {
       'p2_money': moneys[1],
       'p3_money': moneys[2],
       'p4_money': moneys.length > 3 ? moneys[3] : 0,
-      'p1_blown_by': blownByPlayerIds[0],
-      'p2_blown_by': blownByPlayerIds[1],
       'p3_blown_by': blownByPlayerIds[2],
       'p4_blown_by': blownByPlayerIds.length > 3 ? blownByPlayerIds[3] : null,
+      'p1_yakuman': yakumanPts[0],
+      'p2_yakuman': yakumanPts[1],
+      'p3_yakuman': yakumanPts[2],
+      'p4_yakuman': yakumanPts.length > 3 ? yakumanPts[3] : 0,
     };
   }
 
@@ -133,6 +137,12 @@ class SavedGame {
         map['p2_blown_by'],
         map['p3_blown_by'],
         if (map['type'] == '4-player') map['p4_blown_by'],
+      ],
+      yakumanPts: [
+        map['p1_yakuman'] ?? 0,
+        map['p2_yakuman'] ?? 0,
+        map['p3_yakuman'] ?? 0,
+        if (map['type'] == '4-player') map['p4_yakuman'] ?? 0,
       ],
     );
   }

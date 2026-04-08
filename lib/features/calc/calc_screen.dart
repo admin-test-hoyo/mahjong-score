@@ -420,77 +420,59 @@ class CalcScreen extends ConsumerWidget {
   }
 
   Widget _buildBottomSummaryFooter(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(calcProvider); final config = ref.watch(configProvider); const players = 4;
+    final state = ref.watch(calcProvider);
+    final config = ref.watch(configProvider);
+    const players = 4;
     
-    // 指示：履歴表示時は計算を一切行わず、DBのスナップショットを優先
-    if (state.snapshottedMoneys != null && state.snapshottedMoneys!.any((m) => m != 0)) {
-       return Container(
-         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2), 
-         decoration: BoxDecoration(color: Colors.black26, border: const Border(top: BorderSide(color: Color(0xFF00FFC2), width: 1))), 
-         child: Row(children: [
-           for (int i = 0; i < players; i++) 
-             Expanded(child: _buildSumBlockRestored(state.playerNames[i], state.snapshottedMoneys![i]))
-         ])
-       );
-    }
-
-    List<List<PlayerResult>> all = [];
-    for (var g in state.games) {
-        if (g.inputs.where((p) => p.id <= players).fold(0, (s, p) => s + p.score) == config.targetTotalScore) {
-            try { all.add(MahjongCalculator.calculate(inputs: g.inputs.where((p) => p.id <= players).toList(), rule: state.rule.copyWith(oka: config.oka, uma: _buildUmaList(config.umaText)), config: config)); } catch (_) {}
-        }
-    }
-
-    // 履歴モードでない、あるいは新規入力中の集計
     final summaries = { for (int i = 1; i <= players; i++) i: {'pt': 0, 'chip': 0} };
     
-    if (state.currentId != null) {
-      // 履歴表示時は各局の保存値（Pt/Chip）を単純に SUM するだけにする
-      for (var g in state.games) {
-        for (var p in g.inputs) {
-          if (p.id <= players) {
-            summaries[p.id]!['pt'] = summaries[p.id]!['pt']! + (p.score == 0 ? 0 : p.score); // 暫定
-            // 本来は p.pt を使うべきだが GameRecord に pt カラムがないため、
-            // loadSession で score に Pt を詰めてしまっている可能性を考慮。
-            // 修正：SavedGame からロードした際は score に Pt が入っている。
+    // 集計処理
+    for (var g in state.games) {
+      if (g.inputs.where((ip) => ip.id <= players).fold(0, (s, ip) => s + ip.score) == config.targetTotalScore) {
+        try {
+          final res = MahjongCalculator.calculate(
+            inputs: g.inputs.where((ip) => ip.id <= players).toList(),
+            rule: state.rule.copyWith(oka: config.oka, uma: _buildUmaList(config.umaText)),
+            config: config,
+            startingOyaIndex: g.startingOyaIndex
+          );
+          for (var r in res) {
+            summaries[r.id]!['pt'] = (summaries[r.id]!['pt'] ?? 0) + r.finalPoint;
+            final pInput = g.inputs.firstWhere((inp) => inp.id == r.id);
+            summaries[r.id]!['chip'] = (summaries[r.id]!['chip'] ?? 0) + pInput.chip;
           }
-        }
+        } catch (_) {}
       }
-    } else {
-      // 新規入力時のみ動的計算
-      List<List<PlayerResult>> all = [];
-      for (var g in state.games) {
-        if (g.inputs.where((p) => p.id <= players).fold(0, (s, p) => s + p.score) == config.targetTotalScore) {
-          try { all.add(MahjongCalculator.calculate(inputs: g.inputs.where((p) => p.id <= players).toList(), rule: state.rule.copyWith(oka: config.oka, uma: _buildUmaList(config.umaText)), config: config)); } catch (_) {}
-        }
-      }
-      for (var res in all) { for (var p in res) { summaries[p.id]!['pt'] = summaries[p.id]!['pt']! + p.finalPoint; } }
-      for (int i=0; i<players; i++) { summaries[i+1]!['chip'] = state.globalChips[i]; }
+    }
+    for (int i=0; i<players; i++) {
+       summaries[i+1]!['chip'] = (summaries[i+1]!['chip'] ?? 0) + state.globalChips[i];
     }
     
-    return Container(padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2), decoration: BoxDecoration(color: Colors.black26, border: const Border(top: BorderSide(color: Color(0xFF00FFC2), width: 1))), child: Row(children: [for (int i = 1; i <= players; i++) Expanded(child: _buildSumBlock(state.playerNames[i - 1], summaries[i]!, config, players))]));
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2), 
+      decoration: BoxDecoration(color: Colors.black26, border: const Border(top: BorderSide(color: Color(0xFF00FFC2), width: 1))), 
+      child: Row(children: [
+        for (int i = 1; i <= players; i++) 
+          Expanded(child: _buildSumBlock(
+            state.playerNames[i - 1], 
+            summaries[i]!, 
+            config, 
+            players,
+            state.snapshottedMoneys != null && state.snapshottedMoneys!.length >= i ? state.snapshottedMoneys![i-1] : null
+          ))
+      ])
+    );
   }
 
-  Widget _buildSumBlockRestored(String name, int money) {
-    final color = money >= 0 ? const Color(0xFF00FFC2) : Colors.redAccent;
-    return Column(mainAxisSize: MainAxisSize.min, children: [
-      FittedBox(fit: BoxFit.scaleDown, child: Text(name, style: const TextStyle(color: Color(0xFF00FFC2), fontSize: 13, fontWeight: FontWeight.normal), overflow: TextOverflow.ellipsis)),
-      const SizedBox(height: 1),
-      const FittedBox(fit: BoxFit.scaleDown, child: Text('---', style: TextStyle(color: Colors.white24, fontSize: 12))),
-      const SizedBox(height: 1),
-      FittedBox(fit: BoxFit.scaleDown, child: Text(
-        money >= 0 ? '+¥${money.toCommaString()}' : '-¥${money.abs().toCommaString()}',
-        style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.bold, fontFamily: 'RobotoMono')
-      )),
-    ]);
-  }
-
-  Widget _buildSumBlock(String name, Map<String, int> data, AppConfig conf, int players) {
+  Widget _buildSumBlock(String name, Map<String, int> data, AppConfig conf, int players, [int? snapshottedMoney]) {
     final pt = data['pt']!; final ch = data['chip']!;
-    final double raw = (pt * conf.rate) + (ch * conf.chipRate);
-    final int fin = (raw - (conf.gameFee / players)).round();
-    final int bFee = conf.roundingTenYen ? (raw / 10.0).ceil() * 10 : raw.round();
-    final int fBal = conf.roundingTenYen ? (fin / 10.0).ceil() * 10 : fin;
+    
+    // 収支計算 (Strict Formula: (Pt * Rate) + (Chip * ChipRate))
+    final int income = (pt * conf.rate).toInt() + (ch * conf.chipRate).toInt();
+    
+    // 場代込計算 (Strict Formula: Income - (TotalFee / 4))
+    final int finalBalance = snapshottedMoney ?? (income - (conf.gameFee / players)).round();
+    
     return Column(mainAxisSize: MainAxisSize.min, children: [
       FittedBox(fit: BoxFit.scaleDown, child: Text(name, style: const TextStyle(color: Color(0xFF00FFC2), fontSize: 13, fontWeight: FontWeight.normal), overflow: TextOverflow.ellipsis)),
       const SizedBox(height: 1),
@@ -503,8 +485,8 @@ class CalcScreen extends ConsumerWidget {
           children: [
             const TextSpan(text: '収支:'),
             TextSpan(
-              text: '¥${bFee.toCommaString()}',
-              style: TextStyle(color: bFee < 0 ? const Color(0xFFFF5252) : Colors.white),
+              text: '¥${income.toCommaString()}',
+              style: TextStyle(color: income < 0 ? const Color(0xFFFF5252) : Colors.white),
             ),
           ],
         ),
@@ -516,8 +498,8 @@ class CalcScreen extends ConsumerWidget {
           children: [
             const TextSpan(text: '場代込:'),
             TextSpan(
-              text: '¥${fBal.toCommaString()}',
-              style: TextStyle(color: fBal < 0 ? const Color(0xFFFF5252) : const Color(0xFF00FFC2)),
+              text: '¥${finalBalance.toCommaString()}',
+              style: TextStyle(color: finalBalance < 0 ? const Color(0xFFFF5252) : const Color(0xFF00FFC2)),
             ),
           ],
         ),

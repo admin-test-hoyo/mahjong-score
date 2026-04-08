@@ -37,12 +37,13 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 4, 
+      version: 5, 
       onCreate: _createDb,
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) await _upgradeToV2(db);
         if (oldVersion < 3) await _upgradeToV3(db);
         if (oldVersion < 4) await _upgradeToV4(db);
+        if (oldVersion < 5) await _upgradeToV5(db);
       },
     );
   }
@@ -81,6 +82,15 @@ class DatabaseService {
     } catch (_) {}
   }
 
+  Future<void> _upgradeToV5(Database db) async {
+    try {
+      await db.execute('ALTER TABLE games ADD COLUMN p1_yakuman INTEGER DEFAULT 0');
+      await db.execute('ALTER TABLE games ADD COLUMN p2_yakuman INTEGER DEFAULT 0');
+      await db.execute('ALTER TABLE games ADD COLUMN p3_yakuman INTEGER DEFAULT 0');
+      await db.execute('ALTER TABLE games ADD COLUMN p4_yakuman INTEGER DEFAULT 0');
+    } catch (_) {}
+  }
+
   Future<void> _createDb(Database db, int version) async {
     await db.execute('''
       CREATE TABLE sessions (
@@ -108,6 +118,7 @@ class DatabaseService {
         p1_rank INTEGER, p2_rank INTEGER, p3_rank INTEGER, p4_rank INTEGER,
         p1_money INTEGER, p2_money INTEGER, p3_money INTEGER, p4_money INTEGER,
         p1_blown_by INTEGER, p2_blown_by INTEGER, p3_blown_by INTEGER, p4_blown_by INTEGER,
+        p1_yakuman INTEGER, p2_yakuman INTEGER, p3_yakuman INTEGER, p4_yakuman INTEGER,
         FOREIGN KEY (session_id) REFERENCES sessions (id) ON DELETE SET NULL
       )
     ''');
@@ -116,6 +127,12 @@ class DatabaseService {
   }
 
   Future<void> forceSyncSessionTotals() async {
+    await recalculateAllSessionTotals();
+  }
+
+  Future<void> recalculateAllSessionTotals() async {
+    // 厳守：収支 = (Pt * Rate) + (Chip * ChipRate)
+    // 場代込 = 収支 - (Fee / 4)
     if (kIsWeb) {
       final sessions = await _webQuery('web_db_sessions');
       final games = await _webQuery('web_db_games');
@@ -123,12 +140,24 @@ class DatabaseService {
       for (var s in sessions) {
         final sid = s['id'];
         final sGames = games.where((g) => g['session_id'] == sid);
+        final configJson = s['config_json'] as String?;
+        int fee = 0; double rate = 0; int chipRate = 0;
+        if (configJson != null) {
+          final config = jsonDecode(configJson);
+          fee = (config['gameFee'] as num?)?.toInt() ?? 0;
+          rate = (config['rate'] as num?)?.toDouble() ?? 0;
+          chipRate = (config['chipRate'] as num?)?.toInt() ?? 0;
+        }
+
         final List<int> sums = [0, 0, 0, 0];
         for (var g in sGames) {
-          sums[0] += (g['p1_money'] as num?)?.toInt() ?? 0;
-          sums[1] += (g['p2_money'] as num?)?.toInt() ?? 0;
-          sums[2] += (g['p3_money'] as num?)?.toInt() ?? 0;
-          sums[3] += (g['p4_money'] as num?)?.toInt() ?? 0;
+          for (int i=1; i<=4; i++) {
+            final pt = (g['p${i}_pt'] as num?)?.toInt() ?? 0;
+            final chip = (g['p${i}_ch'] as num?)?.toInt() ?? 0;
+            final income = (pt * rate) + (chip * chipRate);
+            final withFee = income - (fee / 4.0);
+            sums[i-1] += withFee.round();
+          }
         }
         s['p1_money'] = sums[0]; s['p2_money'] = sums[1]; s['p3_money'] = sums[2]; s['p4_money'] = sums[3];
         changed = true;
@@ -144,12 +173,24 @@ class DatabaseService {
     for (var s in sessions) {
       final sid = s['id'];
       final games = await db.query('games', where: 'session_id = ?', whereArgs: [sid]);
+      final configJson = s['config_json'] as String?;
+      int fee = 0; double rate = 0; int chipRate = 0;
+      if (configJson != null) {
+        final config = jsonDecode(configJson);
+        fee = (config['gameFee'] as num?)?.toInt() ?? 0;
+        rate = (config['rate'] as num?)?.toDouble() ?? 0.0;
+        chipRate = (config['chipRate'] as num?)?.toInt() ?? 0;
+      }
+
       final List<int> sums = [0, 0, 0, 0];
       for (var g in games) {
-        sums[0] += (g['p1_money'] as num?)?.toInt() ?? 0;
-        sums[1] += (g['p2_money'] as num?)?.toInt() ?? 0;
-        sums[2] += (g['p3_money'] as num?)?.toInt() ?? 0;
-        sums[3] += (g['p4_money'] as num?)?.toInt() ?? 0;
+        for (int i=1; i<=4; i++) {
+          final pt = (g['p${i}_pt'] as num?)?.toInt() ?? 0;
+          final chip = (g['p${i}_ch'] as num?)?.toInt() ?? 0;
+          final income = (pt * rate) + (chip * chipRate);
+          final withFee = income - (fee / 4.0);
+          sums[i-1] += withFee.round();
+        }
       }
       await db.update('sessions', {
         'p1_money': sums[0], 'p2_money': sums[1], 'p3_money': sums[2], 'p4_money': sums[3],

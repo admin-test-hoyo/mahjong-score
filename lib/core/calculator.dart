@@ -292,22 +292,17 @@ class MahjongCalculator {
       results[topIndex] = currentTop.copyWith(finalPoint: currentTop.finalPoint - totalRounded);
     }
     
-    // 5. 金銭換算 (Reactive AppConfig integration)
+    // 5. 金銭換算 (Strict Formula Implementation)
+    // 厳守：収支（円） = (ポイント × レート) + (チップ数 × チップ単価)
+    // 厳守：場代込（円） = 収支 - (場代 / 4)
     final finalResults = results.map((r) {
       final input = inputs.firstWhere((i) => i.id == r.id);
       
-      // 現金換算式: (ポイント × レート) + (チップ数 × チップ単価) - (場代 / players)
-      final correctRawMoney = (r.finalPoint * config.rate) + (input.chip * config.chipRate) - (config.gameFee / expectedPlayers).round();
-
-      // 6. 最終端数処理: 10円単位での切り上げ
-      int moneyRoundedUp;
-      if (config.roundingTenYen) {
-        moneyRoundedUp = (correctRawMoney / 10.0).ceil() * 10;
-      } else {
-        moneyRoundedUp = correctRawMoney.round();
-      }
+      final income = (r.finalPoint * config.rate) + (input.chip * config.chipRate);
+      final withFee = income - (config.gameFee / expectedPlayers.toDouble());
       
-      return r.copyWith(money: moneyRoundedUp);
+      // ユーザー指示：丸め処理パージ。DB保存用に整数(round)として返す。
+      return r.copyWith(money: withFee.round());
     }).toList();
     
     // ID順に戻して返す
