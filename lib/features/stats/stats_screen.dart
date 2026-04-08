@@ -21,6 +21,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
   String? _selectedPlayer;
   int? _selectedGroupId;
   List<SavedGame> _allGames = [];
+  List<Session> _allSessions = [];
   List<String> _players = [];
   List<String> _groupMembers = [];
 
@@ -68,12 +69,42 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
     final rows = await db.getGames();
     _allGames = rows.map((e) => SavedGame.fromMap(e)).toList();
 
+    final sessionRows = await db.getSessions();
+    _allSessions = sessionRows.map((e) {
+      final names = <String>[e['p1_name']??'', e['p2_name']??'', e['p3_name']??'', e['p4_name']??''];
+      final moneys = <int>[(e['p1_money'] as num?)?.toInt() ?? 0, (e['p2_money'] as num?)?.toInt() ?? 0, (e['p3_money'] as num?)?.toInt() ?? 0, (e['p4_money'] as num?)?.toInt() ?? 0];
+      return Session(
+        id: e['id'] as int,
+        date: e['date'] as String,
+        groupId: e['group_id'] as int?,
+        playerNames: names,
+        totalMoneys: moneys,
+      );
+    }).toList();
+
     if (_selectedGroupId != null) {
       final members = await db.getMembers(_selectedGroupId!);
       _groupMembers = members.map((e) => e['name'] as String).toList();
     } else {
       _groupMembers = [];
     }
+  }
+
+  List<Session> get _filteredSessions {
+    if (_selectedPlayer == null) return [];
+    var filtered = _allSessions;
+    if (_selectedGroupId != null) {
+      if (_groupMembers.isEmpty || !_groupMembers.contains(_selectedPlayer)) {
+        return [];
+      }
+      filtered = filtered.where((s) {
+        final participants = s.playerNames.where((n) => n.isNotEmpty);
+        return participants.isNotEmpty &&
+            participants.every((name) => _groupMembers.contains(name));
+      }).toList();
+    }
+    filtered = filtered.where((s) => s.playerNames.contains(_selectedPlayer)).toList();
+    return filtered;
   }
 
   Future<void> _loadGroupRanking(int groupId) async {
@@ -180,6 +211,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
   // ─────────────────── 個人分析タブ ────────────────────────
   Widget _buildPersonalTab() {
     final games = _filteredGames;
+    final sessions = _filteredSessions;
     return Column(
       children: [
         _buildPersonalFilters(),
@@ -197,11 +229,11 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildGeneralStats(games),
+                          _buildGeneralStats(games, sessions),
                           const SizedBox(height: 24),
                           _buildRankChart(games),
                           const SizedBox(height: 24),
-                          _buildRevenueChart(games),
+                          _buildRevenueChart(sessions),
                         ],
                       ),
                     ),
@@ -554,7 +586,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
   }
 
   // ─────────────────── 個人分析ウィジェット群 ───────────────
-  Widget _buildGeneralStats(List<SavedGame> games) {
+  Widget _buildGeneralStats(List<SavedGame> games, List<Session> sessions) {
     final totalGames = games.length;
     double avgRank = 0;
     int totalPt = 0;
@@ -574,14 +606,21 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
       totalPt += g.points[idx];
       totalChips += g.chips[idx];
       
-      // 収支 (マネー): DB 保存値をそのまま合算
-      totalMoney += g.moneys[idx];
-      
       // トび判定: 指示通り「点数が0未満」で判定
       if (g.scores[idx] < 0) tobiCount++;
       
       if (g.ranks[idx] == 1) topCount++;
       if (g.ranks[idx] <= 2) rentaiCount++;
+    }
+
+    // 収支 (Money): ユーザー指示に基づき、sessions テーブルの pX_money を合算
+    for (var s in sessions) {
+      int idx = 0;
+      if (_selectedPlayer != null) {
+        idx = s.playerNames.indexOf(_selectedPlayer!);
+        if (idx == -1) continue;
+      }
+      totalMoney += (s.totalMoneys?[idx] ?? 0);
     }
 
     avgRank /= totalGames;
@@ -735,18 +774,24 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
     );
   }
 
-  Widget _buildRevenueChart(List<SavedGame> games) {
-    List<FlSpot> spots = [const FlSpot(0, 0)];
+  Widget _buildRevenueChart(List<Session> sessions) {
+    if (sessions.isEmpty) return const SizedBox.shrink();
+
+    // 日付順（昇順）にソート
+    final sortedSessions = List<Session>.from(sessions)
+      ..sort((a, b) => a.date.compareTo(b.date));
+
     int cumulative = 0;
-    for (int i = 0; i < games.length; i++) {
-      final g = games[games.length - 1 - i];
+    final spots = <FlSpot>[];
+    for (int i = 0; i < sortedSessions.length; i++) {
+      final s = sortedSessions[i];
       int idx = 0;
       if (_selectedPlayer != null) {
-        idx = g.playerNames.indexOf(_selectedPlayer!);
-        if (idx == -1) idx = 0;
+        idx = s.playerNames.indexOf(_selectedPlayer!);
+        if (idx == -1) continue;
       }
-      cumulative += g.points[idx];
-      spots.add(FlSpot((i + 1).toDouble(), cumulative.toDouble()));
+      cumulative += (s.totalMoneys?[idx] ?? 0);
+      spots.add(FlSpot(i.toDouble(), cumulative.toDouble()));
     }
 
     return Container(

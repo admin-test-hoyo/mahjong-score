@@ -494,10 +494,10 @@ class CalcNotifier extends Notifier<CalcState> {
           'p2_pt': result.firstWhere((r) => r.id == 2).finalPoint,
           'p3_pt': result.firstWhere((r) => r.id == 3).finalPoint,
           'p4_pt': result.firstWhere((r) => r.id == 4).finalPoint,
-          'p1_ch': g.inputs[0].chip + addChips[0], 
-          'p2_ch': g.inputs[1].chip + addChips[1],
-          'p3_ch': g.inputs[2].chip + addChips[2],
-          'p4_ch': g.inputs[3].chip + addChips[3],
+          'p1_ch': g.inputs[0].chip, 
+          'p2_ch': g.inputs[1].chip,
+          'p3_ch': g.inputs[2].chip,
+          'p4_ch': g.inputs[3].chip,
           'p1_tobi': g.inputs[0].score < 0 ? 1 : 0,
           'p2_tobi': g.inputs[1].score < 0 ? 1 : 0,
           'p3_tobi': g.inputs[2].score < 0 ? 1 : 0,
@@ -556,6 +556,9 @@ class CalcNotifier extends Notifier<CalcState> {
         print('History rule restore error: $e');
       }
     }
+
+    // ロード前に状態を完全に初期化（チップ二重計上防止）
+    state = const CalcState(games: []);
 
     final List<int> loadedGlobalChips = session.globalChipsJson != null 
         ? (jsonDecode(session.globalChipsJson!) as List<dynamic>).map((e) => e as int).toList()
