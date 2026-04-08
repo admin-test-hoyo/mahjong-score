@@ -87,6 +87,7 @@ class CalcState {
     bool clearDraft = false,
     List<Map<String, dynamic>>? possibleGroupMatches,
     bool clearMatches = false,
+    List<int>? snapshottedMoneys,
   }) {
     return CalcState(
       playerNames: playerNames ?? this.playerNames,
@@ -502,11 +503,13 @@ class CalcNotifier extends Notifier<CalcState> {
     }
   }
 
+  Future<void> loadSession(Session session, List<SavedGame> sessionGames) async {
+    final draft = state.currentId == null ? jsonEncode(state.toJson()) : state.currentDraft;
     MahjongRule historyRule = state.rule;
     if (session.configJson != null) {
       try {
         final configMap = jsonDecode(session.configJson!) as Map<String, dynamic>;
-        final AppConfig historyConfig = AppConfig.fromMap(configMap);
+        final AppConfig historyConfig = AppConfig.fromJson(configMap);
         historyRule = MahjongRule(
           rate: historyConfig.rate.toInt(),
           chipRate: historyConfig.chipRate,

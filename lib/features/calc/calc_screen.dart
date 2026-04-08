@@ -440,7 +440,6 @@ class CalcScreen extends ConsumerWidget {
             try { all.add(MahjongCalculator.calculate(inputs: g.inputs.where((p) => p.id <= players).toList(), rule: state.rule.copyWith(oka: config.oka, uma: _buildUmaList(config.umaText)), config: config)); } catch (_) {}
         }
     }
-    }
 
     // 履歴モードでない、あるいは新規入力中の集計
     final summaries = { for (int i = 1; i <= players; i++) i: {'pt': 0, 'chip': 0} };
