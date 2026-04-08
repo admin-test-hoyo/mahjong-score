@@ -440,8 +440,35 @@ class CalcScreen extends ConsumerWidget {
             try { all.add(MahjongCalculator.calculate(inputs: g.inputs.where((p) => p.id <= players).toList(), rule: state.rule.copyWith(oka: config.oka, uma: _buildUmaList(config.umaText)), config: config)); } catch (_) {}
         }
     }
-    final summaries = { for (int i = 1; i <= players; i++) i: {'pt': 0, 'chip': state.globalChips[i - 1]} };
-    for (var res in all) { for (var p in res) { summaries[p.id]!['pt'] = summaries[p.id]!['pt']! + p.finalPoint; } }
+    }
+
+    // 履歴モードでない、あるいは新規入力中の集計
+    final summaries = { for (int i = 1; i <= players; i++) i: {'pt': 0, 'chip': 0} };
+    
+    if (state.currentId != null) {
+      // 履歴表示時は各局の保存値（Pt/Chip）を単純に SUM するだけにする
+      for (var g in state.games) {
+        for (var p in g.inputs) {
+          if (p.id <= players) {
+            summaries[p.id]!['pt'] = summaries[p.id]!['pt']! + (p.score == 0 ? 0 : p.score); // 暫定
+            // 本来は p.pt を使うべきだが GameRecord に pt カラムがないため、
+            // loadSession で score に Pt を詰めてしまっている可能性を考慮。
+            // 修正：SavedGame からロードした際は score に Pt が入っている。
+          }
+        }
+      }
+    } else {
+      // 新規入力時のみ動的計算
+      List<List<PlayerResult>> all = [];
+      for (var g in state.games) {
+        if (g.inputs.where((p) => p.id <= players).fold(0, (s, p) => s + p.score) == config.targetTotalScore) {
+          try { all.add(MahjongCalculator.calculate(inputs: g.inputs.where((p) => p.id <= players).toList(), rule: state.rule.copyWith(oka: config.oka, uma: _buildUmaList(config.umaText)), config: config)); } catch (_) {}
+        }
+      }
+      for (var res in all) { for (var p in res) { summaries[p.id]!['pt'] = summaries[p.id]!['pt']! + p.finalPoint; } }
+      for (int i=0; i<players; i++) { summaries[i+1]!['chip'] = state.globalChips[i]; }
+    }
+    
     return Container(padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2), decoration: BoxDecoration(color: Colors.black26, border: const Border(top: BorderSide(color: Color(0xFF00FFC2), width: 1))), child: Row(children: [for (int i = 1; i <= players; i++) Expanded(child: _buildSumBlock(state.playerNames[i - 1], summaries[i]!, config, players))]));
   }
 

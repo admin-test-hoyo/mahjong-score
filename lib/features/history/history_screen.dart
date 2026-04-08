@@ -382,9 +382,16 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                             final rank = game.ranks[i];
                             return Column(
                               children: [
-                                Text('${rank}位', style: const TextStyle(color: Colors.white24, fontSize: 9)),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text('${rank}位', style: const TextStyle(color: Colors.white24, fontSize: 9)),
+                                    const SizedBox(width: 2),
+                                    const Icon(Icons.info_outline, color: Colors.white10, size: 8),
+                                  ],
+                                ),
                                 Text(
-                                  pt > 0 ? '+$pt' : pt.toString(),
+                                  pt >= 0 ? '+${pt.toCommaString()}' : pt.toCommaString(),
                                   style: TextStyle(
                                     color: pt >= 0 ? const Color(0xFF00FFC2) : Colors.redAccent,
                                     fontSize: 12,
