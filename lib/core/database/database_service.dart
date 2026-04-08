@@ -179,11 +179,11 @@ class DatabaseService {
         group_id INTEGER,
         p1_name TEXT, p2_name TEXT, p3_name TEXT, p4_name TEXT,
         config_json TEXT,
+        global_chips_json TEXT,
         p1_money INTEGER, p2_money INTEGER, p3_money INTEGER, p4_money INTEGER
       )
     ''');
 
-    // Games table
     await db.execute('''
       CREATE TABLE games (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -198,6 +198,7 @@ class DatabaseService {
         p1_pt INTEGER, p2_pt INTEGER, p3_pt INTEGER, p4_pt INTEGER,
         p1_rank INTEGER, p2_rank INTEGER, p3_rank INTEGER, p4_rank INTEGER,
         p1_money INTEGER, p2_money INTEGER, p3_money INTEGER, p4_money INTEGER,
+        p1_blown_by INTEGER, p2_blown_by INTEGER, p3_blown_by INTEGER, p4_blown_by INTEGER,
         FOREIGN KEY (session_id) REFERENCES sessions (id) ON DELETE SET NULL
       )
     ''');
@@ -545,21 +546,6 @@ class DatabaseService {
     }
     final db = await database;
     return await db.update('sessions', session.toMap(), where: 'id = ?', whereArgs: [session.id]);
-  }
-
-  Future<void> updateSession(Session session) async {
-    if (kIsWeb) {
-      final sessions = await _webQuery('web_db_sessions');
-      final idx = sessions.indexWhere((e) => e['id'] == session.id);
-      if (idx != -1) {
-        sessions[idx] = session.toMap();
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('web_db_sessions', jsonEncode(sessions));
-      }
-    } else {
-      final db = await database;
-      await db.update('sessions', session.toMap(), where: 'id = ?', whereArgs: [session.id]);
-    }
   }
 
   Future<void> updateSessionGroupId(int sessionId, int? groupId) async {
