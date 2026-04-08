@@ -54,9 +54,12 @@ class HistoryNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
         'groupName': groupName,
         'totalPt': totalPt,
         'totalChip': totalChip,
-        'totalMoney': (session.totalMoneys != null && session.totalMoneys!.any((m) => m != 0)) 
-            ? session.totalMoneys 
-            : totalMoney,
+        'totalMoney': [
+          session.totalMoneys?[0] ?? 0,
+          session.totalMoneys?[1] ?? 0,
+          session.totalMoneys?[2] ?? 0,
+          session.totalMoneys?[3] ?? 0,
+        ],
         'gameCount': sessionGames.length,
       });
     }
@@ -388,7 +391,12 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                                Text('¥${game.moneys[i]}', style: const TextStyle(color: Colors.white24, fontSize: 8)),
+                                Text(
+                                  game.moneys[i] >= 0 
+                                    ? '+¥${game.moneys[i].toCommaString()}' 
+                                    : '-¥${game.moneys[i].abs().toCommaString()}', 
+                                  style: const TextStyle(color: Colors.white24, fontSize: 8),
+                                ),
                               ],
                             );
                           }),

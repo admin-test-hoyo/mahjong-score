@@ -61,6 +61,7 @@ class CalcState {
   final int? selectedGroupId;
   final int? currentId;
   final String? currentDraft;
+  final List<int>? snapshottedMoneys; // Ver 1.9.2: 履歴表示用の固定収支
   final List<Map<String, dynamic>>? possibleGroupMatches; // 追加: マッチ候補
 
   const CalcState({
@@ -71,6 +72,7 @@ class CalcState {
     this.selectedGroupId,
     this.currentId,
     this.currentDraft,
+    this.snapshottedMoneys,
     this.possibleGroupMatches,
   });
 
@@ -94,6 +96,7 @@ class CalcState {
       selectedGroupId: selectedGroupId ?? this.selectedGroupId,
       currentId: currentId ?? this.currentId,
       currentDraft: clearDraft ? null : (currentDraft ?? this.currentDraft),
+      snapshottedMoneys: snapshottedMoneys ?? this.snapshottedMoneys,
       possibleGroupMatches: clearMatches ? null : (possibleGroupMatches ?? this.possibleGroupMatches),
     );
   }
@@ -106,6 +109,7 @@ class CalcState {
     'selectedGroupId': selectedGroupId,
     'currentId': currentId,
     'currentDraft': currentDraft,
+    'snapshottedMoneys': snapshottedMoneys,
   };
 
   factory CalcState.fromJson(Map<String, dynamic> json) {
@@ -117,6 +121,7 @@ class CalcState {
       selectedGroupId: json['selectedGroupId'] as int?,
       currentId: json['currentId'] as int?,
       currentDraft: json['currentDraft'] as String?,
+      snapshottedMoneys: (json['snapshottedMoneys'] as List<dynamic>?)?.map((e) => e as int).toList(),
     );
   }
 }
@@ -421,9 +426,10 @@ class CalcNotifier extends Notifier<CalcState> {
           playerNames: state.playerNames,
           groupId: state.selectedGroupId,
           configJson: configJson,
+          globalChipsJson: jsonEncode(state.globalChips),
           totalMoneys: totalMoneys,
         ));
-        // 明細の重複を防ぐため、既存の対局データを一度すべて削除（指示通り）
+        // 明細の重複を防ぐため、既存の対局データを一度すべて削除
         await db.deleteGamesBySessionId(sessionId);
       } else {
         sessionId = await db.findOrCreateSession(
@@ -431,6 +437,7 @@ class CalcNotifier extends Notifier<CalcState> {
           playerNames: state.playerNames,
           groupId: state.selectedGroupId,
           configJson: configJson,
+          globalChipsJson: jsonEncode(state.globalChips),
           totalMoneys: totalMoneys,
         );
       }
@@ -459,7 +466,7 @@ class CalcNotifier extends Notifier<CalcState> {
           'p2_pt': result.firstWhere((r) => r.id == 2).finalPoint,
           'p3_pt': result.firstWhere((r) => r.id == 3).finalPoint,
           'p4_pt': result.firstWhere((r) => r.id == 4).finalPoint,
-          'p1_ch': addChips[0], // そのゲームに付随するチップ（セッション初回分含む）
+          'p1_ch': addChips[0], 
           'p2_ch': addChips[1],
           'p3_ch': addChips[2],
           'p4_ch': addChips[3],
@@ -467,6 +474,10 @@ class CalcNotifier extends Notifier<CalcState> {
           'p2_tobi': g.inputs[1].score < 0 ? 1 : 0,
           'p3_tobi': g.inputs[2].score < 0 ? 1 : 0,
           'p4_tobi': g.inputs[3].score < 0 ? 1 : 0,
+          'p1_blown_by': g.inputs[0].blownByPlayerId,
+          'p2_blown_by': g.inputs[1].blownByPlayerId,
+          'p3_blown_by': g.inputs[2].blownByPlayerId,
+          'p4_blown_by': g.inputs[3].blownByPlayerId,
         };
 
         final sortedByPt = List<PlayerResult>.from(result)..sort((a, b) => b.finalPoint.compareTo(a.finalPoint));
@@ -491,33 +502,55 @@ class CalcNotifier extends Notifier<CalcState> {
     }
   }
 
-  void loadSession(Session session, List<SavedGame> sessionGames) {
-    // 履歴読み込み直前に現在の入力を退避 (新規入力時のみ)
-    final draft = state.currentId == null ? jsonEncode(state.toJson()) : state.currentDraft;
+    MahjongRule historyRule = state.rule;
+    if (session.configJson != null) {
+      try {
+        final configMap = jsonDecode(session.configJson!) as Map<String, dynamic>;
+        final AppConfig historyConfig = AppConfig.fromMap(configMap);
+        historyRule = MahjongRule(
+          rate: historyConfig.rate.toInt(),
+          chipRate: historyConfig.chipRate,
+          returnScore: historyConfig.startingPoints + (historyConfig.oka * 1000 / 4).round(),
+          uma: _buildUmaList(historyConfig.umaText),
+          oka: historyConfig.oka,
+          tobiPrize: historyConfig.tobiPrize,
+          yakumanRonPrize: historyConfig.yakumanRonPrize,
+          yakumanTsumoPrize: historyConfig.yakumanTsumoPrize,
+          totalFee: historyConfig.gameFee,
+        );
+      } catch (e) {
+        print('History rule restore error: $e');
+      }
+    }
+
+    final List<int> loadedGlobalChips = session.globalChipsJson != null 
+        ? (jsonDecode(session.globalChipsJson!) as List<dynamic>).map((e) => e as int).toList()
+        : const [0, 0, 0, 0];
 
     final List<GameRecord> newGames = sessionGames.map((game) {
       final inputs = List.generate(4, (i) => PlayerInput(
         id: i + 1,
         score: game.scores[i],
-        tobiPt: game.tobis[i] ? -1 : 0, // Simplified tobi logic for display
+        tobiPt: game.tobis[i] ? -1 : 0, 
         chip: game.chips[i],
+        blownByPlayerId: game.blownByPlayerIds[i],
       ));
       return GameRecord(
         id: 'load_${game.id}',
-        inputs: inputs,
-        startingOyaIndex: 0, // Placeholder
+        inputs: _recalculateTobi(inputs),
+        startingOyaIndex: 0, 
       );
     }).toList();
 
     state = state.copyWith(
       currentId: session.id,
       playerNames: session.playerNames,
-      globalChips: const [0, 0, 0, 0], // Chips are per-game in DB or per-player session? 
-      // In SavedGame, we have chips list. Let's use the first game's chips as global if needed, 
-      // but usually they are per game. Ver 1.7.1 logic stores chips in SavedGame.
+      globalChips: loadedGlobalChips,
       games: newGames,
+      rule: historyRule,
       selectedGroupId: session.groupId,
       currentDraft: draft,
+      snapshottedMoneys: session.totalMoneys,
     );
   }
 
@@ -528,14 +561,16 @@ class CalcNotifier extends Notifier<CalcState> {
       score: game.scores[i],
       tobiPt: game.tobis[i] ? -1 : 0,
       chip: game.chips[i],
+      blownByPlayerId: game.blownByPlayerIds[i],
     ));
     state = state.copyWith(
       currentId: game.id,
       playerNames: game.playerNames,
       globalChips: const [0, 0, 0, 0],
-      games: [GameRecord(id: 'load_${game.id}', inputs: inputs)],
+      games: [GameRecord(id: 'load_${game.id}', inputs: _recalculateTobi(inputs))],
       selectedGroupId: game.groupId,
       currentDraft: draft,
+      snapshottedMoneys: game.moneys,
     );
   }
 

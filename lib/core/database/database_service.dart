@@ -19,6 +19,9 @@ class DatabaseService {
       if (!kIsWeb) {
         _database = await _initDatabase();
         await _migrateToHeaderDetail(_database!);
+        await forceSyncSessionTotals(); // 指示：不整合データの一括修正
+      } else {
+        await forceSyncSessionTotals(); // Web版対応
       }
       return _database!;
     } catch (e) {
@@ -34,15 +37,12 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 3, // バージョンアップ
+      version: 4, // Ver 1.9.2: スナップショット強化
       onCreate: _createDb,
       onUpgrade: (db, oldVersion, newVersion) async {
-        if (oldVersion < 2) {
-          await _upgradeToV2(db);
-        }
-        if (oldVersion < 3) {
-          await _upgradeToV3(db);
-        }
+        if (oldVersion < 2) await _upgradeToV2(db);
+        if (oldVersion < 3) await _upgradeToV3(db);
+        if (oldVersion < 4) await _upgradeToV4(db);
       },
     );
   }
@@ -98,6 +98,75 @@ class DatabaseService {
       await db.update('sessions', {
         'p1_money': sums[0], 'p2_money': sums[1], 'p3_money': sums[2], 'p4_money': sums[3],
       }, where: 'id = ?', whereArgs: [sid]);
+    }
+  }
+
+  Future<void> _upgradeToV4(Database db) async {
+    try {
+      await db.execute('ALTER TABLE sessions ADD COLUMN global_chips_json TEXT');
+      await db.execute('ALTER TABLE games ADD COLUMN p1_blown_by INTEGER');
+      await db.execute('ALTER TABLE games ADD COLUMN p2_blown_by INTEGER');
+      await db.execute('ALTER TABLE games ADD COLUMN p3_blown_by INTEGER');
+      await db.execute('ALTER TABLE games ADD COLUMN p4_blown_by INTEGER');
+    } catch (e) {
+      print('Columns already exist or error: $e');
+    }
+  }
+
+  /// 指示：不整合データの強制リセット（マイグレーション）
+  /// 全セッションの合計値を明細（games）から再計算して上書きする
+  Future<void> forceSyncSessionTotals() async {
+    if (kIsWeb) {
+      final sessions = await _webQuery('web_db_sessions');
+      final games = await _webQuery('web_db_games');
+      
+      bool changed = false;
+      for (var s in sessions) {
+        final sid = s['id'];
+        final sGames = games.where((g) => g['session_id'] == sid).toList();
+        if (sGames.isEmpty) continue;
+
+        final List<int> sums = [0, 0, 0, 0];
+        for (var g in sGames) {
+          sums[0] += (g['p1_money'] as num?)?.toInt() ?? 0;
+          sums[1] += (g['p2_money'] as num?)?.toInt() ?? 0;
+          sums[2] += (g['p3_money'] as num?)?.toInt() ?? 0;
+          sums[3] += (g['p4_money'] as num?)?.toInt() ?? 0;
+        }
+
+        if (s['p1_money'] != sums[0] || s['p2_money'] != sums[1] || s['p3_money'] != sums[2] || s['p4_money'] != sums[3]) {
+          s['p1_money'] = sums[0];
+          s['p2_money'] = sums[1];
+          s['p3_money'] = sums[2];
+          s['p4_money'] = sums[3];
+          changed = true;
+        }
+      }
+      
+      if (changed) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('web_db_sessions', jsonEncode(sessions));
+      }
+    } else {
+      final db = await database;
+      final sessions = await db.query('sessions');
+      for (var s in sessions) {
+        final sid = s['id'];
+        final games = await db.query('games', where: 'session_id = ?', whereArgs: [sid]);
+        if (games.isEmpty) continue;
+
+        final List<int> sums = [0, 0, 0, 0];
+        for (var g in games) {
+          sums[0] += (g['p1_money'] as num?)?.toInt() ?? 0;
+          sums[1] += (g['p2_money'] as num?)?.toInt() ?? 0;
+          sums[2] += (g['p3_money'] as num?)?.toInt() ?? 0;
+          sums[3] += (g['p4_money'] as num?)?.toInt() ?? 0;
+        }
+
+        await db.update('sessions', {
+          'p1_money': sums[0], 'p2_money': sums[1], 'p3_money': sums[2], 'p4_money': sums[3],
+        }, where: 'id = ?', whereArgs: [sid]);
+      }
     }
   }
 
@@ -397,11 +466,8 @@ class DatabaseService {
     return await db.query('sessions', orderBy: 'date DESC');
   }
 
-  Future<int> findOrCreateSession({
-    required String date, // YYYY/MM/DD
-    required List<String> playerNames,
-    int? groupId,
     String? configJson,
+    String? globalChipsJson,
     List<int>? totalMoneys,
   }) async {
     final names = List<String>.from(playerNames.map((e) => e.trim()))..sort();
@@ -423,6 +489,7 @@ class DatabaseService {
         'p3_name': playerNames[2],
         'p4_name': playerNames.length > 3 ? playerNames[3] : '',
         'config_json': configJson,
+        'global_chips_json': globalChipsJson,
         'p1_money': totalMoneys != null && totalMoneys!.length > 0 ? totalMoneys![0] : 0,
         'p2_money': totalMoneys != null && totalMoneys!.length > 1 ? totalMoneys![1] : 0,
         'p3_money': totalMoneys != null && totalMoneys!.length > 2 ? totalMoneys![2] : 0,
@@ -448,12 +515,36 @@ class DatabaseService {
         'p3_name': playerNames[2],
         'p4_name': playerNames.length > 3 ? playerNames[3] : '',
         'config_json': configJson,
+        'global_chips_json': globalChipsJson,
         'p1_money': totalMoneys != null && totalMoneys!.length > 0 ? totalMoneys![0] : 0,
         'p2_money': totalMoneys != null && totalMoneys!.length > 1 ? totalMoneys![1] : 0,
         'p3_money': totalMoneys != null && totalMoneys!.length > 2 ? totalMoneys![2] : 0,
         'p4_money': totalMoneys != null && totalMoneys!.length > 3 ? totalMoneys![3] : 0,
       });
     }
+  }
+
+  Future<int> updateSession(Session session) async {
+    if (kIsWeb) {
+      final sessions = await _webQuery('web_db_sessions');
+      final idx = sessions.indexWhere((s) => s['id'] == session.id);
+      if (idx != -1) {
+        sessions[idx]['group_id'] = session.groupId;
+        sessions[idx]['config_json'] = session.configJson;
+        sessions[idx]['global_chips_json'] = session.globalChipsJson;
+        sessions[idx]['p1_money'] = session.totalMoneys?[0] ?? 0;
+        sessions[idx]['p2_money'] = session.totalMoneys?[1] ?? 0;
+        sessions[idx]['p3_money'] = session.totalMoneys?[2] ?? 0;
+        sessions[idx]['p4_money'] = (session.totalMoneys != null && session.totalMoneys!.length > 3) ? session.totalMoneys![3] : 0;
+        
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('web_db_sessions', jsonEncode(sessions));
+        return 1;
+      }
+      return 0;
+    }
+    final db = await database;
+    return await db.update('sessions', session.toMap(), where: 'id = ?', whereArgs: [session.id]);
   }
 
   Future<void> updateSession(Session session) async {

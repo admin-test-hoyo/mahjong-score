@@ -4,16 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/calculator.dart';
 import '../../core/models/app_config.dart';
+import '../../core/models/db_models.dart';
 import 'calc_state.dart';
 import '../history/history_screen.dart';
 import '../stats/stats_screen.dart';
 import '../group/group_screen.dart';
-
-extension IntFormat on int {
-  String toCommaString() {
-    return toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},');
-  }
-}
 
 class CalcScreen extends ConsumerWidget {
   const CalcScreen({super.key});
@@ -426,6 +421,19 @@ class CalcScreen extends ConsumerWidget {
 
   Widget _buildBottomSummaryFooter(BuildContext context, WidgetRef ref) {
     final state = ref.watch(calcProvider); final config = ref.watch(configProvider); const players = 4;
+    
+    // 指示：履歴表示時は計算を一切行わず、DBのスナップショットを優先
+    if (state.snapshottedMoneys != null && state.snapshottedMoneys!.any((m) => m != 0)) {
+       return Container(
+         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2), 
+         decoration: BoxDecoration(color: Colors.black26, border: const Border(top: BorderSide(color: Color(0xFF00FFC2), width: 1))), 
+         child: Row(children: [
+           for (int i = 0; i < players; i++) 
+             Expanded(child: _buildSumBlockRestored(state.playerNames[i], state.snapshottedMoneys![i]))
+         ])
+       );
+    }
+
     List<List<PlayerResult>> all = [];
     for (var g in state.games) {
         if (g.inputs.where((p) => p.id <= players).fold(0, (s, p) => s + p.score) == config.targetTotalScore) {
@@ -435,6 +443,20 @@ class CalcScreen extends ConsumerWidget {
     final summaries = { for (int i = 1; i <= players; i++) i: {'pt': 0, 'chip': state.globalChips[i - 1]} };
     for (var res in all) { for (var p in res) { summaries[p.id]!['pt'] = summaries[p.id]!['pt']! + p.finalPoint; } }
     return Container(padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2), decoration: BoxDecoration(color: Colors.black26, border: const Border(top: BorderSide(color: Color(0xFF00FFC2), width: 1))), child: Row(children: [for (int i = 1; i <= players; i++) Expanded(child: _buildSumBlock(state.playerNames[i - 1], summaries[i]!, config, players))]));
+  }
+
+  Widget _buildSumBlockRestored(String name, int money) {
+    final color = money >= 0 ? const Color(0xFF00FFC2) : Colors.redAccent;
+    return Column(mainAxisSize: MainAxisSize.min, children: [
+      FittedBox(fit: BoxFit.scaleDown, child: Text(name, style: const TextStyle(color: Color(0xFF00FFC2), fontSize: 13, fontWeight: FontWeight.normal), overflow: TextOverflow.ellipsis)),
+      const SizedBox(height: 1),
+      const FittedBox(fit: BoxFit.scaleDown, child: Text('---', style: TextStyle(color: Colors.white24, fontSize: 12))),
+      const SizedBox(height: 1),
+      FittedBox(fit: BoxFit.scaleDown, child: Text(
+        money >= 0 ? '+¥${money.toCommaString()}' : '-¥${money.abs().toCommaString()}',
+        style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.bold, fontFamily: 'RobotoMono')
+      )),
+    ]);
   }
 
   Widget _buildSumBlock(String name, Map<String, int> data, AppConfig conf, int players) {
