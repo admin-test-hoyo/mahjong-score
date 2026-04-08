@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
+import '../models/db_models.dart';
 
 class DatabaseService {
   static final DatabaseService _instance = DatabaseService._internal();
@@ -33,11 +34,14 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 2, // バージョンアップ
+      version: 3, // バージョンアップ
       onCreate: _createDb,
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
           await _upgradeToV2(db);
+        }
+        if (oldVersion < 3) {
+          await _upgradeToV3(db);
         }
       },
     );
@@ -57,9 +61,44 @@ class DatabaseService {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         date TEXT NOT NULL,
         group_id INTEGER,
-        p1_name TEXT, p2_name TEXT, p3_name TEXT, p4_name TEXT
+        p1_name TEXT, p2_name TEXT, p3_name TEXT, p4_name TEXT,
+        config_json TEXT,
+        p1_money INTEGER, p2_money INTEGER, p3_money INTEGER, p4_money INTEGER
       )
     ''');
+  }
+
+  Future<void> _upgradeToV3(Database db) async {
+    // 1. カラムの追加
+    try {
+      await db.execute('ALTER TABLE sessions ADD COLUMN config_json TEXT');
+      await db.execute('ALTER TABLE sessions ADD COLUMN p1_money INTEGER');
+      await db.execute('ALTER TABLE sessions ADD COLUMN p2_money INTEGER');
+      await db.execute('ALTER TABLE sessions ADD COLUMN p3_money INTEGER');
+      await db.execute('ALTER TABLE sessions ADD COLUMN p4_money INTEGER');
+    } catch (e) {
+      print('Columns already exist or error: $e');
+    }
+
+    // 2. データ移行: 既存の games から合計値を集計して sessions に反映
+    final sessions = await db.query('sessions');
+    for (var s in sessions) {
+      final sid = s['id'];
+      final games = await db.query('games', where: 'session_id = ?', whereArgs: [sid]);
+      if (games.isEmpty) continue;
+
+      final List<int> sums = [0, 0, 0, 0];
+      for (var g in games) {
+        sums[0] += (g['p1_money'] as num?)?.toInt() ?? 0;
+        sums[1] += (g['p2_money'] as num?)?.toInt() ?? 0;
+        sums[2] += (g['p3_money'] as num?)?.toInt() ?? 0;
+        sums[3] += (g['p4_money'] as num?)?.toInt() ?? 0;
+      }
+
+      await db.update('sessions', {
+        'p1_money': sums[0], 'p2_money': sums[1], 'p3_money': sums[2], 'p4_money': sums[3],
+      }, where: 'id = ?', whereArgs: [sid]);
+    }
   }
 
   Future<void> _createDb(Database db, int version) async {
@@ -69,7 +108,9 @@ class DatabaseService {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         date TEXT NOT NULL,
         group_id INTEGER,
-        p1_name TEXT, p2_name TEXT, p3_name TEXT, p4_name TEXT
+        p1_name TEXT, p2_name TEXT, p3_name TEXT, p4_name TEXT,
+        config_json TEXT,
+        p1_money INTEGER, p2_money INTEGER, p3_money INTEGER, p4_money INTEGER
       )
     ''');
 
@@ -118,7 +159,36 @@ class DatabaseService {
     final prefs = isWeb ? await SharedPreferences.getInstance() : null;
     
     if (isWeb) {
-      if (prefs!.getBool('migration_v17_done') == true) return;
+      if (prefs!.getBool('migration_v17_done') == true) {
+        // v1.9 snapshot migration for Web
+        if (prefs.getBool('migration_v19_snapshot_done') != true) {
+          final sessions = await _webQuery('web_db_sessions');
+          final games = await _webQuery('web_db_games');
+          bool changed = false;
+          for (var s in sessions) {
+            if (s['p1_money'] != null) continue;
+            final sid = s['id'];
+            final sGames = games.where((g) => g['session_id'] == sid);
+            final List<int> sums = [0, 0, 0, 0];
+            for (var g in sGames) {
+              sums[0] += (g['p1_money'] as num?)?.toInt() ?? 0;
+              sums[1] += (g['p2_money'] as num?)?.toInt() ?? 0;
+              sums[2] += (g['p3_money'] as num?)?.toInt() ?? 0;
+              sums[3] += (g['p4_money'] as num?)?.toInt() ?? 0;
+            }
+            s['p1_money'] = sums[0];
+            s['p2_money'] = sums[1];
+            s['p3_money'] = sums[2];
+            s['p4_money'] = sums[3];
+            changed = true;
+          }
+          if (changed) {
+            await prefs.setString('web_db_sessions', jsonEncode(sessions));
+          }
+          await prefs.setBool('migration_v19_snapshot_done', true);
+        }
+        return;
+      }
       final allGames = await _webQuery('web_db_games');
       if (allGames.isEmpty) {
         await prefs.setBool('migration_v17_done', true);
@@ -277,6 +347,18 @@ class DatabaseService {
     return await db.delete('games', where: 'id = ?', whereArgs: [id]);
   }
 
+  Future<int> deleteGamesBySessionId(int sessionId) async {
+    if (kIsWeb) {
+      final games = await _webQuery('web_db_games');
+      final newGames = games.where((g) => g['session_id'] != sessionId).toList();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('web_db_games', jsonEncode(newGames));
+      return 1;
+    }
+    final db = await database;
+    return await db.delete('games', where: 'session_id = ?', whereArgs: [sessionId]);
+  }
+
   Future<void> updateGameGroupIdToNull(int groupId) async {
     if (kIsWeb) {
       final allGames = await _webQuery('web_db_games');
@@ -319,6 +401,8 @@ class DatabaseService {
     required String date, // YYYY/MM/DD
     required List<String> playerNames,
     int? groupId,
+    String? configJson,
+    List<int>? totalMoneys,
   }) async {
     final names = List<String>.from(playerNames.map((e) => e.trim()))..sort();
     
@@ -338,6 +422,11 @@ class DatabaseService {
         'p2_name': playerNames[1],
         'p3_name': playerNames[2],
         'p4_name': playerNames.length > 3 ? playerNames[3] : '',
+        'config_json': configJson,
+        'p1_money': totalMoneys != null && totalMoneys!.length > 0 ? totalMoneys![0] : 0,
+        'p2_money': totalMoneys != null && totalMoneys!.length > 1 ? totalMoneys![1] : 0,
+        'p3_money': totalMoneys != null && totalMoneys!.length > 2 ? totalMoneys![2] : 0,
+        'p4_money': totalMoneys != null && totalMoneys!.length > 3 ? totalMoneys![3] : 0,
       });
     } else {
       final db = await database;
@@ -358,7 +447,27 @@ class DatabaseService {
         'p2_name': playerNames[1],
         'p3_name': playerNames[2],
         'p4_name': playerNames.length > 3 ? playerNames[3] : '',
+        'config_json': configJson,
+        'p1_money': totalMoneys != null && totalMoneys!.length > 0 ? totalMoneys![0] : 0,
+        'p2_money': totalMoneys != null && totalMoneys!.length > 1 ? totalMoneys![1] : 0,
+        'p3_money': totalMoneys != null && totalMoneys!.length > 2 ? totalMoneys![2] : 0,
+        'p4_money': totalMoneys != null && totalMoneys!.length > 3 ? totalMoneys![3] : 0,
       });
+    }
+  }
+
+  Future<void> updateSession(Session session) async {
+    if (kIsWeb) {
+      final sessions = await _webQuery('web_db_sessions');
+      final idx = sessions.indexWhere((e) => e['id'] == session.id);
+      if (idx != -1) {
+        sessions[idx] = session.toMap();
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('web_db_sessions', jsonEncode(sessions));
+      }
+    } else {
+      final db = await database;
+      await db.update('sessions', session.toMap(), where: 'id = ?', whereArgs: [session.id]);
     }
   }
 
@@ -514,17 +623,43 @@ class DatabaseService {
         'rentaiCount': 0,
         'tobiCount': 0,
         'totalMoney': 0,
-        'sessionDates': <String>{}, // ユニークな日付を保持
+        'session_dates': <String>{}, // ユニークな日付を保持
       };
     }
 
-    // 4. 各対局をスキャンし、メンバー名が一致するスロットを集計
-    for (final row in allRows) {
-      final dateStr = (row['date'] as String?) ?? '';
-      // YYYY-MM-DD を YYYY/MM/DD に変換（指示通り）
+    // 4. 各セッション（ヘッダー）のスキャン
+    final sessionRows = kIsWeb 
+        ? await _webQuery('web_db_sessions') 
+        : await (await database).query('sessions');
+
+    for (final s in sessionRows) {
+      final names = [
+        (s['p1_name'] ?? '').toString().trim(),
+        (s['p2_name'] ?? '').toString().trim(),
+        (s['p3_name'] ?? '').toString().trim(),
+        (s['p4_name'] ?? '').toString().trim(),
+      ];
+      
+      final dateStr = (s['date'] as String?) ?? '';
       String sessionDay = dateStr.length >= 10 ? dateStr.substring(0, 10) : dateStr;
       sessionDay = sessionDay.replaceAll('-', '/');
 
+      for (int i = 0; i < 4; i++) {
+        final name = names[i];
+        if (name.isEmpty || !memberNameSet.contains(name)) continue;
+        
+        final stat = stats[name]!;
+        final money = (s['p${i+1}_money'] as num?)?.toInt() ?? 0;
+        stat['totalMoney'] = (stat['totalMoney'] as int) + money;
+        
+        if (sessionDay.isNotEmpty) {
+          (stat['session_dates'] as Set<String>).add(sessionDay);
+        }
+      }
+    }
+
+    // 5. 各対局（明細）のスキャン（Pt, Chip, 順位等）
+    for (final row in allRows) {
       for (int i = 1; i <= 4; i++) {
         final rawName = (row['p${i}_name'] as Object?)?.toString() ?? '';
         final trimmedName = rawName.trim();
@@ -535,41 +670,28 @@ class DatabaseService {
         s['totalPt'] = (s['totalPt'] as int) + ((row['p${i}_pt'] as num?)?.toInt() ?? 0);
         s['totalChip'] = (s['totalChip'] as int) + ((row['p${i}_ch'] as num?)?.toInt() ?? 0);
         
-        // 収支 (マネー) の集計: 指示通り DB 保存値をそのまま合算
-        final money = (row['p${i}_money'] as num?)?.toInt() ?? 0;
-        s['totalMoney'] = (s['totalMoney'] as int) + money;
-        
         final rank = (row['p${i}_rank'] as num?)?.toInt() ?? 1;
         s['rankSum'] = (s['rankSum'] as int) + rank;
         
-        // トび判定: 指示通り「点数が0未満」で判定
         final score = (row['p${i}_score'] as num?)?.toInt() ?? 0;
-        if (score < 0) {
-          s['tobiCount'] = (s['tobiCount'] as int) + 1;
-        }
+        if (score < 0) s['tobiCount'] = (s['tobiCount'] as int) + 1;
         
         if (rank == 1) s['topCount'] = (s['topCount'] as int) + 1;
         if (rank <= 2) s['rentaiCount'] = (s['rentaiCount'] as int) + 1;
-
-        if (sessionDay.isNotEmpty) {
-          (s['sessionDates'] as Set<String>).add(sessionDay);
-        }
       }
     }
 
-    // 5. 派生値を計算して最終リストに変換
+    // 6. 派生値を計算して最終リストに変換
     return stats.values.map((s) {
       final games = s['games'] as int;
-      final totalPt = s['totalPt'] as int;
-      final totalChip = s['totalChip'] as int;
-      final sessionCount = (s['sessionDates'] as Set<String>).length;
+      final sessionCount = (s['session_dates'] as Set<String>).length;
 
       return {
         'name': s['name'],
         'games': games,
-        'matches': sessionCount, // 新規追加: 対戦回数 (日数)
-        'totalPt': totalPt,
-        'totalChip': totalChip,
+        'matches': sessionCount,
+        'totalPt': s['totalPt'] as int,
+        'totalChip': s['totalChip'] as int,
         'totalScore': s['totalMoney'] as int,
         'avgRank': games > 0 ? (s['rankSum'] as int) / games : 0.0,
         'topRate': games > 0 ? (s['topCount'] as int) / games * 100 : 0.0,

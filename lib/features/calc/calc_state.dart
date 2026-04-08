@@ -366,98 +366,121 @@ class CalcNotifier extends Notifier<CalcState> {
       final db = DatabaseService();
       final isUpdate = state.currentId != null;
 
-      // ヘッダー（セッション）を特定または作成
-      final sessionDay = DateFormat('yyyy/MM/dd').format(date);
-      final sessionId = await db.findOrCreateSession(
-        date: sessionDay,
-        playerNames: state.playerNames,
-        groupId: state.selectedGroupId,
-      );
+      // 1. セッション全体の場代込収支を計算するための準備
+      // 各対局の計算結果を一時保持する
+      final List<Map<String, dynamic>> calculatedGames = [];
+      final List<int> totalMoneys = [0, 0, 0, 0];
+      final configJson = jsonEncode(config.toJson());
 
-      // セッション内の各有効なゲーム（半荘）ごとにレコードを保存する
-      int savedCount = 0;
       for (int i = 0; i < state.games.length; i++) {
         final g = state.games[i];
-        
-        // スコア合計が正しいゲームのみを対象とする
         if (g.inputs.where((p) => p.id <= players).fold(0, (s, p) => s + p.score) != config.targetTotalScore) {
           continue;
         }
 
-        try {
-          final result = MahjongCalculator.calculate(
-            inputs: g.inputs.where((p) => p.id <= players).toList(),
-            rule: state.rule.copyWith(
-              oka: config.oka,
-              uma: _buildUmaList(config.umaText),
-            ),
-            config: config,
-            startingOyaIndex: g.startingOyaIndex,
-          );
+        final result = MahjongCalculator.calculate(
+          inputs: g.inputs.where((p) => p.id <= players).toList(),
+          rule: state.rule.copyWith(
+            oka: config.oka,
+            uma: _buildUmaList(config.umaText),
+          ),
+          config: config,
+          startingOyaIndex: g.startingOyaIndex,
+        );
 
-          // セッション全体のチップ分を「最初の1ゲーム目」にのみ反映させて、
-          // 統計としての総和（totalBalance）に齟齬が出ないように調整する。
-          final sessionChips = (i == 0) ? state.globalChips : const [0, 0, 0, 0];
-
-          Map<String, int> sessionMoneys = {};
-          for (var r in result) {
-            final chipVal = sessionChips[r.id - 1] * config.chipRate;
-            sessionMoneys[r.id.toString()] = r.money + chipVal;
-          }
-
-          final Map<String, dynamic> row = {
-            'session_id': sessionId,
-            'type': '4-player',
-            'date': date.toIso8601String(),
-            'group_id': state.selectedGroupId,
-            'p1_name': state.playerNames[0],
-            'p2_name': state.playerNames[1],
-            'p3_name': state.playerNames[2],
-            'p4_name': players == 4 ? state.playerNames[3] : "",
-            'p1_score': g.inputs.firstWhere((p) => p.id == 1).score,
-            'p2_score': g.inputs.firstWhere((p) => p.id == 2).score,
-            'p3_score': g.inputs.firstWhere((p) => p.id == 3).score,
-            'p4_score': players == 4 ? g.inputs.firstWhere((p) => p.id == 4).score : 0,
-            'p1_pt': result.firstWhere((r) => r.id == 1).finalPoint,
-            'p2_pt': result.firstWhere((r) => r.id == 2).finalPoint,
-            'p3_pt': result.firstWhere((r) => r.id == 3).finalPoint,
-            'p4_pt': players == 4 ? result.firstWhere((r) => r.id == 4).finalPoint : 0,
-            'p1_ch': sessionChips[0],
-            'p2_ch': sessionChips[1],
-            'p3_ch': sessionChips[2],
-            'p4_ch': players == 4 ? sessionChips[3] : 0,
-            'p1_tobi': g.inputs.firstWhere((p) => p.id == 1).score < 0 ? 1 : 0,
-            'p2_tobi': g.inputs.firstWhere((p) => p.id == 2).score < 0 ? 1 : 0,
-            'p3_tobi': g.inputs.firstWhere((p) => p.id == 3).score < 0 ? 1 : 0,
-            'p4_tobi': (players == 4 && g.inputs.firstWhere((p) => p.id == 4).score < 0) ? 1 : 0,
-          };
-          
-          final sortedByPt = List<PlayerResult>.from(result)..sort((a, b) => b.finalPoint.compareTo(a.finalPoint));
-          row['p1_rank'] = sortedByPt.indexWhere((r) => r.id == 1) + 1;
-          row['p2_rank'] = sortedByPt.indexWhere((r) => r.id == 2) + 1;
-          row['p3_rank'] = sortedByPt.indexWhere((r) => r.id == 3) + 1;
-          if (players == 4) {
-            row['p4_rank'] = sortedByPt.indexWhere((r) => r.id == 4) + 1;
-          }
-
-          row['p1_money'] = sessionMoneys['1'];
-          row['p2_money'] = sessionMoneys['2'];
-          row['p3_money'] = sessionMoneys['3'];
-          if (players == 4) {
-            row['p4_money'] = sessionMoneys['4'];
-          }
-
-          await db.insertGame(row);
-          savedCount++;
-        } catch (e) {
-          print('Error saving individual game $i: $e');
+        // 各対局ごとのチップ分（DB保存用）
+        // 最初の1ゲーム目にのみ「セッション単位の追加チップ」を合算して帳尻を合わせる
+        final addChips = (i == 0) ? state.globalChips : const [0, 0, 0, 0];
+        final gameMoneys = <String, int>{};
+        
+        for (var r in result) {
+          final m = r.money + (addChips[r.id - 1] * config.chipRate);
+          gameMoneys[r.id.toString()] = m;
+          totalMoneys[r.id - 1] += m;
         }
+
+        calculatedGames.add({
+          'game': g,
+          'result': result,
+          'moneys': gameMoneys,
+          'addChips': addChips,
+        });
       }
 
-      if (savedCount == 0) return SaveResult.failed;
+      if (calculatedGames.isEmpty) return SaveResult.failed;
 
-      if (isUpdate && state.currentId != null) {
-         await db.deleteGame(state.currentId!);
+      // 2. セッション（ヘッダー）の特定または作成
+      final sessionDay = DateFormat('yyyy/MM/dd').format(date);
+      final int sessionId;
+      if (isUpdate) {
+        sessionId = state.currentId!;
+        // セッション情報を更新（設定値と合計収支のスナップショットを保存）
+        await db.updateSession(Session(
+          id: sessionId,
+          date: sessionDay,
+          playerNames: state.playerNames,
+          groupId: state.selectedGroupId,
+          configJson: configJson,
+          totalMoneys: totalMoneys,
+        ));
+        // 明細の重複を防ぐため、既存の対局データを一度すべて削除（指示通り）
+        await db.deleteGamesBySessionId(sessionId);
+      } else {
+        sessionId = await db.findOrCreateSession(
+          date: sessionDay,
+          playerNames: state.playerNames,
+          groupId: state.selectedGroupId,
+          configJson: configJson,
+          totalMoneys: totalMoneys,
+        );
+      }
+
+      // 3. 明細（Games）の登録
+      for (var cg in calculatedGames) {
+        final g = cg['game'] as GameRecord;
+        final result = cg['result'] as List<PlayerResult>;
+        final gameMoneys = cg['moneys'] as Map<String, int>;
+        final addChips = cg['addChips'] as List<int>;
+
+        final Map<String, dynamic> row = {
+          'session_id': sessionId,
+          'type': '4-player',
+          'date': date.toIso8601String(),
+          'group_id': state.selectedGroupId,
+          'p1_name': state.playerNames[0],
+          'p2_name': state.playerNames[1],
+          'p3_name': state.playerNames[2],
+          'p4_name': state.playerNames[3],
+          'p1_score': g.inputs[0].score,
+          'p2_score': g.inputs[1].score,
+          'p3_score': g.inputs[2].score,
+          'p4_score': g.inputs[3].score,
+          'p1_pt': result.firstWhere((r) => r.id == 1).finalPoint,
+          'p2_pt': result.firstWhere((r) => r.id == 2).finalPoint,
+          'p3_pt': result.firstWhere((r) => r.id == 3).finalPoint,
+          'p4_pt': result.firstWhere((r) => r.id == 4).finalPoint,
+          'p1_ch': addChips[0], // そのゲームに付随するチップ（セッション初回分含む）
+          'p2_ch': addChips[1],
+          'p3_ch': addChips[2],
+          'p4_ch': addChips[3],
+          'p1_tobi': g.inputs[0].score < 0 ? 1 : 0,
+          'p2_tobi': g.inputs[1].score < 0 ? 1 : 0,
+          'p3_tobi': g.inputs[2].score < 0 ? 1 : 0,
+          'p4_tobi': g.inputs[3].score < 0 ? 1 : 0,
+        };
+
+        final sortedByPt = List<PlayerResult>.from(result)..sort((a, b) => b.finalPoint.compareTo(a.finalPoint));
+        row['p1_rank'] = sortedByPt.indexWhere((r) => r.id == 1) + 1;
+        row['p2_rank'] = sortedByPt.indexWhere((r) => r.id == 2) + 1;
+        row['p3_rank'] = sortedByPt.indexWhere((r) => r.id == 3) + 1;
+        row['p4_rank'] = sortedByPt.indexWhere((r) => r.id == 4) + 1;
+
+        row['p1_money'] = gameMoneys['1'];
+        row['p2_money'] = gameMoneys['2'];
+        row['p3_money'] = gameMoneys['3'];
+        row['p4_money'] = gameMoneys['4'];
+
+        await db.insertGame(row);
       }
 
       resetToNewEntry();

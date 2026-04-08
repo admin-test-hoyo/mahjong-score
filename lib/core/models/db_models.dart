@@ -123,12 +123,16 @@ class Session {
   final String date; // YYYY/MM/DD
   final int? groupId;
   final List<String> playerNames;
+  final String? configJson; // Snapshot of AppConfig
+  final List<int>? totalMoneys; // Snapshot of final balances
 
   Session({
     this.id,
     required this.date,
     this.groupId,
     required this.playerNames,
+    this.configJson,
+    this.totalMoneys,
   });
 
   Map<String, dynamic> toMap() {
@@ -140,6 +144,11 @@ class Session {
       'p2_name': playerNames[1],
       'p3_name': playerNames[2],
       'p4_name': playerNames.length > 3 ? playerNames[3] : '',
+      'config_json': configJson,
+      'p1_money': totalMoneys != null && totalMoneys!.length > 0 ? totalMoneys![0] : 0,
+      'p2_money': totalMoneys != null && totalMoneys!.length > 1 ? totalMoneys![1] : 0,
+      'p3_money': totalMoneys != null && totalMoneys!.length > 2 ? totalMoneys![2] : 0,
+      'p4_money': totalMoneys != null && totalMoneys!.length > 3 ? totalMoneys![3] : 0,
     };
   }
 
@@ -153,6 +162,13 @@ class Session {
         map['p2_name'] ?? '',
         map['p3_name'] ?? '',
         map['p4_name'] ?? '',
+      ],
+      configJson: map['config_json'],
+      totalMoneys: [
+        map['p1_money'] ?? 0,
+        map['p2_money'] ?? 0,
+        map['p3_money'] ?? 0,
+        map['p4_money'] ?? 0,
       ],
     );
   }

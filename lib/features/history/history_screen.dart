@@ -46,13 +46,17 @@ class HistoryNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
         }
       }
 
+      final session = Session.fromMap(s);
+
       sessionsWithGames.add({
-        'session': Session.fromMap(s),
+        'session': session,
         'games': sessionGames,
         'groupName': groupName,
         'totalPt': totalPt,
         'totalChip': totalChip,
-        'totalMoney': totalMoney,
+        'totalMoney': (session.totalMoneys != null && session.totalMoneys!.any((m) => m != 0)) 
+            ? session.totalMoneys 
+            : totalMoney,
         'gameCount': sessionGames.length,
       });
     }
