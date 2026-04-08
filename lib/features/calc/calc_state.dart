@@ -437,9 +437,9 @@ class CalcNotifier extends Notifier<CalcState> {
       
       final List<int> sessionFinalMoneys = [0, 0, 0, 0];
       for (int i=0; i<players; i++) {
-        final double income = (ptTotals[i] * config.rate) + (chipTotals[i] * config.chipRate);
-        final double totalFee = (completedCount * config.gameFee).toDouble();
-        sessionFinalMoneys[i] = (income - (totalFee / players.toDouble())).round();
+        final double totalIncome = (ptTotals[i] * config.rate) + (chipTotals[i] * config.chipRate);
+        // 全体の場代 = config.gameFee (1回のみ)
+        sessionFinalMoneys[i] = (totalIncome - (config.gameFee / players.toDouble())).round();
       }
 
       // 2. セッション（ヘッダー）の特定または作成

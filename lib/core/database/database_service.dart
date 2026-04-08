@@ -169,8 +169,8 @@ class DatabaseService {
         }
         for (int i=0; i<4; i++) {
           final income = (ptSums[i] * rate) + (chipSums[i] * chipRate);
-          final totalFee = completedGames * fee;
-          s['p${i+1}_money'] = (income - (totalFee / 4.0)).round();
+          // 全体の場代 = fee (1回のみ)
+          s['p${i+1}_money'] = (income - (fee / 4.0)).round();
         }
         changed = true;
       }
@@ -208,8 +208,8 @@ class DatabaseService {
       final Map<String, dynamic> updates = {};
       for (int i=0; i<4; i++) {
         final income = (ptSums[i] * rate) + (chipSums[i] * chipRate);
-        final totalFee = completedGames * fee;
-        updates['p${i+1}_money'] = (income - (totalFee / 4.0)).round();
+        // 全体の場代 = fee (1回のみ)
+        updates['p${i+1}_money'] = (income - (fee / 4.0)).round();
       }
       await db.update('sessions', updates, where: 'id = ?', whereArgs: [sid]);
     }

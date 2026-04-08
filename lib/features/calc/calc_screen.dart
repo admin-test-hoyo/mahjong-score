@@ -474,9 +474,8 @@ class CalcScreen extends ConsumerWidget {
     final int income = (pt * conf.rate).toInt() + (ch * conf.chipRate).toInt();
     
     // 場代込計算 (Strict Formula: Income - (全体の場代 / 4))
-    // 全体の場代 = gameCount * conf.gameFee
-    final int totalFee = gameCount * conf.gameFee;
-    final int finalBalance = snapshottedMoney ?? (income - (totalFee / players)).round();
+    // 全体の場代 = conf.gameFee (セッション単位で1回のみ)
+    final int finalBalance = snapshottedMoney ?? (income - (conf.gameFee / players)).round();
     
     return Column(mainAxisSize: MainAxisSize.min, children: [
       FittedBox(fit: BoxFit.scaleDown, child: Text(name, style: const TextStyle(color: Color(0xFF00FFC2), fontSize: 13, fontWeight: FontWeight.normal), overflow: TextOverflow.ellipsis)),

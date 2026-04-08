@@ -299,10 +299,9 @@ class MahjongCalculator {
       final input = inputs.firstWhere((i) => i.id == r.id);
       
       final income = (r.finalPoint * config.rate) + (input.chip * config.chipRate);
-      final withFee = income - (config.gameFee / expectedPlayers.toDouble());
       
-      // ユーザー指示：丸め処理パージ。DB保存用に整数(round)として返す。
-      return r.copyWith(money: withFee.round());
+      // ユーザー指示：場代はセッション合計で1回だけ引く。ここでは引かない。
+      return r.copyWith(money: income.round());
     }).toList();
     
     // ID順に戻して返す
