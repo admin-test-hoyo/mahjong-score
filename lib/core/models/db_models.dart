@@ -1,5 +1,14 @@
+import 'package:intl/intl.dart';
+
+extension NumberFormatting on int {
+  String toCommaString() {
+    return NumberFormat('#,###').format(this);
+  }
+}
+
 class SavedGame {
   final int? id;
+  final int? sessionId; // 追加: セッションID (ヘッダー)
   final String type; // '3-player' / '4-player'
   final DateTime date;
   final int? groupId;
@@ -9,10 +18,14 @@ class SavedGame {
   final List<int> chips;  // Final Chip money or just count? User said 'p1_ch'
   final List<bool> tobis;
   final List<int> ranks;
-  final List<int> moneys; // 追加: マネー収支 (円)
+  final List<int> moneys; // マネー収支 (円)
+  final List<int?> blownByPlayerIds; 
+  final List<int> yakumanPts; 
+  final int startingOyaIndex; // New for Ver 1.9.4: 全局の起家(親)を保存
 
   SavedGame({
     this.id,
+    this.sessionId,
     required this.type,
     required this.date,
     this.groupId,
@@ -23,11 +36,15 @@ class SavedGame {
     required this.tobis,
     required this.ranks,
     required this.moneys,
+    required this.blownByPlayerIds,
+    required this.yakumanPts,
+    this.startingOyaIndex = 0,
   });
 
   Map<String, dynamic> toMap() {
     return {
       if (id != null) 'id': id,
+      'session_id': sessionId,
       'type': type,
       'date': date.toIso8601String(),
       'group_id': groupId,
@@ -59,12 +76,20 @@ class SavedGame {
       'p2_money': moneys[1],
       'p3_money': moneys[2],
       'p4_money': moneys.length > 3 ? moneys[3] : 0,
+      'p3_blown_by': blownByPlayerIds[2],
+      'p4_blown_by': blownByPlayerIds.length > 3 ? blownByPlayerIds[3] : null,
+      'p1_yakuman': yakumanPts[0],
+      'p2_yakuman': yakumanPts[1],
+      'p3_yakuman': yakumanPts[2],
+      'p4_yakuman': yakumanPts.length > 3 ? yakumanPts[3] : 0,
+      'oya_index': startingOyaIndex,
     };
   }
 
   factory SavedGame.fromMap(Map<String, dynamic> map) {
     return SavedGame(
       id: map['id'],
+      sessionId: map['session_id'],
       type: map['type'],
       date: DateTime.parse(map['date']),
       groupId: map['group_id'],
@@ -109,6 +134,79 @@ class SavedGame {
         map['p2_money'] ?? 0,
         map['p3_money'] ?? 0,
         if (map['type'] == '4-player') map['p4_money'] ?? 0,
+      ],
+      blownByPlayerIds: [
+        map['p1_blown_by'],
+        map['p2_blown_by'],
+        map['p3_blown_by'],
+        if (map['type'] == '4-player') map['p4_blown_by'],
+      ],
+      yakumanPts: [
+        map['p1_yakuman'] ?? 0,
+        map['p2_yakuman'] ?? 0,
+        map['p3_yakuman'] ?? 0,
+        if (map['type'] == '4-player') map['p4_yakuman'] ?? 0,
+      ],
+      startingOyaIndex: map['oya_index'] ?? 0,
+    );
+  }
+}
+
+class Session {
+  final int? id;
+  final String date; // YYYY/MM/DD
+  final int? groupId;
+  final List<String> playerNames;
+  final String? configJson; // Snapshot of AppConfig
+  final String? globalChipsJson; // [p1, p2, p3, p4] Snapshot
+  final List<int>? totalMoneys; // Snapshot of final balances
+
+  Session({
+    this.id,
+    required this.date,
+    this.groupId,
+    required this.playerNames,
+    this.configJson,
+    this.globalChipsJson,
+    this.totalMoneys,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      if (id != null) 'id': id,
+      'date': date,
+      'group_id': groupId,
+      'p1_name': playerNames[0],
+      'p2_name': playerNames[1],
+      'p3_name': playerNames[2],
+      'p4_name': playerNames.length > 3 ? playerNames[3] : '',
+      'config_json': configJson,
+      'global_chips_json': globalChipsJson,
+      'p1_money': totalMoneys != null && totalMoneys!.length > 0 ? totalMoneys![0] : 0,
+      'p2_money': totalMoneys != null && totalMoneys!.length > 1 ? totalMoneys![1] : 0,
+      'p3_money': totalMoneys != null && totalMoneys!.length > 2 ? totalMoneys![2] : 0,
+      'p4_money': totalMoneys != null && totalMoneys!.length > 3 ? totalMoneys![3] : 0,
+    };
+  }
+
+  factory Session.fromMap(Map<String, dynamic> map) {
+    return Session(
+      id: map['id'],
+      date: map['date'] ?? '',
+      groupId: map['group_id'],
+      playerNames: [
+        map['p1_name'] ?? '',
+        map['p2_name'] ?? '',
+        map['p3_name'] ?? '',
+        map['p4_name'] ?? '',
+      ],
+      configJson: map['config_json'],
+      globalChipsJson: map['global_chips_json'],
+      totalMoneys: [
+        map['p1_money'] ?? 0,
+        map['p2_money'] ?? 0,
+        map['p3_money'] ?? 0,
+        map['p4_money'] ?? 0,
       ],
     );
   }

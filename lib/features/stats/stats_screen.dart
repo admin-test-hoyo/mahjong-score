@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'dart:convert';
 import '../../core/database/database_service.dart';
 import '../../core/models/db_models.dart';
+import 'stats_providers.dart';
 
 class StatsScreen extends ConsumerStatefulWidget {
   const StatsScreen({super.key});
@@ -21,6 +23,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
   String? _selectedPlayer;
   int? _selectedGroupId;
   List<SavedGame> _allGames = [];
+  List<Session> _allSessions = [];
   List<String> _players = [];
   List<String> _groupMembers = [];
 
@@ -50,6 +53,9 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
   }
 
   Future<void> _loadInitialData() async {
+    // 既存の非同期ロード処理を、プロバイダー経由に変更するか、
+    // またはリフレッシュ目的で明示的に呼び出す。
+    // ここでは互換性のため _loadGames を残しつつ、プロバイダーの恩恵も受ける。
     setState(() => _loading = true);
     try {
       final db = DatabaseService();
@@ -68,6 +74,19 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
     final rows = await db.getGames();
     _allGames = rows.map((e) => SavedGame.fromMap(e)).toList();
 
+    final sessionRows = await db.getSessions();
+    _allSessions = sessionRows.map((e) {
+      final names = <String>[e['p1_name']??'', e['p2_name']??'', e['p3_name']??'', e['p4_name']??''];
+      final moneys = <int>[(e['p1_money'] as num?)?.toInt() ?? 0, (e['p2_money'] as num?)?.toInt() ?? 0, (e['p3_money'] as num?)?.toInt() ?? 0, (e['p4_money'] as num?)?.toInt() ?? 0];
+      return Session(
+        id: e['id'] as int,
+        date: e['date'] as String,
+        groupId: e['group_id'] as int?,
+        playerNames: names,
+        totalMoneys: moneys,
+      );
+    }).toList();
+
     if (_selectedGroupId != null) {
       final members = await db.getMembers(_selectedGroupId!);
       _groupMembers = members.map((e) => e['name'] as String).toList();
@@ -76,15 +95,28 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
     }
   }
 
+  List<Session> get _filteredSessions {
+    if (_selectedPlayer == null) return [];
+    var filtered = _allSessions;
+    if (_selectedGroupId != null) {
+      if (_groupMembers.isEmpty || !_groupMembers.contains(_selectedPlayer)) {
+        return [];
+      }
+      filtered = filtered.where((s) => s.groupId == _selectedGroupId).toList();
+    }
+    filtered = filtered.where((s) => s.playerNames.contains(_selectedPlayer)).toList();
+    return filtered;
+  }
+
   Future<void> _loadGroupRanking(int groupId) async {
     setState(() => _rankingLoading = true);
     try {
       final db = DatabaseService();
       final data = await db.getGroupRanking(groupId);
-      // デフォルトソート: 総Pt 降順
-      _sortColumnIndex = 1;
+      // デフォルトソート: 総Pt (インデックス 2) 降順
+      _sortColumnIndex = 2;
       _sortAscending = false;
-      _rankingData = _sortedData(data, 1, false);
+      _rankingData = _sortedData(data, 2, false);
     } catch (e) {
       debugPrint('Group ranking error: $e');
       _rankingData = [];
@@ -96,7 +128,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
   List<Map<String, dynamic>> _sortedData(
       List<Map<String, dynamic>> data, int colIdx, bool ascending) {
     final keys = [
-      'name', 'totalPt', 'totalChip', 'totalScore',
+      'name', 'matches', 'totalPt', 'totalChip', 'totalScore',
       'avgRank', 'games', 'topRate', 'rentaiRate', 'tobiRate',
     ];
     final key = colIdx < keys.length ? keys[colIdx] : 'totalPt';
@@ -119,14 +151,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
     if (_selectedPlayer == null) return [];
     var filtered = _allGames;
     if (_selectedGroupId != null) {
-      if (_groupMembers.isEmpty || !_groupMembers.contains(_selectedPlayer)) {
-        return [];
-      }
-      filtered = filtered.where((g) {
-        final participants = g.playerNames.where((n) => n.isNotEmpty);
-        return participants.isNotEmpty &&
-            participants.every((name) => _groupMembers.contains(name));
-      }).toList();
+      filtered = filtered.where((g) => g.groupId == _selectedGroupId).toList();
     }
     filtered = filtered.where((g) => g.playerNames.contains(_selectedPlayer)).toList();
     return filtered;
@@ -135,6 +160,19 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
   // ─────────────────── BUILD ───────────────────────────
   @override
   Widget build(BuildContext context) {
+    // 統計データプロバイダーの状態を監視し、変更があればデータを再ロードする
+    ref.listen(allGamesProvider, (_, __) => _loadInitialData());
+    ref.listen(allSessionsProvider, (_, __) => _loadInitialData());
+    if (_rankingGroupId != null) {
+      ref.listen(groupRankingProvider(_rankingGroupId!), (prev, next) {
+        if (next is AsyncData<List<Map<String, dynamic>>>) {
+          setState(() {
+            _rankingData = next.value;
+          });
+        }
+      });
+    }
+
     return DefaultTabController(
       length: 2,
       child: Scaffold(
@@ -180,6 +218,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
   // ─────────────────── 個人分析タブ ────────────────────────
   Widget _buildPersonalTab() {
     final games = _filteredGames;
+    final sessions = _filteredSessions;
     return Column(
       children: [
         _buildPersonalFilters(),
@@ -197,11 +236,22 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildGeneralStats(games),
+                          FutureBuilder<Map<String, dynamic>>(
+                            future: DatabaseService().getUserStats(_selectedPlayer!, groupId: _selectedGroupId),
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState == ConnectionState.waiting) {
+                                return const Center(child: CircularProgressIndicator(color: Color(0xFF00FFC2)));
+                              }
+                              if (snapshot.hasError) {
+                                return Text('エラー: ${snapshot.error}', style: const TextStyle(color: Colors.redAccent));
+                              }
+                              return _buildGeneralStats(snapshot.data ?? {});
+                            },
+                          ),
                           const SizedBox(height: 24),
                           _buildRankChart(games),
                           const SizedBox(height: 24),
-                          _buildRevenueChart(games),
+                          _buildRevenueChart(sessions),
                         ],
                       ),
                     ),
@@ -212,8 +262,13 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
 
   Widget _buildPersonalFilters() {
     return Container(
+      margin: const EdgeInsets.fromLTRB(12, 16, 12, 8), // Top margin to avoid overlap with tabs
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: Colors.black12,
+      decoration: BoxDecoration(
+        color: Colors.black26,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white10),
+      ),
       child: Row(
         children: [
           Expanded(
@@ -224,18 +279,17 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                     style: TextStyle(color: Colors.white24, fontSize: 12)),
                 dropdownColor: const Color(0xFF001F1A),
                 isExpanded: true,
+                style: const TextStyle(color: Color(0xFF00FFC2), fontSize: 13),
                 items: [
                   ..._players.map((p) => DropdownMenuItem(
                       value: p,
-                      child: Text(p,
-                          style: const TextStyle(
-                              color: Colors.white, fontSize: 12)))),
+                      child: Text(p))),
                 ],
                 onChanged: (val) => setState(() => _selectedPlayer = val),
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          Container(width: 1, height: 24, color: Colors.white10, margin: const EdgeInsets.symmetric(horizontal: 12)),
           Expanded(
             child: DropdownButtonHideUnderline(
               child: DropdownButton<int>(
@@ -244,17 +298,14 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                     style: TextStyle(color: Colors.white24, fontSize: 12)),
                 dropdownColor: const Color(0xFF001F1A),
                 isExpanded: true,
+                style: const TextStyle(color: Color(0xFF00FFC2), fontSize: 13),
                 items: [
                   const DropdownMenuItem<int>(
                       value: null,
-                      child: Text('全グループ',
-                          style: TextStyle(
-                              color: Colors.white70, fontSize: 12))),
+                      child: Text('全グループ')),
                   ..._groupList.map((g) => DropdownMenuItem(
                       value: g['id'] as int,
-                      child: Text(g['name'],
-                          style: const TextStyle(
-                              color: Colors.white, fontSize: 12)))),
+                      child: Text(g['name']))),
                 ],
                 onChanged: (val) async {
                   setState(() => _selectedGroupId = val);
@@ -273,10 +324,14 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
   Widget _buildGroupTab() {
     return Column(
       children: [
-        // グループ選択ドロップダウン
         Container(
+          margin: const EdgeInsets.fromLTRB(12, 16, 12, 8),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          color: Colors.black12,
+          decoration: BoxDecoration(
+            color: Colors.black26,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white10),
+          ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<int>(
               value: _rankingGroupId,
@@ -284,12 +339,11 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                   style: TextStyle(color: Colors.white24, fontSize: 12)),
               dropdownColor: const Color(0xFF001F1A),
               isExpanded: true,
+              style: const TextStyle(color: Color(0xFF00FFC2), fontSize: 13),
               items: [
                 ..._groupList.map((g) => DropdownMenuItem(
                     value: g['id'] as int,
-                    child: Text(g['name'],
-                        style: const TextStyle(
-                            color: Colors.white, fontSize: 13)))),
+                    child: Text(g['name']))),
               ],
               onChanged: (val) async {
                 setState(() => _rankingGroupId = val);
@@ -356,49 +410,56 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                 label: const Text('名前'),
                 onSort: (col, asc) => _onSort(col, asc),
               ),
-              // 列1: 総Pt
+              // 列1: 対戦回数
+              DataColumn(
+                label: const Text('対戦回数'),
+                tooltip: '打った日数（セッション数）',
+                numeric: true,
+                onSort: (col, asc) => _onSort(col, asc),
+              ),
+              // 列2: 総Pt
               DataColumn(
                 label: const Text('総Pt'),
                 numeric: true,
                 onSort: (col, asc) => _onSort(col, asc),
               ),
-              // 列2: 総Chip
+              // 列3: 総Chip
               DataColumn(
                 label: const Text('総Ch'),
                 numeric: true,
                 onSort: (col, asc) => _onSort(col, asc),
               ),
-              // 列3: 総収支
+              // 列4: 総収支
               DataColumn(
                 label: const Text('収支 (円)'),
                 numeric: true,
                 onSort: (col, asc) => _onSort(col, asc),
               ),
-              // 列4: 平均順位
+              // 列5: 平均順位
               DataColumn(
-                label: const Text('平均順'),
+                label: const Text('平均順位'),
                 numeric: true,
                 onSort: (col, asc) => _onSort(col, asc),
               ),
-              // 列5: 対局数
+              // 列6: 対局数
               DataColumn(
-                label: const Text('対局数'),
+                label: const Text('対局数(半荘)'),
                 numeric: true,
                 onSort: (col, asc) => _onSort(col, asc),
               ),
-              // 列6: トップ率
+              // 列7: トップ率
               DataColumn(
                 label: const Text('1着%'),
                 numeric: true,
                 onSort: (col, asc) => _onSort(col, asc),
               ),
-              // 列7: 連対率
+              // 列8: 連対率
               DataColumn(
                 label: const Text('連対%'),
                 numeric: true,
                 onSort: (col, asc) => _onSort(col, asc),
               ),
-              // 列8: トビ率
+              // 列9: トビ率
               DataColumn(
                 label: const Text('トビ%'),
                 numeric: true,
@@ -407,14 +468,15 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
             ],
             rows: List.generate(rows.length, (i) {
               final r = rows[i];
-              final totalPt = r['totalPt'] as int;
-              final totalChip = r['totalChip'] as int;
-              final totalScore = r['totalScore'] as int;
-              final avgRank = r['avgRank'] as double;
-              final games = r['games'] as int;
-              final topRate = r['topRate'] as double;
-              final rentaiRate = r['rentaiRate'] as double;
-              final tobiRate = r['tobiRate'] as double;
+              final matches = (r['matches'] as num?)?.toInt() ?? 0;
+              final totalPt = (r['totalPt'] as num?)?.toInt() ?? 0;
+              final totalChip = (r['totalChip'] as num?)?.toInt() ?? 0;
+              final totalScore = (r['totalScore'] as num?)?.toInt() ?? 0;
+              final avgRank = (r['avgRank'] as num?)?.toDouble() ?? 0.0;
+              final games = (r['games'] as num?)?.toInt() ?? 0;
+              final topRate = (r['topRate'] as num?)?.toDouble() ?? 0.0;
+              final rentaiRate = (r['rentaiRate'] as num?)?.toDouble() ?? 0.0;
+              final tobiRate = (r['tobiRate'] as num?)?.toDouble() ?? 0.0;
 
               Color ptColor = totalPt >= 0
                   ? const Color(0xFF00FFC2)
@@ -438,6 +500,9 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                               fontWeight: FontWeight.w600)),
                     ],
                   )),
+                  // 対戦回数
+                  DataCell(Text('$matches',
+                      style: const TextStyle(fontSize: 11))),
                   // 総Pt
                   DataCell(Text(
                     totalPt >= 0 ? '+$totalPt' : '$totalPt',
@@ -539,31 +604,17 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
   }
 
   // ─────────────────── 個人分析ウィジェット群 ───────────────
-  Widget _buildGeneralStats(List<SavedGame> games) {
-    final totalGames = games.length;
-    double avgRank = 0;
-    int totalPt = 0;
-    int tobiCount = 0;
-    int topCount = 0;
-    int rentaiCount = 0;
+  Widget _buildGeneralStats(Map<String, dynamic> stats) {
+    if (_selectedPlayer == null) return const SizedBox.shrink();
 
-    for (var g in games) {
-      int idx = 0;
-      if (_selectedPlayer != null) {
-        idx = g.playerNames.indexOf(_selectedPlayer!);
-        if (idx == -1) idx = 0;
-      }
-      avgRank += g.ranks[idx];
-      totalPt += g.points[idx];
-      if (g.tobis[idx]) tobiCount++;
-      if (g.ranks[idx] == 1) topCount++;
-      if (g.ranks[idx] <= 2) rentaiCount++;
-    }
-
-    avgRank /= totalGames;
-    final winRate = (topCount / totalGames * 100).toStringAsFixed(1);
-    final rentaiRate = (rentaiCount / totalGames * 100).toStringAsFixed(1);
-    final tobiRate = (tobiCount / totalGames * 100).toStringAsFixed(1);
+    final totalGames = stats['games'] as int? ?? 0;
+    final totalPt = stats['totalPt'] as int? ?? 0;
+    final totalChips = stats['totalChip'] as int? ?? 0;
+    final totalMoney = stats['totalMoney'] as int? ?? 0;
+    final avgRank = stats['avgRank'] as double? ?? 0.0;
+    final winRate = (stats['topRate'] as double? ?? 0.0).toStringAsFixed(1);
+    final rentaiRate = (stats['rentaiRate'] as double? ?? 0.0).toStringAsFixed(1);
+    final tobiRate = (stats['tobiRate'] as double? ?? 0.0).toStringAsFixed(1);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -579,9 +630,29 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
             children: [
               _statItem('平均順位', avgRank.toStringAsFixed(2)),
               _statItem(
-                '総収支',
+                '総Pt',
                 totalPt > 0 ? '+$totalPt' : totalPt.toString(),
                 color: totalPt >= 0
+                    ? const Color(0xFF00FFC2)
+                    : Colors.redAccent,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _statItem(
+                '総Chip',
+                totalChips > 0 ? '+$totalChips' : totalChips.toString(),
+                color: totalChips >= 0
+                    ? Colors.amberAccent
+                    : Colors.redAccent,
+              ),
+              _statItem(
+                '収支 (円)',
+                _formatNumber(totalMoney),
+                color: totalMoney >= 0
                     ? const Color(0xFF00FFC2)
                     : Colors.redAccent,
               ),
@@ -689,18 +760,24 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
     );
   }
 
-  Widget _buildRevenueChart(List<SavedGame> games) {
-    List<FlSpot> spots = [const FlSpot(0, 0)];
+  Widget _buildRevenueChart(List<Session> sessions) {
+    if (sessions.isEmpty) return const SizedBox.shrink();
+
+    // 日付順（昇順）にソート
+    final sortedSessions = List<Session>.from(sessions)
+      ..sort((a, b) => a.date.compareTo(b.date));
+
     int cumulative = 0;
-    for (int i = 0; i < games.length; i++) {
-      final g = games[games.length - 1 - i];
+    final spots = <FlSpot>[];
+    for (int i = 0; i < sortedSessions.length; i++) {
+      final s = sortedSessions[i];
       int idx = 0;
       if (_selectedPlayer != null) {
-        idx = g.playerNames.indexOf(_selectedPlayer!);
-        if (idx == -1) idx = 0;
+        idx = s.playerNames.indexOf(_selectedPlayer!);
+        if (idx == -1) continue;
       }
-      cumulative += g.points[idx];
-      spots.add(FlSpot((i + 1).toDouble(), cumulative.toDouble()));
+      cumulative += (s.totalMoneys?[idx] ?? 0);
+      spots.add(FlSpot(i.toDouble(), cumulative.toDouble()));
     }
 
     return Container(

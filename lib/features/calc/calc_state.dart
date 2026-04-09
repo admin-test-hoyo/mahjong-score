@@ -1,10 +1,14 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/calculator.dart';
 import '../../core/models/app_config.dart';
 import '../../core/database/database_service.dart';
 import '../../core/models/db_models.dart';
+import '../history/history_screen.dart';
+import '../stats/stats_providers.dart';
 
 enum SaveResult { registered, updated, failed }
 
@@ -58,7 +62,9 @@ class CalcState {
   final MahjongRule rule;
   final int? selectedGroupId;
   final int? currentId;
-  final String? preservedStateJson;
+  final String? currentDraft;
+  final List<int>? snapshottedMoneys; // Ver 1.9.2: 履歴表示用の固定収支
+  final List<Map<String, dynamic>>? possibleGroupMatches; // 追加: マッチ候補
 
   const CalcState({
     this.playerNames = const ['A', 'B', 'C', 'D'],
@@ -67,7 +73,9 @@ class CalcState {
     this.rule = const MahjongRule(),
     this.selectedGroupId,
     this.currentId,
-    this.preservedStateJson,
+    this.currentDraft,
+    this.snapshottedMoneys,
+    this.possibleGroupMatches,
   });
 
   CalcState copyWith({
@@ -77,8 +85,12 @@ class CalcState {
     MahjongRule? rule,
     int? selectedGroupId,
     int? currentId,
-    String? preservedStateJson,
-    bool clearPreserved = false,
+    String? currentDraft,
+    bool clearDraft = false,
+    List<Map<String, dynamic>>? possibleGroupMatches,
+    bool clearMatches = false,
+    List<int>? snapshottedMoneys,
+    bool clearSnapshot = false,
   }) {
     return CalcState(
       playerNames: playerNames ?? this.playerNames,
@@ -87,7 +99,9 @@ class CalcState {
       rule: rule ?? this.rule,
       selectedGroupId: selectedGroupId ?? this.selectedGroupId,
       currentId: currentId ?? this.currentId,
-      preservedStateJson: clearPreserved ? null : (preservedStateJson ?? this.preservedStateJson),
+      currentDraft: clearDraft ? null : (currentDraft ?? this.currentDraft),
+      snapshottedMoneys: clearSnapshot ? null : (snapshottedMoneys ?? this.snapshottedMoneys),
+      possibleGroupMatches: clearMatches ? null : (possibleGroupMatches ?? this.possibleGroupMatches),
     );
   }
 
@@ -98,7 +112,8 @@ class CalcState {
     'rule': rule.toJson(),
     'selectedGroupId': selectedGroupId,
     'currentId': currentId,
-    'preservedStateJson': preservedStateJson,
+    'currentDraft': currentDraft,
+    'snapshottedMoneys': snapshottedMoneys,
   };
 
   factory CalcState.fromJson(Map<String, dynamic> json) {
@@ -109,7 +124,8 @@ class CalcState {
       rule: json['rule'] != null ? MahjongRule.fromJson(json['rule'] as Map<String, dynamic>) : const MahjongRule(),
       selectedGroupId: json['selectedGroupId'] as int?,
       currentId: json['currentId'] as int?,
-      preservedStateJson: json['preservedStateJson'] as String?,
+      currentDraft: json['currentDraft'] as String?,
+      snapshottedMoneys: (json['snapshottedMoneys'] as List<dynamic>?)?.map((e) => e as int).toList(),
     );
   }
 }
@@ -125,6 +141,12 @@ class CalcNotifier extends Notifier<CalcState> {
 
   @override
   CalcState build() {
+    // 起動時に過去データの収支不整合を自動修復する
+    Future.microtask(() async {
+      final db = DatabaseService();
+      await db.recalculateAllSessionTotals();
+    });
+
     final prefs = ref.watch(sharedPrefsProvider);
     final str = prefs.getString('calcState');
     if (str != null) {
@@ -135,14 +157,6 @@ class CalcNotifier extends Notifier<CalcState> {
     return const CalcState(games: []);
   }
 
-  void resetGame() {
-    state = CalcState(
-      playerNames: const ['A', 'B', 'C', 'D'],
-      globalChips: const [0, 0, 0, 0],
-      games: const [],
-      rule: state.rule,
-    );
-  }
 
   GameRecord _createEmptyGame(String id) {
     return GameRecord(
@@ -156,22 +170,85 @@ class CalcNotifier extends Notifier<CalcState> {
     );
   }
 
-  void updatePlayerName(int playerId, String name) {
+  void updatePlayerName(int id, String name) {
+    if (id < 1 || id > 4) return;
     final newNames = List<String>.from(state.playerNames);
-    newNames[playerId - 1] = name;
+    newNames[id - 1] = name;
     state = state.copyWith(playerNames: newNames);
+    
+    // 4名の名前が埋まったら自動判別を試行
+    if (newNames.every((n) => n.trim().isNotEmpty)) {
+      _checkGroupMatches(newNames);
+    }
+  }
+
+  // --- Rule Update Methods (Clears Snapshot for Real-time Recalculation) ---
+  void updateRuleRate(double rate) {
+    state = state.copyWith(
+      rule: state.rule.copyWith(rate: rate.toInt()),
+      clearSnapshot: true,
+    );
+    // 同時にアプリ設定も更新
+    ref.read(configProvider.notifier).updateRate(rate);
+  }
+
+  void updateRuleChipRate(int chipRate) {
+    state = state.copyWith(
+      rule: state.rule.copyWith(chipRate: chipRate),
+      clearSnapshot: true,
+    );
+    ref.read(configProvider.notifier).updateChipRate(chipRate);
+  }
+
+  void updateRuleGameFee(int gameFee) {
+    state = state.copyWith(
+      rule: state.rule.copyWith(totalFee: gameFee),
+      clearSnapshot: true,
+    );
+    ref.read(configProvider.notifier).updateGameFee(gameFee);
+  }
+
+  Future<void> _checkGroupMatches(List<String> names) async {
+    final db = DatabaseService();
+    final allGroups = await db.getGroups();
+    final List<Map<String, dynamic>> matches = [];
+
+    for (var group in allGroups) {
+      final members = await db.getMembers(group['id']);
+      final memberNames = members.map((m) => m['name'] as String).toList()..sort();
+      final inputNames = List<String>.from(names.map((e) => e.trim()))..sort();
+      
+      if (memberNames.join(',') == inputNames.join(',')) {
+        matches.add(group);
+      }
+    }
+
+    if (matches.length == 1) {
+      // 1つだけ一致なら自動選択
+      state = state.copyWith(selectedGroupId: matches.first['id'], clearMatches: true);
+    } else if (matches.length > 1) {
+      // 複数一致なら候補を保存して選択を促す
+      state = state.copyWith(possibleGroupMatches: matches);
+    } else {
+       // 一致なし
+       state = state.copyWith(clearMatches: true);
+    }
+  }
+
+  void setSelectedGroupId(int? id) {
+    state = state.copyWith(selectedGroupId: id, clearMatches: true);
   }
 
   void updateGlobalChip(int playerId, int chip) {
     final newChips = List<int>.from(state.globalChips);
     newChips[playerId - 1] = chip;
-    state = state.copyWith(globalChips: newChips);
+    state = state.copyWith(globalChips: newChips, clearSnapshot: true);
   }
 
   void addGame() {
     final newId = DateTime.now().millisecondsSinceEpoch.toString();
     final newGames = [...state.games, _createEmptyGame(newId)];
-    state = state.copyWith(games: newGames);
+    state = state.copyWith(games: newGames, clearSnapshot: true);
   }
 
   void updateScore(String gameId, int playerId, int score) {
@@ -194,7 +271,7 @@ class CalcNotifier extends Notifier<CalcState> {
       return game.copyWith(inputs: tempInputs);
     }).toList();
     
-    state = state.copyWith(games: newGames);
+    state = state.copyWith(games: newGames, clearSnapshot: true);
   }
 
   void updateChip(String gameId, int playerId, int chip) {
@@ -204,12 +281,12 @@ class CalcNotifier extends Notifier<CalcState> {
       return game.copyWith(inputs: newInputs);
     }).toList();
     
-    state = state.copyWith(games: newGames);
+    state = state.copyWith(games: newGames, clearSnapshot: true);
   }
 
   void deleteGame(String gameId) {
     final newGames = state.games.where((game) => game.id != gameId).toList();
-    state = state.copyWith(games: newGames);
+    state = state.copyWith(games: newGames, clearSnapshot: true);
   }
 
   List<PlayerInput> _recalculateTobi(List<PlayerInput> inputs) {
@@ -239,7 +316,7 @@ class CalcNotifier extends Notifier<CalcState> {
       tempInputs = _recalculateTobi(tempInputs);
       return game.copyWith(inputs: tempInputs);
     }).toList();
-    state = state.copyWith(games: newGames);
+    state = state.copyWith(games: newGames, clearSnapshot: true);
   }
 
   void setYakumanRon(String gameId, int winnerId, int loserId) {
@@ -256,7 +333,7 @@ class CalcNotifier extends Notifier<CalcState> {
       }).toList();
       return game.copyWith(inputs: newInputs);
     }).toList();
-    state = state.copyWith(games: newGames);
+    state = state.copyWith(games: newGames, clearSnapshot: true);
   }
 
   void setYakumanTsumo(String gameId, int winnerId) {
@@ -275,7 +352,7 @@ class CalcNotifier extends Notifier<CalcState> {
       }).toList();
       return game.copyWith(inputs: newInputs);
     }).toList();
-    state = state.copyWith(games: newGames);
+    state = state.copyWith(games: newGames, clearSnapshot: true);
   }
 
   void clearYakuman(String gameId) {
@@ -284,7 +361,7 @@ class CalcNotifier extends Notifier<CalcState> {
       final newInputs = game.inputs.map((p) => p.copyWith(yakumanPt: 0)).toList();
       return game.copyWith(inputs: newInputs);
     }).toList();
-    state = state.copyWith(games: newGames);
+    state = state.copyWith(games: newGames, clearSnapshot: true);
   }
 
   void setStartingOya(String gameId, int playerIndex) {
@@ -293,7 +370,7 @@ class CalcNotifier extends Notifier<CalcState> {
       if (game.id != gameId) return game;
       return game.copyWith(startingOyaIndex: playerIndex);
     }).toList();
-    state = state.copyWith(games: newGames);
+    state = state.copyWith(games: newGames, clearSnapshot: true);
   }
 
   void resetGameRecord(String gameId) {
@@ -309,7 +386,7 @@ class CalcNotifier extends Notifier<CalcState> {
       )).toList();
       return game.copyWith(inputs: newInputs);
     }).toList();
-    state = state.copyWith(games: newGames);
+    state = state.copyWith(games: newGames, clearSnapshot: true);
   }
 
   List<int> _buildUmaList(String umaText) {
@@ -328,102 +405,171 @@ class CalcNotifier extends Notifier<CalcState> {
       const players = 4;
       if (state.games.isEmpty) return SaveResult.failed;
 
-      // Calculate final stats
-      List<List<PlayerResult>> allResults = [];
-      for (var g in state.games) {
-        if (g.inputs.where((p) => p.id <= players).fold(0, (s, p) => s + p.score) == config.targetTotalScore) {
-          try {
-            allResults.add(MahjongCalculator.calculate(
-              inputs: g.inputs.where((p) => p.id <= players).toList(),
-              rule: state.rule.copyWith(
-                oka: config.oka,
-                uma: _buildUmaList(config.umaText),
-              ),
-              config: config,
-            ));
-          } catch (_) {}
-        }
-      }
-
-      if (allResults.isEmpty) return SaveResult.failed;
-
-      final summaries = { for (int i = 1; i <= players; i++) i: {'pt': 0, 'chip': state.globalChips[i - 1], 'tobi': 0, 'score': 0, 'money': 0} };
-      for (var res in allResults) {
-        for (var p in res) {
-          summaries[p.id]!['pt'] = (summaries[p.id]!['pt']! as int) + p.finalPoint.toInt();
-          summaries[p.id]!['money'] = (summaries[p.id]!['money']! as int) + p.money;
-        }
-      }
-
-      // Sum raw scores from all valid games
-      for (var g in state.games) {
-        if (g.inputs.where((p) => p.id <= players).fold(0, (s, p) => s + p.score) == config.targetTotalScore) {
-          for (var inp in g.inputs) {
-            if (inp.id <= players) {
-              summaries[inp.id]!['score'] = (summaries[inp.id]!['score']! as int) + inp.score;
-            }
-          }
-        }
-      }
-      
-      // Check for tobis
-      for (int i = 1; i <= players; i++) {
-         bool isTobi = false;
-         for (var g in state.games) {
-           if (g.inputs.any((inp) => inp.id == i && (inp.tobiPt < 0))) isTobi = true;
-         }
-         summaries[i]!['tobi'] = isTobi ? 1 : 0;
-      }
-
-      // Final Ranks based on cumulative Pt
-      final sortedIds = summaries.keys.toList()
-        ..sort((a, b) => (summaries[b]!['pt']! as int).compareTo(summaries[a]!['pt']! as int));
-      
-      final ranks = { for (int i = 1; i <= players; i++) i: sortedIds.indexOf(i) + 1 };
-
-      final Map<String, dynamic> row = {
-        if (state.currentId != null) 'id': state.currentId,
-        'type': '4-player',
-        'date': date.toIso8601String(),
-        'group_id': state.selectedGroupId,
-        'p1_name': state.playerNames[0],
-        'p2_name': state.playerNames[1],
-        'p3_name': state.playerNames[2],
-        'p4_name': players == 4 ? state.playerNames[3] : "",
-        'p1_score': (summaries[1]?['score'] ?? 0) as int,
-        'p2_score': (summaries[2]?['score'] ?? 0) as int,
-        'p3_score': (summaries[3]?['score'] ?? 0) as int,
-        'p4_score': players == 4 ? ((summaries[4]?['score'] ?? 0) as int) : 0,
-        'p1_pt': (summaries[1]?['pt'] ?? 0) as int,
-        'p2_pt': (summaries[2]?['pt'] ?? 0) as int,
-        'p3_pt': (summaries[3]?['pt'] ?? 0) as int,
-        'p4_pt': players == 4 ? ((summaries[4]?['pt'] ?? 0) as int) : 0,
-        'p1_ch': (summaries[1]?['chip'] ?? 0) as int,
-        'p2_ch': (summaries[2]?['chip'] ?? 0) as int,
-        'p3_ch': (summaries[3]?['chip'] ?? 0) as int,
-        'p4_ch': players == 4 ? ((summaries[4]?['chip'] ?? 0) as int) : 0,
-        'p1_tobi': (summaries[1]?['tobi'] ?? 0) as int,
-        'p2_tobi': (summaries[2]?['tobi'] ?? 0) as int,
-        'p3_tobi': (summaries[3]?['tobi'] ?? 0) as int,
-        'p4_tobi': players == 4 ? ((summaries[4]?['tobi'] ?? 0) as int) : 0,
-        'p1_rank': ranks[1],
-        'p2_rank': ranks[2],
-        'p3_rank': ranks[3],
-        'p4_rank': players == 4 ? ranks[4] : 0,
-        'p1_money': (summaries[1]?['money'] ?? 0) as int,
-        'p2_money': (summaries[2]?['money'] ?? 0) as int,
-        'p3_money': (summaries[3]?['money'] ?? 0) as int,
-        'p4_money': players == 4 ? ((summaries[4]?['money'] ?? 0) as int) : 0,
-      };
-
       final db = DatabaseService();
       final isUpdate = state.currentId != null;
-      print('Saving session: $row'); // Debug log
-      final id = await db.upsertGame(row);
+
+      // 1. セッション全体の場代込収支を計算するための準備
+      // 各対局の計算結果を一時保持する
+      final List<Map<String, dynamic>> calculatedGames = [];
+      final List<int> totalMoneys = [0, 0, 0, 0];
+      final configJson = jsonEncode(config.toJson());
+
+      for (int i = 0; i < state.games.length; i++) {
+        final g = state.games[i];
+        if (g.inputs.where((p) => p.id <= players).fold(0, (s, p) => s + p.score) != config.targetTotalScore) {
+          continue;
+        }
+
+        final result = MahjongCalculator.calculate(
+          inputs: g.inputs.where((p) => p.id <= players).toList(),
+          rule: state.rule.copyWith(
+            oka: config.oka,
+            uma: _buildUmaList(config.umaText),
+          ),
+          config: config,
+          startingOyaIndex: g.startingOyaIndex,
+        );
+
+        // 各対局ごとのチップ分（DB保存用）
+        // 最初の1ゲーム目にのみ「セッション単位の追加チップ」を合算して帳尻を合わせる
+        final addChips = (i == 0) ? state.globalChips : const [0, 0, 0, 0];
+        final gameMoneys = <String, int>{};
+        
+        for (var r in result) {
+          final m = r.money + (addChips[r.id - 1] * config.chipRate);
+          gameMoneys[r.id.toString()] = m;
+          totalMoneys[r.id - 1] += m;
+        }
+
+        calculatedGames.add({
+          'game': g,
+          'result': result,
+          'moneys': gameMoneys,
+          'addChips': addChips,
+        });
+      }
+
+      if (calculatedGames.isEmpty) return SaveResult.failed;
+
+      // フッターUIと同一のロジックでセッション全体の収支を確定（一括計算・一回丸め）
+      final int completedCount = calculatedGames.length;
+      final List<int> ptTotals = [0, 0, 0, 0];
+      final List<int> chipTotals = [0, 0, 0, 0];
+      for (var cg in calculatedGames) {
+        final resList = cg['result'] as List<PlayerResult>;
+        final g = cg['game'] as GameRecord;
+        final addCh = cg['addChips'] as List<int>;
+        for (var r in resList) {
+          ptTotals[r.id - 1] += r.finalPoint;
+          chipTotals[r.id - 1] += g.inputs[r.id - 1].chip + addCh[r.id - 1];
+        }
+      }
       
-      if (!isUpdate) {
-        // 新規登録成功時は状態をリセットする（ユーザー指示）
-        resetToNewEntry();
+      final List<int> sessionFinalMoneys = [0, 0, 0, 0];
+      for (int i=0; i<players; i++) {
+        final double totalIncome = (ptTotals[i] * config.rate) + (chipTotals[i] * config.chipRate);
+        // 全体の場代 = config.gameFee (1回のみ)
+        sessionFinalMoneys[i] = (totalIncome - (config.gameFee / players.toDouble())).round();
+      }
+
+      // 2. セッション（ヘッダー）の特定または作成
+      String sessionDay = DateFormat('yyyy/MM/dd').format(date);
+      final int sessionId;
+      if (isUpdate) {
+        sessionId = state.currentId!;
+        // 既存のセッション情報を取得して日付を維持する
+        final existing = await db.getSessionById(sessionId);
+        if (existing != null) {
+          sessionDay = existing.date;
+        }
+        // セッション情報を更新（設定値と合計収支のスナップショットを保存）
+        await db.updateSession(Session(
+          id: sessionId,
+          date: sessionDay,
+          playerNames: state.playerNames,
+          groupId: state.selectedGroupId,
+          configJson: configJson,
+          globalChipsJson: jsonEncode(state.globalChips),
+          totalMoneys: sessionFinalMoneys,
+        ));
+        // 明細の重複を防ぐため、既存の対局データを一度すべて削除
+        await db.deleteGamesBySessionId(sessionId);
+      } else {
+        sessionId = await db.findOrCreateSession(
+          date: sessionDay,
+          playerNames: state.playerNames,
+          groupId: state.selectedGroupId,
+          configJson: configJson,
+          globalChipsJson: jsonEncode(state.globalChips),
+          totalMoneys: sessionFinalMoneys,
+        );
+      }
+
+      // 3. 明細（Games）の登録
+      for (var cg in calculatedGames) {
+        final g = cg['game'] as GameRecord;
+        final result = cg['result'] as List<PlayerResult>;
+        final gameMoneys = cg['moneys'] as Map<String, int>;
+        final addChips = cg['addChips'] as List<int>;
+
+        final Map<String, dynamic> row = {
+          'session_id': sessionId,
+          'type': '4-player',
+          'date': date.toIso8601String(),
+          'group_id': state.selectedGroupId,
+          'p1_name': state.playerNames[0],
+          'p2_name': state.playerNames[1],
+          'p3_name': state.playerNames[2],
+          'p4_name': state.playerNames[3],
+          'p1_score': g.inputs[0].score,
+          'p2_score': g.inputs[1].score,
+          'p3_score': g.inputs[2].score,
+          'p4_score': g.inputs[3].score,
+          'p1_pt': result.firstWhere((r) => r.id == 1).finalPoint,
+          'p2_pt': result.firstWhere((r) => r.id == 2).finalPoint,
+          'p3_pt': result.firstWhere((r) => r.id == 3).finalPoint,
+          'p4_pt': result.firstWhere((r) => r.id == 4).finalPoint,
+          'p1_ch': g.inputs[0].chip, 
+          'p2_ch': g.inputs[1].chip,
+          'p3_ch': g.inputs[2].chip,
+          'p4_ch': g.inputs[3].chip,
+          'p1_tobi': g.inputs[0].score < 0 ? 1 : 0,
+          'p2_tobi': g.inputs[1].score < 0 ? 1 : 0,
+          'p3_tobi': g.inputs[2].score < 0 ? 1 : 0,
+          'p4_tobi': g.inputs[3].score < 0 ? 1 : 0,
+          'p1_blown_by': g.inputs[0].blownByPlayerId,
+          'p2_blown_by': g.inputs[1].blownByPlayerId,
+          'p3_blown_by': g.inputs[2].blownByPlayerId,
+          'p4_blown_by': g.inputs[3].blownByPlayerId,
+          'p1_yakuman': g.inputs[0].yakumanPt,
+          'p2_yakuman': g.inputs[1].yakumanPt,
+          'p3_yakuman': g.inputs[2].yakumanPt,
+          'p4_yakuman': g.inputs[3].yakumanPt,
+          'p1_money': gameMoneys['1'] ?? 0,
+          'p2_money': gameMoneys['2'] ?? 0,
+          'p3_money': gameMoneys['3'] ?? 0,
+          'p4_money': gameMoneys['4'] ?? 0,
+          'oya_index': g.startingOyaIndex,
+        };
+
+        final sortedByPt = List<PlayerResult>.from(result)..sort((a, b) => b.finalPoint.compareTo(a.finalPoint));
+        row['p1_rank'] = sortedByPt.indexWhere((r) => r.id == 1) + 1;
+        row['p2_rank'] = sortedByPt.indexWhere((r) => r.id == 2) + 1;
+        row['p3_rank'] = sortedByPt.indexWhere((r) => r.id == 3) + 1;
+        row['p4_rank'] = sortedByPt.indexWhere((r) => r.id == 4) + 1;
+
+        await db.insertGame(row);
+      }
+
+      resetToNewEntry();
+      // 統計・履歴プロバイダーのリフレッシュ
+      ref.invalidate(historyProvider);
+      ref.invalidate(groupListProvider);
+      ref.invalidate(playerNamesProvider);
+      ref.invalidate(allGamesProvider);
+      ref.invalidate(allSessionsProvider);
+      if (state.selectedGroupId != null) {
+        ref.invalidate(groupRankingProvider(state.selectedGroupId!));
       }
       return isUpdate ? SaveResult.updated : SaveResult.registered;
     } catch (e) {
@@ -432,59 +578,117 @@ class CalcNotifier extends Notifier<CalcState> {
     }
   }
 
+  Future<void> loadSession(Session session, List<SavedGame> sessionGames) async {
+    final draft = state.currentId == null ? jsonEncode(state.toJson()) : state.currentDraft;
+    MahjongRule historyRule = state.rule;
+    if (session.configJson != null) {
+      try {
+        final configMap = jsonDecode(session.configJson!) as Map<String, dynamic>;
+        final AppConfig historyConfig = AppConfig.fromJson(configMap);
+        historyRule = MahjongRule(
+          rate: historyConfig.rate.toInt(),
+          chipRate: historyConfig.chipRate,
+          returnScore: historyConfig.startingPoints + (historyConfig.oka * 1000 / 4).round(),
+          uma: _buildUmaList(historyConfig.umaText),
+          oka: historyConfig.oka,
+          tobiPrize: historyConfig.tobiPrize,
+          yakumanRonPrize: historyConfig.yakumanRonPrize,
+          yakumanTsumoPrize: historyConfig.yakumanTsumoPrize,
+          totalFee: historyConfig.gameFee,
+        );
+      } catch (e) {
+        print('History rule restore error: $e');
+      }
+    }
+
+    // ロード前に状態を完全に初期化（チップ二重計上防止）
+    state = const CalcState(games: []);
+
+    final List<int> loadedGlobalChips = session.globalChipsJson != null 
+        ? (jsonDecode(session.globalChipsJson!) as List<dynamic>).map((e) => e as int).toList()
+        : const [0, 0, 0, 0];
+
+    final List<GameRecord> newGames = sessionGames.map((game) {
+      final inputs = List.generate(4, (i) => PlayerInput(
+        id: i + 1,
+        score: game.scores[i],
+        tobiPt: game.tobis[i] ? -1 : 0, 
+        chip: game.chips[i],
+        blownByPlayerId: game.blownByPlayerIds[i],
+        yakumanPt: game.yakumanPts[i],
+      ));
+      return GameRecord(
+        id: 'load_${game.id}',
+        inputs: _recalculateTobi(inputs),
+        startingOyaIndex: game.startingOyaIndex, 
+      );
+    }).toList();
+
+    state = state.copyWith(
+      currentId: session.id,
+      playerNames: session.playerNames,
+      globalChips: loadedGlobalChips,
+      games: newGames,
+      rule: historyRule,
+      selectedGroupId: session.groupId,
+      currentDraft: draft,
+      snapshottedMoneys: session.totalMoneys,
+    );
+  }
+
   void loadGame(SavedGame game) {
-    // Construct a single GameRecord from the aggregated scores
+    final draft = state.currentId == null ? jsonEncode(state.toJson()) : state.currentDraft;
     final inputs = List.generate(4, (i) => PlayerInput(
       id: i + 1,
       score: game.scores[i],
       tobiPt: game.tobis[i] ? -1 : 0,
+      chip: game.chips[i],
+      blownByPlayerId: game.blownByPlayerIds[i],
+      yakumanPt: game.yakumanPts[i],
     ));
-
-    // 新規入力中（currentId == null）であれば現在の状態を一時保存する
-    final currentPreserved = state.currentId == null ? jsonEncode(state.toJson()) : state.preservedStateJson;
-
     state = state.copyWith(
       currentId: game.id,
       playerNames: game.playerNames,
-      globalChips: game.chips,
-      games: [GameRecord(id: 'load_${game.id}', inputs: inputs)],
+      globalChips: const [0, 0, 0, 0],
+      games: [GameRecord(id: 'load_${game.id}', inputs: _recalculateTobi(inputs), startingOyaIndex: game.startingOyaIndex)],
       selectedGroupId: game.groupId,
-      preservedStateJson: currentPreserved,
+      currentDraft: draft,
+      snapshottedMoneys: game.moneys,
     );
   }
 
-  void resetToNewEntry() {
+  void resetGame() {
+    if (state.currentDraft != null) {
+      try {
+        final draftData = CalcState.fromJson(jsonDecode(state.currentDraft!));
+        state = draftData.copyWith(clearDraft: true);
+        return;
+      } catch (_) {}
+    }
     state = CalcState(
       playerNames: const ['A', 'B', 'C', 'D'],
       globalChips: const [0, 0, 0, 0],
       games: const [],
       rule: state.rule,
-      preservedStateJson: null, // 明示的なリセット時は一時保存もクリア
+      currentDraft: null,
     );
+    // 場代をリセット
+    ref.read(configProvider.notifier).updateGameFee(0);
   }
 
+  void resetToNewEntry() => resetGame();
+
   void exitHistoryMode() {
-    if (state.preservedStateJson != null) {
+    if (state.currentDraft != null) {
       try {
-        final preserved = CalcState.fromJson(jsonDecode(state.preservedStateJson!));
-        // 中身だけ復元し、自分自身のバックアップ(preservedStateJson)はクリアする
-        state = preserved.copyWith(clearPreserved: true);
+        final draftData = CalcState.fromJson(jsonDecode(state.currentDraft!));
+        state = draftData.copyWith(clearDraft: true);
         return;
       } catch (e) {
         print('Restore error: $e');
       }
     }
-    
-    // バックアップがない場合は通常通り ID のみ解除
-    state = CalcState(
-      playerNames: state.playerNames,
-      globalChips: state.globalChips,
-      games: state.games,
-      rule: state.rule,
-      selectedGroupId: state.selectedGroupId,
-      currentId: null,
-      preservedStateJson: null,
-    );
+    state = state.copyWith(currentId: null, clearDraft: true);
   }
 }
 

@@ -5,32 +5,112 @@ import 'package:intl/intl.dart';
 import '../../core/database/database_service.dart';
 import '../../core/models/db_models.dart';
 import '../calc/calc_state.dart';
+import '../stats/stats_providers.dart';
 
-class HistoryNotifier extends AsyncNotifier<List<SavedGame>> {
+class HistoryNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
   @override
-  Future<List<SavedGame>> build() async {
-    return _fetchGames();
+  Future<List<Map<String, dynamic>>> build() async {
+    return _fetchSessions();
   }
 
-  Future<List<SavedGame>> _fetchGames() async {
+  Future<List<Map<String, dynamic>>> _fetchSessions() async {
     final db = DatabaseService();
-    final rows = await db.getGames();
-    return rows.map((e) => SavedGame.fromMap(e)).toList();
+    final sessionRows = await db.getSessions();
+    final gameRows = await db.getGames();
+    
+    final List<Map<String, dynamic>> sessionsWithGames = [];
+    
+    for (var s in sessionRows) {
+      final sessionGames = gameRows
+          .where((g) => g['session_id'] == s['id'])
+          .map((e) => SavedGame.fromMap(e))
+          .toList();
+      
+      if (sessionGames.isEmpty) continue;
+
+      final groupRows = await db.getGroups();
+      final groupName = s['group_id'] != null 
+          ? groupRows.firstWhere((g) => g['id'] == s['group_id'], orElse: () => {'name': '不明'})['name']
+          : 'フリー対局';
+
+      final List<int> totalPt = [0, 0, 0, 0];
+      final List<int> totalChip = [0, 0, 0, 0];
+      final List<int> totalMoney = [0, 0, 0, 0];
+      
+      for (var g in sessionGames) {
+        for (int i = 0; i < g.playerNames.length; i++) {
+          if (i < 4) {
+            totalPt[i] += g.points[i];
+            totalChip[i] += g.chips[i];
+            totalMoney[i] += g.moneys[i];
+          }
+        }
+      }
+
+      final session = Session.fromMap(s);
+
+      sessionsWithGames.add({
+        'session': session,
+        'games': sessionGames,
+        'groupName': groupName,
+        'totalPt': totalPt,
+        'totalChip': totalChip,
+        'totalMoney': [
+          session.totalMoneys?[0] ?? 0,
+          session.totalMoneys?[1] ?? 0,
+          session.totalMoneys?[2] ?? 0,
+          session.totalMoneys?[3] ?? 0,
+        ],
+        'gameCount': sessionGames.length,
+      });
+    }
+    return sessionsWithGames;
   }
 
   Future<void> refresh() async {
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(() => _fetchGames());
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(() => _fetchSessions());
   }
 
-  Future<void> deleteGame(int id) async {
+  Future<void> deleteSession(int sessionId) async {
     final db = DatabaseService();
-    await db.deleteGame(id);
+    await db.deleteSession(sessionId);
+    
+    // 統計・プロバイダーのインバリデーション
+    ref.invalidate(historyProvider);
+    ref.invalidate(allGamesProvider);
+    ref.invalidate(allSessionsProvider);
+    ref.invalidate(groupListProvider);
+    ref.invalidate(playerNamesProvider);
+    // すべてのグループランキングをリフレッシュ（簡易的）
+    // 本来は sessionId から groupId を引いてその特定グループのみインバリデーションするのが理想
+    
+    await refresh();
+  }
+
+  Future<void> updateSessionGroupId(int sessionId, int? groupId) async {
+    final db = DatabaseService();
+    await db.updateSessionGroupId(sessionId, groupId);
+    await refresh();
+  }
+
+  Future<void> clearHistory({bool all = false, int months = 0}) async {
+    final db = DatabaseService();
+    if (all) {
+      await db.deleteAllHistory();
+      // 全削除時は設定の場代も 0 にリセット
+      ref.read(configProvider.notifier).updateGameFee(0);
+    } else {
+      final now = DateTime.now();
+      final targetDate = DateTime(now.year, now.month - months, now.day);
+      final dateStr = DateFormat('yyyy/MM/dd').format(targetDate);
+      await db.deleteHistoryBefore(dateStr);
+    }
     await refresh();
   }
 }
 
-final historyProvider = AsyncNotifierProvider<HistoryNotifier, List<SavedGame>>(() {
+final historyProvider = AsyncNotifierProvider<HistoryNotifier, List<Map<String, dynamic>>>(() {
   return HistoryNotifier();
 });
 
@@ -47,7 +127,6 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   @override
   void initState() {
     super.initState();
-    // 画面が開かれた際に確実に最新データを再取得（リフレッシュ）する
     Future.microtask(() => ref.read(historyProvider.notifier).refresh());
   }
 
@@ -55,19 +134,9 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   Widget build(BuildContext context) {
     final history = ref.watch(historyProvider);
 
-    return PopScope(
-      canPop: true,
-      onPopInvoked: (didPop) {
-        if (didPop) {
-          // Navigator.pop の戻り値を直接ここで取得することは難しいため、
-          // 呼び出し元の then や await での処理と合わせ、
-          // 万が一の漏れを防ぐためにここでも必要なら処理を行う。
-          // ただし、現在は各呼び出し元で exitHistoryMode を呼ぶ実装に寄せている。
-        }
-      },
-      child: Scaffold(
-        backgroundColor: const Color(0xFF004D40),
-        appBar: AppBar(
+    return Scaffold(
+      backgroundColor: const Color(0xFF004D40),
+      appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Color(0xFF00FFC2)),
           onPressed: () => Navigator.pop(context, false),
@@ -84,38 +153,37 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                 initialDateRange: _selectedDateRange,
                 firstDate: DateTime(2020),
                 lastDate: DateTime.now().add(const Duration(days: 1)),
-                builder: (context, child) {
-                  return Theme(
-                    data: Theme.of(context).copyWith(
-                      colorScheme: const ColorScheme.dark(
-                        primary: Color(0xFF00BFA5),
-                        onPrimary: Colors.white,
-                        surface: Color(0xFF001F1A),
-                        onSurface: Colors.white,
-                      ),
+                builder: (context, child) => Theme(
+                  data: Theme.of(context).copyWith(
+                    colorScheme: const ColorScheme.dark(
+                      primary: Color(0xFF00BFA5),
+                      onPrimary: Colors.white,
+                      surface: Color(0xFF001F1A),
+                      onSurface: Colors.white,
                     ),
-                    child: child!,
-                  );
-                },
+                  ),
+                  child: child!,
+                ),
               );
-              if (picked != null) {
-                setState(() => _selectedDateRange = picked);
-              } else {
-                setState(() => _selectedDateRange = null);
-              }
+              if (picked != null) setState(() => _selectedDateRange = picked);
+              else setState(() => _selectedDateRange = null);
             },
-          )
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_sweep, color: Color(0xFF00FFC2), size: 18),
+            onPressed: () => _showCleanupDialog(context, ref),
+          ),
         ],
       ),
       body: history.when(
-        data: (allGames) {
-          var games = allGames;
+        data: (sessions) {
+          var filteredSessions = sessions;
           if (_selectedDateRange != null) {
-            games = games.where((g) {
-              final dt = g.date;
-              final start = _selectedDateRange!.start;
-              final end = _selectedDateRange!.end.add(const Duration(days: 1));
-              return !dt.isBefore(start) && dt.isBefore(end);
+            filteredSessions = filteredSessions.where((s) {
+              final dt = (s['session'] as Session).date;
+              final date = DateFormat('yyyy/MM/dd').parse(dt);
+              return !date.isBefore(_selectedDateRange!.start) && 
+                     date.isBefore(_selectedDateRange!.end.add(const Duration(days: 1)));
             }).toList();
           }
 
@@ -143,147 +211,227 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                   ),
                 ),
               Expanded(
-                child: games.isEmpty 
+                child: filteredSessions.isEmpty 
                   ? const Center(child: Text('対局履歴がありません', style: TextStyle(color: Colors.white24)))
                   : RefreshIndicator(
                       onRefresh: () => ref.read(historyProvider.notifier).refresh(),
                       color: const Color(0xFF00FFC2),
-            child: ListView.builder(
-              itemCount: games.length,
-              itemBuilder: (context, index) {
-                final game = games[index];
-                return InkWell(
-                  onTap: () {
-                    ref.read(calcProvider.notifier).loadGame(game);
-                    Navigator.pop(context, true); // 選択時は true を返す
-                  },
-                  child: Dismissible(
-                    key: Key(game.id.toString()),
-                    direction: DismissDirection.endToStart,
-                    background: Container(
-                      alignment: Alignment.centerRight,
-                      padding: const EdgeInsets.only(right: 20),
-                      color: Colors.redAccent.withOpacity(0.2),
-                      child: const Icon(Icons.delete, color: Colors.redAccent),
-                    ),
-                    onDismissed: (_) async {
-                      final currentId = ref.read(calcProvider).currentId;
-                      await ref.read(historyProvider.notifier).deleteGame(game.id!);
-                      if (currentId == game.id) {
-                        ref.read(calcProvider.notifier).resetToNewEntry();
-                      }
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.black26,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.white10),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: Colors.blueAccent.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: const Text(
-                                  '4人',
-                                  style: TextStyle(
-                                    color: Colors.blueAccent,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              Text(
-                                DateFormat('yyyy/MM/dd').format(game.date),
-                                style: const TextStyle(color: Colors.white24, fontSize: 10),
-                              ),
-                              const Spacer(),
-                              IconButton(
-                                icon: const Icon(Icons.delete_outline, color: Colors.white24, size: 18),
-                                onPressed: () async {
-                                  final confirmed = await showDialog<bool>(
-                                    context: context,
-                                    builder: (context) => AlertDialog(
-                                      backgroundColor: const Color(0xFF001F1A),
-                                      title: const Text('対局削除', style: TextStyle(color: Colors.white, fontSize: 16)),
-                                      content: const Text('この対局データを削除しますか？', style: TextStyle(color: Colors.white70)),
-                                      actions: [
-                                        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('キャンセル', style: TextStyle(color: Colors.white54))),
-                                        TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('削除', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold))),
+                      child: ListView.builder(
+                        itemCount: filteredSessions.length,
+                        itemBuilder: (context, index) {
+                          final sessionData = filteredSessions[index];
+                          final Session session = sessionData['session'];
+                          final String groupName = sessionData['groupName'];
+                          final int gameCount = sessionData['gameCount'];
+                          final List<int> totalPts = sessionData['totalPt'];
+                          final List<int> totalMoneys = sessionData['totalMoney'];
+
+                          return Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.black26,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.white10),
+                            ),
+                            child: InkWell(
+                              onTap: () {
+                                ref.read(calcProvider.notifier).loadSession(session, sessionData['games']);
+                                Navigator.pop(context, true);
+                              },
+                              borderRadius: BorderRadius.circular(12),
+                              child: Column(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.05),
+                                      borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text('${session.date} - $gameCount局', style: const TextStyle(color: Colors.white38, fontSize: 10)),
+                                            Text(
+                                              groupName,
+                                              style: TextStyle(
+                                                color: session.groupId == null ? Colors.orangeAccent : const Color(0xFF00FFC2),
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 14,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const Spacer(),
+                                        IconButton(
+                                          icon: const Icon(Icons.delete_forever, color: Colors.white24, size: 20),
+                                          onPressed: () => _showDeleteConfirmDialog(context, ref, session.id!),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.edit_note, color: Colors.white24, size: 20),
+                                          onPressed: () => _showGroupAssignmentDialog(context, ref, session),
+                                        ),
                                       ],
                                     ),
-                                  );
-                                  if (confirmed == true) {
-                                    final currentId = ref.read(calcProvider).currentId;
-                                    await ref.read(historyProvider.notifier).deleteGame(game.id!);
-                                    if (currentId == game.id) {
-                                      ref.read(calcProvider.notifier).resetToNewEntry();
-                                    }
-                                  }
-                                },
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceAround,
-                            children: List.generate(game.playerNames.length, (i) {
-                              final rank = game.ranks[i];
-                              final pt = game.points[i];
-                              return Column(
-                                children: [
-                                  Text(game.playerNames[i],
-                                      style: const TextStyle(
-                                          color: Colors.white70,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold)),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '$rank位',
-                                    style: TextStyle(
-                                      color: rank == 1 ? const Color(0xFF00FFC2) : Colors.white38,
-                                      fontSize: 10,
-                                    ),
                                   ),
-                                  Text(
-                                    pt > 0 ? '+$pt' : pt.toString(),
-                                    style: TextStyle(
-                                      color: pt >= 0 ? const Color(0xFF00FFC2) : Colors.redAccent,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                      children: List.generate(session.playerNames.length, (i) {
+                                        final pt = totalPts[i];
+                                        final money = totalMoneys[i];
+                                        return Expanded(
+                                          child: Column(
+                                            children: [
+                                              Text(session.playerNames[i], style: const TextStyle(color: Colors.white54, fontSize: 9), overflow: TextOverflow.ellipsis),
+                                              Text(
+                                                pt > 0 ? '+$pt' : pt.toString(),
+                                                style: TextStyle(
+                                                  color: pt >= 0 ? const Color(0xFF00FFC2) : Colors.redAccent,
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              Text('¥${money >= 0 ? "+" : ""}$money', style: const TextStyle(color: Colors.white24, fontSize: 9)),
+                                            ],
+                                          ),
+                                        );
+                                      }),
                                     ),
                                   ),
                                 ],
-                              );
-                            }),
-                          ),
-                        ],
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ),
-      ],
-    );
+              ),
+            ],
+          );
         },
         loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF00FFC2))),
-        error: (e, s) {
-          // If the error is just that nothing was found or DB not ready, show info instead of error
-          return const Center(child: Text('対局履歴がありません', style: TextStyle(color: Colors.white24)));
-        },
+        error: (e, s) => const Center(child: Text('読み込みエラー', style: TextStyle(color: Colors.white24))),
       ),
-    ));
+    );
+  }
+
+  void _showCleanupDialog(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF001F1A),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('履歴のクリーンアップ', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 20),
+            _cleanupOption(context, ref, '3ヶ月以上前を削除', 3),
+            _cleanupOption(context, ref, '6ヶ月以上前を削除', 6),
+            _cleanupOption(context, ref, '1年以上前を削除', 12),
+            const Divider(color: Colors.white10),
+            ListTile(
+              leading: const Icon(Icons.delete_forever, color: Colors.redAccent),
+              title: const Text('すべての履歴を削除', style: TextStyle(color: Colors.redAccent)),
+              onTap: () => _confirmAndClear(context, ref, all: true),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _cleanupOption(BuildContext context, WidgetRef ref, String label, int months) {
+    return ListTile(
+      leading: const Icon(Icons.history, color: Color(0xFF00FFC2)),
+      title: Text(label, style: const TextStyle(color: Colors.white70)),
+      onTap: () => _confirmAndClear(context, ref, months: months),
+    );
+  }
+
+  void _confirmAndClear(BuildContext context, WidgetRef ref, {bool all = false, int months = 0}) async {
+    Navigator.pop(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF001F1A),
+        title: const Text('削除の確認', style: TextStyle(color: Colors.white, fontSize: 16)),
+        content: Text(all ? '本当にすべての履歴を削除しますか？' : '$monthsヶ月以上前の履歴を削除しますか？', style: const TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('キャンセル', style: TextStyle(color: Colors.white54))),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('削除', style: TextStyle(color: Colors.redAccent))),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await ref.read(historyProvider.notifier).clearHistory(all: all, months: months);
+    }
+  }
+
+  void _showDeleteConfirmDialog(BuildContext context, WidgetRef ref, int sessionId) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        title: const Text('履歴の削除', style: TextStyle(color: Colors.white)),
+        content: const Text('この対局履歴を削除しますか？\nこの操作は取り消せません。', style: TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('キャンセル', style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              await ref.read(historyProvider.notifier).deleteSession(sessionId);
+              if (context.mounted) Navigator.pop(context);
+            },
+            child: const Text('削除'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showGroupAssignmentDialog(BuildContext context, WidgetRef ref, Session session) async {
+    final db = DatabaseService();
+    final groups = await db.getGroups();
+    if (!context.mounted) return;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF001F1A),
+        title: const Text('グループを割り当て', style: TextStyle(color: Colors.white, fontSize: 16)),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              ...groups.map((g) => ListTile(
+                title: Text(g['name'], style: const TextStyle(color: Color(0xFF00FFC2))),
+                onTap: () {
+                  ref.read(historyProvider.notifier).updateSessionGroupId(session.id!, g['id']);
+                  Navigator.pop(context);
+                },
+              )),
+              ListTile(
+                title: const Text('フリー対局に戻す', style: TextStyle(color: Colors.white54)),
+                onTap: () {
+                  ref.read(historyProvider.notifier).updateSessionGroupId(session.id!, null);
+                  Navigator.pop(context);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
