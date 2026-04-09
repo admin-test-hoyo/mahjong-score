@@ -346,8 +346,6 @@ class DatabaseService {
     } catch (e) {
       return [];
     }
-  }
-
   Future<int> _webDelete(String key, int id) async {
     final prefs = await SharedPreferences.getInstance();
     final items = await _webQuery(key);
@@ -359,5 +357,42 @@ class DatabaseService {
       return 1;
     }
     return 0;
+  }
+
+  // --- Backup & Restore (Ver 3.0) ---
+  Future<Map<String, dynamic>> exportAllData() async {
+    final sessions = await getSessions();
+    final games = await getGames();
+    return {
+      'version': '3.0.0',
+      'export_date': DateTime.now().toIso8601String(),
+      'sessions': sessions,
+      'games': games,
+    };
+  }
+
+  Future<void> importAllData(Map<String, dynamic> data) async {
+    final sessionsList = data['sessions'] as List<dynamic>? ?? [];
+    final gamesList = data['games'] as List<dynamic>? ?? [];
+
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('web_db_sessions', jsonEncode(sessionsList));
+      await prefs.setString('web_db_games', jsonEncode(gamesList));
+      return;
+    }
+
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.delete('sessions');
+      await txn.delete('games');
+      
+      for (var s in sessionsList) {
+        await txn.insert('sessions', Map<String, dynamic>.from(s));
+      }
+      for (var g in gamesList) {
+        await txn.insert('games', Map<String, dynamic>.from(g));
+      }
+    });
   }
 }
