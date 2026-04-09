@@ -186,7 +186,7 @@ class CalcNotifier extends Notifier<CalcState> {
   void updateRuleRate(double rate) {
     state = state.copyWith(
       rule: state.rule.copyWith(rate: rate.toInt()),
-      snapshottedMoneys: null,
+      clearSnapshot: true,
     );
     // 同時にアプリ設定も更新
     ref.read(configProvider.notifier).updateRate(rate);
@@ -195,7 +195,7 @@ class CalcNotifier extends Notifier<CalcState> {
   void updateRuleChipRate(int chipRate) {
     state = state.copyWith(
       rule: state.rule.copyWith(chipRate: chipRate),
-      snapshottedMoneys: null,
+      clearSnapshot: true,
     );
     ref.read(configProvider.notifier).updateChipRate(chipRate);
   }
@@ -203,7 +203,7 @@ class CalcNotifier extends Notifier<CalcState> {
   void updateRuleGameFee(int gameFee) {
     state = state.copyWith(
       rule: state.rule.copyWith(totalFee: gameFee),
-      snapshottedMoneys: null,
+      clearSnapshot: true,
     );
     ref.read(configProvider.notifier).updateGameFee(gameFee);
   }

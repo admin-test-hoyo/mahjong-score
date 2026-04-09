@@ -47138,7 +47138,7 @@ $2$blownByPlayerId$clearBlownBy(a,b){return this.E(this,A.A("call","$2$blownByPl
 $1$yakumanPt(a){return this.E(this,A.A("call","$1$yakumanPt",0,[a],["yakumanPt"],0))},
 $2$color$fontWeight(a,b){return this.E(this,A.A("call","$2$color$fontWeight",0,[a,b],["color","fontWeight"],0))},
 $1$totalFee(a){return this.E(this,A.A("call","$1$totalFee",0,[a],["totalFee"],0))},
-$2$rule$snapshottedMoneys(a,b){return this.E(this,A.A("call","$2$rule$snapshottedMoneys",0,[a,b],["rule","snapshottedMoneys"],0))},
+$2$clearSnapshot$rule(a,b){return this.E(this,A.A("call","$2$clearSnapshot$rule",0,[a,b],["clearSnapshot","rule"],0))},
 $1$chipRate(a){return this.E(this,A.A("call","$1$chipRate",0,[a],["chipRate"],0))},
 $1$rate(a){return this.E(this,A.A("call","$1$rate",0,[a],["rate"],0))},
 $6$configJson$date$globalChipsJson$groupId$playerNames$totalMoneys(a,b,c,d,e,f){return this.E(this,A.A("call","$6$configJson$date$globalChipsJson$groupId$playerNames$totalMoneys",0,[a,b,c,d,e,f],["configJson","date","globalChipsJson","groupId","playerNames","totalMoneys"],0))},
@@ -107865,7 +107865,7 @@ L(){return"PluralCase."+this.b}}
 A.wQ.prototype={
 Dx(a,b,c,d,e){var s=this,r=c==null?s.a:c,q=a==null?s.b:a,p=e==null?s.d:e,o=b==null?s.e:b,n=d==null?s.y:d
 return new A.wQ(r,q,s.c,p,o,s.f,s.r,s.w,s.x,n)},
-ME(a,b){return this.Dx(null,a,null,null,b)},
+MF(a,b){return this.Dx(null,a,null,null,b)},
 axI(a){var s=null
 return this.Dx(s,s,s,a,s)},
 Mu(a){var s=null
@@ -108648,7 +108648,7 @@ if(new A.ar(n,new A.adY(),A.W(n).h("ar<1>")).iK(0,0,new A.adZ())===a7.r){++l
 try{n=r.b
 j=A.W(n).h("ar<1>")
 n=A.R(new A.ar(n,new A.ae_(),j),j.h("r.E"))
-q=A.aR3(a7,n,a6.d.ME(a7.f,this.SW(a7.e)),r.c)
+q=A.aR3(a7,n,a6.d.MF(a7.f,this.SW(a7.e)),r.c)
 for(n=q,j=n.length,i=0;i<n.length;n.length===j||(0,A.z)(n),++i){p=n[i]
 h=J.bw(s,p.a)
 h.toString
@@ -108824,7 +108824,7 @@ $S:0}
 A.aeg.prototype={
 $1(a){var s=this.a.cq($.d_().gd5(),t.R),r=A.aRm(a)
 if(r==null)r=0
-s.saJ(s.gaJ().MF(s.gaJ().d.MB(B.c.cl(r)),null))
+s.saJ(s.gaJ().ME(!0,s.gaJ().d.MB(B.c.cl(r))))
 s=A.cu(s).cq($.fb().gd5(),t.fe)
 s.saJ(s.gaJ().MB(r))
 return null},
@@ -108832,7 +108832,7 @@ $S:13}
 A.aeh.prototype={
 $1(a){var s=this.a.cq($.d_().gd5(),t.R),r=A.ev(a,null)
 if(r==null)r=0
-s.saJ(s.gaJ().MF(s.gaJ().d.Mu(r),null))
+s.saJ(s.gaJ().ME(!0,s.gaJ().d.Mu(r)))
 s=A.cu(s).cq($.fb().gd5(),t.fe)
 s.saJ(s.gaJ().Mu(r))
 return null},
@@ -108840,7 +108840,7 @@ $S:13}
 A.aei.prototype={
 $1(a){var s=this.a.cq($.d_().gd5(),t.R),r=A.ev(a,null)
 if(r==null)r=0
-s.saJ(s.gaJ().MF(s.gaJ().d.axI(r),null))
+s.saJ(s.gaJ().ME(!0,s.gaJ().d.axI(r)))
 s=A.cu(s).cq($.fb().gd5(),t.fe)
 s.saJ(s.gaJ().Mx(r))
 return null},
@@ -108882,7 +108882,7 @@ l.a=null
 if(s)try{r=k.b
 q=A.W(r).h("ar<1>")
 r=A.R(new A.ar(r,new A.ae6(),q),q.h("r.E"))
-l.a=A.aR3(j,r,n.c.d.ME(j.f,n.a.SW(j.e)),k.c)}catch(p){}r=n.d
+l.a=A.aR3(j,r,n.c.d.MF(j.f,n.a.SW(j.e)),k.c)}catch(p){}r=n.d
 q=n.e
 o=A.b([A.hy(A.c0(A.e8(A.aL(""+(a.a+1),m,m,m,m,B.lp,m,m,m),m,m),m,35))],t.sa)
 B.b.Y(o,A.wJ(4,new A.ae7(l,k,n.f),!0,t.z8))
@@ -109270,8 +109270,8 @@ oN(a,b){var s=null
 return this.ls(!1,!1,a,s,s,b,s,s,s,s,s,s)},
 axS(a,b){var s=null
 return this.ls(!1,!1,a,s,s,s,b,s,s,s,s,s)},
-MF(a,b){var s=null
-return this.ls(!1,!1,!1,s,s,s,s,s,s,a,s,b)},
+ME(a,b){var s=null
+return this.ls(!1,!1,a,s,s,s,s,s,s,b,s,s)},
 fP(){var s=this,r=s.c,q=A.W(r).h("Z<1,af<m,@>>")
 r=A.R(new A.Z(r,new A.af4(),q),q.h("aa.E"))
 return A.au(["playerNames",s.a,"globalChips",s.b,"games",r,"rule",s.d.fP(),"selectedGroupId",s.e,"currentId",s.f,"currentDraft",s.r,"snapshottedMoneys",s.w],t.N,t.z)}}
@@ -109394,7 +109394,7 @@ c4=A.R(new A.ar(c4,new A.adC(),c6),c6.h("r.E"))
 c5=A.cu(n)
 c6=c5.x
 if(!(!c6.dx&&c6.e===c5))A.a1(A.pR(c6.ghA()))
-e=A.aR3(m,c4,c6.lM().glS().d.ME(m.f,n.SS(m.e)),f.c)
+e=A.aR3(m,c4,c6.lM().glS().d.MF(m.f,n.SS(m.e)),f.c)
 if(J.d(g,0)){c5=A.cu(n)
 c4=c5.x
 if(!(!c4.dx&&c4.e===c5))A.a1(A.pR(c4.ghA()))
