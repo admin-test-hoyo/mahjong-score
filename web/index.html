@@ -31,6 +31,12 @@
 
   <title>麻雀収支管理</title>
   <link rel="manifest" href="manifest.json">
+  <script>
+    window.onerror = function(message, source, lineno, colno, error) {
+      console.error('【JS-GLOBAL-ERROR】: ' + message + ' at ' + source + ':' + lineno + ':' + colno);
+      if (error && error.stack) console.error(error.stack);
+    };
+  </script>
 </head>
 <body>
   <!--

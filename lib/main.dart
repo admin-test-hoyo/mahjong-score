@@ -10,6 +10,7 @@ import 'features/calc/calc_state.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main() async {
+  html.window.console.log('【AppStatus】: main() started');
   WidgetsFlutterBinding.ensureInitialized();
 
   // 1. Flutterフレームワーク内のエラー捕捉
