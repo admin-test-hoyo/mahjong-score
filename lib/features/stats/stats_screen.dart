@@ -236,7 +236,18 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildGeneralStats(games, sessions),
+                          FutureBuilder<Map<String, dynamic>>(
+                            future: DatabaseService().getUserStats(_selectedPlayer!, groupId: _selectedGroupId),
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState == ConnectionState.waiting) {
+                                return const Center(child: CircularProgressIndicator(color: Color(0xFF00FFC2)));
+                              }
+                              if (snapshot.hasError) {
+                                return Text('エラー: ${snapshot.error}', style: const TextStyle(color: Colors.redAccent));
+                              }
+                              return _buildGeneralStats(snapshot.data ?? {});
+                            },
+                          ),
                           const SizedBox(height: 24),
                           _buildRankChart(games),
                           const SizedBox(height: 24),
@@ -593,54 +604,17 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
   }
 
   // ─────────────────── 個人分析ウィジェット群 ───────────────
-  Widget _buildGeneralStats(List<SavedGame> games, List<Session> sessions) {
-    final totalGames = games.length;
-    double avgRank = 0;
-    int totalPt = 0;
-    int totalChips = 0;
-    int totalMoney = 0;
-    int tobiCount = 0;
-    int topCount = 0;
-    int rentaiCount = 0;
+  Widget _buildGeneralStats(Map<String, dynamic> stats) {
+    if (_selectedPlayer == null) return const SizedBox.shrink();
 
-    for (var g in games) {
-      int idx = 0;
-      if (_selectedPlayer != null) {
-        idx = g.playerNames.indexOf(_selectedPlayer!);
-        if (idx == -1) continue;
-      }
-      avgRank += g.ranks[idx];
-      totalPt += g.points[idx];
-      totalChips += g.chips[idx];
-      
-      if (g.scores[idx] < 0) tobiCount++;
-      if (g.ranks[idx] == 1) topCount++;
-      if (g.ranks[idx] <= 2) rentaiCount++;
-    }
-
-    for (var s in sessions) {
-      int idx = 0;
-      if (_selectedPlayer != null) {
-        idx = s.playerNames.indexOf(_selectedPlayer!);
-        if (idx == -1) continue;
-      }
-      if (s.globalChipsJson != null) {
-        try {
-          final List<dynamic> gc = jsonDecode(s.globalChipsJson!);
-          if (idx < gc.length) {
-            totalChips += (gc[idx] as num).toInt();
-          }
-        } catch (_) {}
-      }
-      totalMoney += (s.totalMoneys?[idx] ?? 0);
-    }
-
-    avgRank /= totalGames;
-    // 指示名に基づき 1着% と表記しても良いが、UI項目名は「トップ率」として定義されているため維持または修正。
-    // ここではロジックの正確性を優先。
-    final winRate = (topCount / totalGames * 100).toStringAsFixed(1);
-    final rentaiRate = (rentaiCount / totalGames * 100).toStringAsFixed(1);
-    final tobiRate = (tobiCount / totalGames * 100).toStringAsFixed(1);
+    final totalGames = stats['games'] as int? ?? 0;
+    final totalPt = stats['totalPt'] as int? ?? 0;
+    final totalChips = stats['totalChip'] as int? ?? 0;
+    final totalMoney = stats['totalMoney'] as int? ?? 0;
+    final avgRank = stats['avgRank'] as double? ?? 0.0;
+    final winRate = (stats['topRate'] as double? ?? 0.0).toStringAsFixed(1);
+    final rentaiRate = (stats['rentaiRate'] as double? ?? 0.0).toStringAsFixed(1);
+    final tobiRate = (stats['tobiRate'] as double? ?? 0.0).toStringAsFixed(1);
 
     return Container(
       padding: const EdgeInsets.all(16),

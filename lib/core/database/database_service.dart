@@ -539,6 +539,67 @@ class DatabaseService {
     return stats.values.toList();
   }
 
+  Future<Map<String, dynamic>> getUserStats(String playerName, {int? groupId}) async {
+    final sessionRows = await getSessions(groupId: groupId);
+    final sessions = sessionRows.where((s) => 
+      (s['p1_name'] == playerName) || (s['p2_name'] == playerName) || 
+      (s['p3_name'] == playerName) || (s['p4_name'] == playerName)
+    ).toList();
+    final sessionIds = sessions.map((s) => s['id'] as int).toSet();
+
+    final gameRows = await getGames(groupId: groupId);
+    final games = gameRows.where((g) => sessionIds.contains(g['session_id'])).toList();
+
+    int totalPt = 0;
+    int totalChip = 0;
+    int totalMoney = 0;
+    int gamesCount = 0;
+    int rankSum = 0;
+    int topCount = 0;
+    int rentaiCount = 0;
+    int tobiCount = 0;
+
+    for (var s in sessions) {
+      int idx = -1;
+      for (int i=1; i<=4; i++) { if (s['p$i\_name'] == playerName) { idx = i-1; break; } }
+      if (idx == -1) continue;
+      totalMoney += (s['p${idx+1}_money'] as num?)?.toInt() ?? 0;
+      
+      if (s['global_chips_json'] != null) {
+        try {
+          final List<dynamic> gc = jsonDecode(s['global_chips_json'] as String);
+          if (idx < gc.length) totalChip += (gc[idx] as num).toInt();
+        } catch (_) {}
+      }
+    }
+
+    for (var g in games) {
+      int idx = -1;
+      for (int i=1; i<=4; i++) { if (g['p$i\_name'] == playerName) { idx = i-1; break; } }
+      if (idx == -1) continue;
+
+      gamesCount++;
+      totalPt += (g['p${idx+1}_pt'] as num?)?.toInt() ?? 0;
+      totalChip += (g['p${idx+1}_ch'] as num?)?.toInt() ?? 0;
+      final rank = (g['p${idx+1}_rank'] as num?)?.toInt() ?? 1;
+      rankSum += rank;
+      if (rank == 1) topCount++;
+      if (rank <= 2) rentaiCount++;
+      if (((g['p${idx+1}_score'] as num?)?.toInt() ?? 0) < 0) tobiCount++;
+    }
+
+    return {
+      'games': gamesCount,
+      'totalPt': totalPt,
+      'totalChip': totalChip,
+      'totalMoney': totalMoney,
+      'topRate': gamesCount > 0 ? (topCount / gamesCount * 100) : 0.0,
+      'rentaiRate': gamesCount > 0 ? (rentaiCount / gamesCount * 100) : 0.0,
+      'tobiRate': gamesCount > 0 ? (tobiCount / gamesCount * 100) : 0.0,
+      'avgRank': gamesCount > 0 ? (rankSum / gamesCount) : 0.0,
+    };
+  }
+
   // Web Helpers
   Future<int> _webInsert(String key, Map<String, dynamic> row) async {
     final prefs = await SharedPreferences.getInstance();
