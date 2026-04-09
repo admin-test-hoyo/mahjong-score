@@ -105,6 +105,8 @@ class CalcState {
     );
   }
 
+  bool get isGameFinished => games.isNotEmpty;
+
   Map<String, dynamic> toJson() => {
     'playerNames': playerNames,
     'globalChips': globalChips,

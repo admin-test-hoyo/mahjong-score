@@ -3,15 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/database/database_service.dart';
 import '../calc/calc_state.dart';
+import '../../core/database/database_providers.dart';
+import '../stats/stats_providers.dart';
 
 class GroupScreen extends ConsumerStatefulWidget {
   const GroupScreen({super.key});
 
-  @override
-  ConsumerState<GroupScreen> createState() => _GroupScreenState();
-}
-
-class _GroupScreenState extends ConsumerState<GroupScreen> {
   static void showAddGroup(BuildContext context, WidgetRef ref) {
     final controller = TextEditingController();
     showDialog(
@@ -47,6 +44,12 @@ class _GroupScreenState extends ConsumerState<GroupScreen> {
       ),
     );
   }
+
+  @override
+  ConsumerState<GroupScreen> createState() => _GroupScreenState();
+}
+
+class _GroupScreenState extends ConsumerState<GroupScreen> {
 
   @override
   Widget build(BuildContext context) {

@@ -7,6 +7,7 @@ import '../../core/models/db_models.dart';
 import '../calc/calc_state.dart';
 import '../stats/stats_providers.dart';
 import '../../core/database/database_providers.dart';
+import '../main/main_screen.dart';
 
 class HistoryNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
   @override
@@ -116,7 +117,12 @@ final historyProvider = AsyncNotifierProvider<HistoryNotifier, List<Map<String, 
   return HistoryNotifier();
 });
 
-final historyFilterProvider = StateProvider<DateTimeRange?>((ref) => null);
+class HistoryFilterNotifier extends Notifier<DateTimeRange?> {
+  @override
+  DateTimeRange? build() => null;
+  void set(DateTimeRange? value) => state = value;
+}
+final historyFilterProvider = NotifierProvider<HistoryFilterNotifier, DateTimeRange?>(HistoryFilterNotifier.new);
 
 class HistoryScreen extends ConsumerStatefulWidget {
   const HistoryScreen({super.key});

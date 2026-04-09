@@ -11,45 +11,40 @@ import '../../core/models/db_models.dart';
 import '../../core/database/database_service.dart';
 import 'calc_state.dart';
 import '../history/history_screen.dart';
-import '../stats/stats_screen.dart';
 import '../stats/stats_providers.dart';
-import '../group/group_screen.dart';
 
 class CalcScreen extends ConsumerWidget {
   const CalcScreen({super.key});
 
-  // SPA対応のための静的メソッド
+  // --- SPA対応のための静的メソッド ---
+
   static void exportData(BuildContext context, WidgetRef ref) {
-    const screen = CalcScreen();
-    screen._exportData(context, ref);
+    _exportData(context, ref);
   }
 
   static void importData(BuildContext context, WidgetRef ref) {
     final uploadInput = html.FileUploadInputElement()..accept = '.json';
     uploadInput.click();
-    const screen = CalcScreen();
-    screen._importData(context, ref, uploadInput);
+    _importData(context, ref, uploadInput);
   }
 
   static void showSettings(BuildContext context, WidgetRef ref) {
-    const screen = CalcScreen();
-    screen._showSettingsModal(context, ref);
+    _showSettingsModal(context, ref);
   }
 
   static void showSave(BuildContext context, WidgetRef ref) {
-    const screen = CalcScreen();
-    screen._showSaveLogic(context, ref);
+    _showSaveLogic(context, ref);
   }
 
   static void showReset(BuildContext context, WidgetRef ref) {
-    const screen = CalcScreen();
-    screen._confirmReset(context, ref);
+    _confirmReset(context, ref);
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(calcProvider);
 
+    // グループの自動判別ダイアログの監視
     ref.listen<List<Map<String, dynamic>>?>(
       calcProvider.select((s) => s.possibleGroupMatches),
       (previous, next) {
@@ -98,518 +93,72 @@ class CalcScreen extends ConsumerWidget {
     );
   }
 
-  // 元のAppBarにあったSave処理をロジックとして分離
-  Future<void> _showSaveLogic(BuildContext context, WidgetRef ref) async {
-    final calcNotifier = ref.read(calcProvider.notifier);
-    final currentState = ref.read(calcProvider);
-    final isUpdate = currentState.currentId != null;
+  // --- 内部ロジック (static) ---
 
-    if (isUpdate) {
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          backgroundColor: const Color(0xFF001F1A),
-          title: const Text('更新の確認', style: TextStyle(color: Colors.white, fontSize: 16)),
-          content: const Text('画面内容で更新します。よろしいですか？', style: TextStyle(color: Colors.white70, fontSize: 14)),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('キャンセル', style: TextStyle(color: Colors.white54))),
-            TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('OK', style: TextStyle(color: Color(0xFF00FFC2), fontWeight: FontWeight.bold))),
-          ],
-        ),
-      );
-
-      if (confirmed == true) {
-        final result = await calcNotifier.saveCurrentSession(DateTime.now());
-        if (context.mounted) {
-          _showSaveSnackBar(context, result);
-          if (result == SaveResult.registered || result == SaveResult.updated) {
-            ref.read(historyProvider.notifier).refresh();
-          }
-        }
-      }
-    } else {
-      final selectedDate = await showDatePicker(
-        context: context,
-        initialDate: DateTime.now(),
-        firstDate: DateTime(2000),
-        lastDate: DateTime(2100),
-        locale: const Locale('ja'),
-        builder: (context, child) => Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: Color(0xFF00BFA5),
-              onPrimary: Color(0xFF004D40),
-              surface: Color(0xFF001F1A),
-              onSurface: Colors.white,
-            ),
-          ),
-          child: child!,
-        ),
-      );
-
-      if (selectedDate != null && context.mounted) {
-        final dateStr = "${selectedDate.year}/${selectedDate.month.toString().padLeft(2, '0')}/${selectedDate.day.toString().padLeft(2, '0')}";
-        final confirmed = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            backgroundColor: const Color(0xFF001F1A),
-            title: const Text('登録の確認', style: TextStyle(color: Colors.white, fontSize: 16)),
-            content: Text('$dateStrの対局データとして登録します。よろしいですか？', style: const TextStyle(color: Colors.white70, fontSize: 14)),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('キャンセル', style: TextStyle(color: Colors.white54))),
-              TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('OK', style: TextStyle(color: Color(0xFF00FFC2), fontWeight: FontWeight.bold))),
-            ],
-          ),
-        );
-
-        if (confirmed == true) {
-          final result = await calcNotifier.saveCurrentSession(selectedDate);
-          if (context.mounted) {
-            _showSaveSnackBar(context, result);
-            if (result == SaveResult.registered || result == SaveResult.updated) {
-              ref.read(historyProvider.notifier).refresh();
-            }
-          }
-        }
-      }
-    }
-  }
-
-  void _showSaveSnackBar(BuildContext context, SaveResult result) {
-    String msg = '保存に失敗しました。';
-    if (result == SaveResult.registered) msg = '対局情報を登録しました。';
-    if (result == SaveResult.updated) msg = '対局情報を更新しました。';
-
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg),
-      behavior: SnackBarBehavior.floating,
-      duration: const Duration(seconds: 2),
-    ));
-  }
-
-  void _showSettingsModal(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet(context: context, backgroundColor: const Color(0xFF001F1A), isScrollControlled: true, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (context) => const SettingsModal());
-  }
-
-  void _confirmReset(BuildContext context, WidgetRef ref) {
-    showDialog(context: context, builder: (context) => AlertDialog(backgroundColor: const Color(0xFF001F1A), title: Text('全データをリセットしますか？', style: GoogleFonts.robotoMono(color: Colors.white, fontSize: 16)), content: Text('入力済みのスコアはすべて削除され、プレイヤー名も初期化されます。', style: GoogleFonts.robotoMono(color: Colors.white70, fontSize: 12)), actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text('キャンセル', style: GoogleFonts.robotoMono(color: Colors.white54))), TextButton(onPressed: () { ref.read(calcProvider.notifier).resetGame(); Navigator.pop(context); }, child: Text('リセット', style: GoogleFonts.robotoMono(color: const Color(0xFFFF5252), fontWeight: FontWeight.bold)))]));
-  }
-
-  Widget _buildQuickRuleBar(BuildContext context, WidgetRef ref) {
-    final config = ref.watch(configProvider);
-    final state = ref.watch(calcProvider);
-    
-    // 履歴モード(state.currentId != null)の場合は当時のルール(state.rule)を優先表示
-    final displayRate = state.currentId != null ? state.rule.rate.toDouble() : config.rate;
-    final displayChipRate = state.currentId != null ? state.rule.chipRate : config.chipRate;
-    final displayFee = state.currentId != null ? state.rule.totalFee : config.gameFee;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.2),
-        border: const Border(bottom: BorderSide(color: Colors.white10)),
-      ),
-      child: Row(
-        children: [
-          _quickField(
-            label: 'レート',
-            value: displayRate.toString(),
-            onChanged: (v) => ref.read(calcProvider.notifier).updateRuleRate(double.tryParse(v) ?? 0),
-            width: 60,
-          ),
-          const SizedBox(width: 12),
-          _quickField(
-            label: 'チップ',
-            value: displayChipRate.toString(),
-            onChanged: (v) => ref.read(calcProvider.notifier).updateRuleChipRate(int.tryParse(v) ?? 0),
-            width: 60,
-          ),
-          const SizedBox(width: 12),
-          _quickField(
-            label: '場代',
-            value: displayFee.toString(),
-            onChanged: (v) => ref.read(calcProvider.notifier).updateRuleGameFee(int.tryParse(v) ?? 0),
-            width: 80,
-          ),
-          const Spacer(),
-          const Text('Ver 3.0.0 (Kick-off)', style: TextStyle(color: Colors.white12, fontSize: 9)),
-        ],
-      ),
-    );
-  }
-
-  Widget _quickField({required String label, required String value, required Function(String) onChanged, required double width}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(color: Colors.white38, fontSize: 9)),
-        SizedBox(
-          width: width,
-          height: 24,
-          child: TextField(
-            controller: TextEditingController(text: value)..selection = TextSelection.fromPosition(TextPosition(offset: value.length)),
-            keyboardType: TextInputType.number,
-            style: GoogleFonts.robotoMono(color: const Color(0xFF00FFC2), fontSize: 13, fontWeight: FontWeight.bold),
-            decoration: const InputDecoration(
-              isDense: true,
-              contentPadding: EdgeInsets.zero,
-              border: InputBorder.none,
-            ),
-            onChanged: onChanged,
-          ),
-        ),
-      ],
-    );
-  }
-
-  List<int> _buildUmaList(String umaText) {
-    final parts = umaText.split('-');
-    if (parts.length == 2) {
-      final a = int.tryParse(parts[0]) ?? 10;
-      final b = int.tryParse(parts[1]) ?? 20;
-      return [b, a, -a, -b];
-    }
-    return [20, 10, -10, -20];
-  }
-
-  Widget _buildMainDataTable(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(calcProvider);
-    final games = state.games;
-    final config = ref.watch(configProvider);
-    const expectedPlayers = 4;
-
-    return LayoutBuilder(builder: (context, constraints) {
-      const double ctrlWidth = 35;
-      final double available = constraints.maxWidth - (ctrlWidth * 3) - 12;
-      final double pWidth = available / expectedPlayers;
-
-      return SingleChildScrollView(
-        child: Theme(
-          data: Theme.of(context).copyWith(dividerColor: Colors.white10),
-          child: DataTable(
-            columnSpacing: 0,
-            horizontalMargin: 4,
-            showCheckboxColumn: false,
-            headingTextStyle: GoogleFonts.robotoMono(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold),
-            dataTextStyle: GoogleFonts.robotoMono(color: Colors.white70, fontSize: 13),
-            columns: [
-              DataColumn(label: SizedBox(width: ctrlWidth, child: const Center(child: Text('No')))),
-              ...List.generate(expectedPlayers, (i) => DataColumn(label: SizedBox(width: pWidth, child: Center(child: PlayerNameField(index: i, initialName: state.playerNames[i]))))),
-              DataColumn(label: SizedBox(width: ctrlWidth, child: const Center(child: Text('Chk')))),
-              DataColumn(label: SizedBox(width: ctrlWidth, child: const Center(child: Text('Del')))),
-            ],
-            rows: [
-              ...games.asMap().entries.map((e) {
-                final idx = e.key; final game = e.value;
-                final sum = game.inputs.where((p) => p.id <= expectedPlayers).fold(0, (s, p) => s + p.score);
-                final isValid = sum == config.targetTotalScore;
-                List<PlayerResult>? results;
-                if (isValid) {
-                  try { results = MahjongCalculator.calculate(inputs: game.inputs.where((p) => p.id <= expectedPlayers).toList(), rule: state.rule.copyWith(oka: config.oka, uma: _buildUmaList(config.umaText)), config: config, startingOyaIndex: game.startingOyaIndex); } catch (_) {}
-                }
-                return DataRow(onSelectChanged: (_) => _showEditModal(context, ref, game), cells: [
-                  DataCell(SizedBox(width: ctrlWidth, child: Center(child: Text('${idx + 1}', style: const TextStyle(fontSize: 10, color: Colors.white24))))),
-                  ...List.generate(expectedPlayers, (pIdx) {
-                    final p = game.inputs.firstWhere((p) => p.id == pIdx + 1, orElse: () => const PlayerInput(id: 0, score: 0));
-                    String val = p.score.toCommaString(); Color col = Colors.white70;
-                    if (results != null) {
-                      final r = results.firstWhere((r) => r.id == pIdx + 1).finalPoint;
-                      val = r > 0 ? '+${r.toCommaString()}' : r.toCommaString();
-                      col = r < 0 ? const Color(0xFFFF5252) : const Color(0xFF00FFC2);
-                    }
-                    return DataCell(SizedBox(width: pWidth, child: Center(child: Text(val, style: GoogleFonts.robotoMono(color: col, fontWeight: results != null ? FontWeight.bold : FontWeight.normal)))));
-                  }),
-                  DataCell(SizedBox(width: ctrlWidth, child: Center(child: GestureDetector(
-                    onTap: isValid ? null : () {
-                      final diff = config.targetTotalScore - sum;
-                      final msg = diff > 0 ? '$diff点不足しています' : '${diff.abs()}点超過しています';
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating, duration: const Duration(seconds: 2)));
-                    },
-                    child: Icon(isValid ? Icons.check_circle : Icons.error_outline, color: isValid ? const Color(0xFF00FFC2).withOpacity(0.3) : Colors.redAccent, size: 16),
-                  )))),
-                  DataCell(SizedBox(width: ctrlWidth, child: Center(child: IconButton(padding: EdgeInsets.zero, constraints: const BoxConstraints(), icon: const Icon(Icons.delete_outline, color: Colors.white24, size: 16), onPressed: () {
-                    ref.read(calcProvider.notifier).deleteGame(game.id);
-                  })))),
-                ]);
-              }),
-              DataRow(color: MaterialStateProperty.all(Colors.black12), cells: [
-                const DataCell(Center(child: Icon(Icons.stars, color: Colors.orangeAccent, size: 14))),
-                ...List.generate(expectedPlayers, (i) => DataCell(SizedBox(width: pWidth, child: Center(child: TextFormField(initialValue: state.globalChips[i] == 0 ? '' : state.globalChips[i].toString(), keyboardType: const TextInputType.numberWithOptions(signed: true), textAlign: TextAlign.center, style: GoogleFonts.robotoMono(color: Colors.orangeAccent, fontSize: 13), decoration: const InputDecoration(isDense: true, border: InputBorder.none, hintText: '0', hintStyle: TextStyle(color: Colors.white12)), onChanged: (v) => ref.read(calcProvider.notifier).updateGlobalChip(i + 1, int.tryParse(v) ?? 0)))))),
-                DataCell(Center(child: Text(state.globalChips.sublist(0, expectedPlayers).fold(0, (s, c) => s + c) == 0 ? '' : 'ERR', style: const TextStyle(color: Colors.redAccent, fontSize: 8, fontWeight: FontWeight.bold)))),
-                const DataCell(SizedBox()),
-              ]),
-              DataRow(cells: [DataCell(Center(child: IconButton(icon: const Icon(Icons.add_circle_outline, color: Color(0xFF00FFC2), size: 20), onPressed: () => ref.read(calcProvider.notifier).addGame()))), ...List.generate(expectedPlayers, (_) => const DataCell(SizedBox())), const DataCell(SizedBox()), const DataCell(SizedBox())]),
-            ],
-          ),
-        ),
-      );
-    });
-  }
-
-  void _showYakumanDialog(BuildContext context, WidgetRef ref, GameRecord game, int winnerId) {
-    final state = ref.read(calcProvider);
-    const players = 4;
-    
-    showDialog(context: context, builder: (ctx) => AlertDialog(
+  static void _showSettingsModal(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
       backgroundColor: const Color(0xFF001F1A),
-      title: Text('${state.playerNames[winnerId-1]} の役満設定', style: GoogleFonts.robotoMono(color: Colors.white, fontSize: 16)),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('和了タイプを選択してください', style: TextStyle(color: Colors.white54, fontSize: 12)),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              icon: const Icon(Icons.bolt, color: Colors.orangeAccent, size: 18),
-              label: const Text('ツモ和了', style: TextStyle(fontWeight: FontWeight.bold)),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.orangeAccent.withOpacity(0.1), foregroundColor: Colors.orangeAccent),
-              onPressed: () {
-                ref.read(calcProvider.notifier).setYakumanTsumo(game.id, winnerId);
-                Navigator.pop(ctx);
-              },
-            ),
-          ),
-          const SizedBox(height: 24),
-          const Text('ロン (放銃者を選択)', style: TextStyle(color: Colors.white38, fontSize: 11)),
-          const Divider(color: Colors.white10),
-          ...List.generate(players, (pIdx) => pIdx + 1).where((id) => id != winnerId).map((loserId) => ListTile(
-            dense: true,
-            title: Text('${state.playerNames[loserId - 1]} が放銃', style: const TextStyle(color: Colors.white70, fontSize: 13)),
-            onTap: () {
-              ref.read(calcProvider.notifier).setYakumanRon(game.id, winnerId, loserId);
-              Navigator.pop(ctx);
-            },
-          )),
-        ],
-      ),
-    ));
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) => const SettingsModal(),
+    );
   }
 
-  void _showTobiDialog(BuildContext context, WidgetRef ref, GameRecord game, int blownPlayerId) {
+  static void _showSaveLogic(BuildContext context, WidgetRef ref) async {
     final state = ref.read(calcProvider);
-    const players = 4;
-    
-    showDialog(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx, setState) {
-      final updatedGame = ref.watch(calcProvider).games.firstWhere((g) => g.id == game.id);
-      final p = updatedGame.inputs.firstWhere((inp) => inp.id == blownPlayerId);
-      final currentBlowerId = p.blownByPlayerId;
+    if (!state.isGameFinished) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('合計点数が一致していません')));
+      return;
+    }
 
-      return AlertDialog(
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF001F1A),
-        title: Text('${state.playerNames[blownPlayerId-1]} を飛ばした人を選択', style: GoogleFonts.robotoMono(color: Colors.white, fontSize: 15)),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('飛ばした人にチェックを入れてください', style: TextStyle(color: Colors.white38, fontSize: 11)),
-              const SizedBox(height: 8),
-              ...List.generate(players, (i) => i + 1).where((id) => id != blownPlayerId).map((id) {
-                final isBlower = currentBlowerId == id;
-                return CheckboxListTile(
-                  title: Text(state.playerNames[id - 1], style: TextStyle(color: isBlower ? const Color(0xFF00FFC2) : Colors.white70)),
-                  value: isBlower,
-                  activeColor: const Color(0xFF00FFC2),
-                  checkColor: const Color(0xFF004D40),
-                  onChanged: (val) {
-                    ref.read(calcProvider.notifier).setBlownBy(game.id, blownPlayerId, val == true ? id : null);
-                    Navigator.pop(ctx);
-                  },
-                );
-              }),
-            ],
-          ),
-        ),
-        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('キャンセル'))],
-      );
-    }));
-  }
-
-  void _showEditModal(BuildContext context, WidgetRef ref, GameRecord game) {
-    const players = 4;
-    showModalBottomSheet(context: context, backgroundColor: const Color(0xFF001F1A), isScrollControlled: true, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (context) => Consumer(builder: (context, ref, child) {
-        final updatedGame = ref.watch(calcProvider).games.firstWhere((g) => g.id == game.id);
-        return Padding(padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 16, right: 16, top: 24), child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const SizedBox(width: 48), // Spacer to balance the IconButton
-                Text('スコア編集', style: GoogleFonts.robotoMono(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                IconButton(
-                  icon: const Icon(Icons.cleaning_services, color: Colors.white38, size: 20),
-                  onPressed: () => ref.read(calcProvider.notifier).resetGameRecord(game.id),
-                  tooltip: '入力内容をクリア',
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-              child: Row(
-                children: [
-                  const SizedBox(width: 34),
-                  const Expanded(child: Text('名前', style: TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold))),
-                  const SizedBox(width: 60, child: Center(child: Text('点数', style: TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold)))),
-                  const SizedBox(width: 32, child: Center(child: Text('トビ', style: TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold)))),
-                  const SizedBox(width: 8),
-                  const SizedBox(width: 32, child: Center(child: Text('役満', style: TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold)))),
-                ],
-              ),
-            ),
-            const Divider(color: Colors.white10),
-            ...updatedGame.inputs.where((p) => p.id <= players).map((p) => PlayerInputCard(gameId: game.id, player: p, showYakuman: (id) => _showYakumanDialog(context, ref, updatedGame, id), showTobi: (id) => _showTobiDialog(context, ref, updatedGame, id))), 
-            const SizedBox(height: 16)]));
-    }));
-  }
-
-  Widget _buildBottomSummaryFooter(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(calcProvider);
-    final config = ref.watch(configProvider);
-    const players = 4;
-    
-    final summaries = { for (int i = 1; i <= players; i++) i: {'pt': 0, 'chip': 0} };
-    int completedGames = 0;
-    
-    // 常に各局の保存値（または計算値）から Pt/Chip を集計する
-    for (var g in state.games) {
-      if (g.inputs.where((ip) => ip.id <= players).fold(0, (s, ip) => s + ip.score) == config.targetTotalScore) {
-        completedGames++;
-        try {
-          final res = MahjongCalculator.calculate(
-            inputs: g.inputs.where((ip) => ip.id <= players).toList(),
-            rule: state.rule.copyWith(oka: config.oka, uma: _buildUmaList(config.umaText)),
-            config: config,
-            startingOyaIndex: g.startingOyaIndex
-          );
-          for (var r in res) {
-            summaries[r.id]!['pt'] = (summaries[r.id]!['pt'] ?? 0) + r.finalPoint;
-            final pInput = g.inputs.firstWhere((inp) => inp.id == r.id);
-            summaries[r.id]!['chip'] = (summaries[r.id]!['chip'] ?? 0) + pInput.chip;
-          }
-        } catch (_) {}
-      }
-    }
-    for (int i=0; i<players; i++) {
-       summaries[i+1]!['chip'] = (summaries[i+1]!['chip'] ?? 0) + state.globalChips[i];
-    }
-    
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2), 
-      decoration: BoxDecoration(color: Colors.black26, border: const Border(top: BorderSide(color: Color(0xFF00FFC2), width: 1))), 
-      child: Row(children: [
-        for (int i = 1; i <= players; i++) 
-          Expanded(child: _buildSumBlock(
-            state.playerNames[i - 1], 
-            summaries[i]!, 
-            config, 
-            players,
-            completedGames,
-            state.snapshottedMoneys != null && state.snapshottedMoneys!.length >= i ? state.snapshottedMoneys![i-1] : null
-          ))
-      ])
-    );
-  }
-
-  Widget _buildSumBlock(String name, Map<String, int> data, AppConfig conf, int players, int gameCount, [int? snapshottedMoney]) {
-    final pt = data['pt']!; final ch = data['chip']!;
-    
-    // 収支計算 (Strict Formula: (Pt * Rate) + (Chip * ChipRate))
-    final int income = (pt * conf.rate).toInt() + (ch * conf.chipRate).toInt();
-    
-    // 場代込計算 (Strict Formula: Income - (全体の場代 / 4))
-    // 全体の場代 = conf.gameFee (セッション単位で1回のみ)
-    final int finalBalance = snapshottedMoney ?? (income - (conf.gameFee / players)).round();
-    
-    return Column(mainAxisSize: MainAxisSize.min, children: [
-      FittedBox(fit: BoxFit.scaleDown, child: Text(name, style: const TextStyle(color: Color(0xFF00FFC2), fontSize: 13, fontWeight: FontWeight.normal), overflow: TextOverflow.ellipsis)),
-      const SizedBox(height: 1),
-      FittedBox(fit: BoxFit.scaleDown, child: Text('Pt:${pt.toCommaString()}|Ch:${ch.toCommaString()}', style: const TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.normal))),
-      const SizedBox(height: 1),
-      FittedBox(fit: BoxFit.scaleDown, child: RichText(
-        textAlign: TextAlign.center,
-        text: TextSpan(
-          style: GoogleFonts.robotoMono(fontSize: 11, color: Colors.white60, fontWeight: FontWeight.normal),
-          children: [
-            const TextSpan(text: '収支:'),
-            TextSpan(
-              text: '¥${income.toCommaString()}',
-              style: TextStyle(color: income < 0 ? const Color(0xFFFF5252) : Colors.white),
-            ),
-          ],
-        ),
-      )),
-      FittedBox(fit: BoxFit.scaleDown, child: RichText(
-        textAlign: TextAlign.center,
-        text: TextSpan(
-          style: GoogleFonts.robotoMono(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white60),
-          children: [
-            const TextSpan(text: '場代込:'),
-            TextSpan(
-              text: '¥${finalBalance.toCommaString()}',
-              style: TextStyle(color: finalBalance < 0 ? const Color(0xFFFF5252) : const Color(0xFF00FFC2)),
-            ),
-          ],
-        ),
-      )),
-    ]);
-  }
-}
-
-class MainDrawer extends ConsumerWidget {
-  const MainDrawer({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Drawer(
-      backgroundColor: const Color(0xFF001F1A),
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          DrawerHeader(
-            decoration: const BoxDecoration(color: Color(0xFF004D40)),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Text('麻雀スコア表', style: GoogleFonts.robotoMono(color: const Color(0xFF00FFC2), fontWeight: FontWeight.bold, fontSize: 20)),
-                const Text('Ver 3.0.0 (Kick-off)', style: TextStyle(color: Colors.white24, fontSize: 10)),
-              ],
-            ),
-          ),
-          _drawerItem(context, ref, Icons.calculate, 'スコア計算', null),
-          _drawerItem(context, ref, Icons.history, '対局履歴', const HistoryScreen()),
-          _drawerItem(context, ref, Icons.analytics, '統計・分析', const StatsScreen()),
-          _drawerItem(context, ref, Icons.groups, 'グループ管理', const GroupScreen()),
-          const Divider(color: Colors.white10),
-          const Padding(
-            padding: EdgeInsets.only(left: 16, top: 16, bottom: 8),
-            child: Text('システム管理', style: TextStyle(color: Colors.white24, fontSize: 11, fontWeight: FontWeight.bold)),
-          ),
-          ListTile(
-            leading: const Icon(Icons.file_upload, color: Colors.orangeAccent, size: 20),
-            title: const Text('データのバックアップ', style: TextStyle(color: Colors.white70, fontSize: 14)),
-            onTap: () => _exportData(context, ref),
-          ),
-          ListTile(
-            leading: const Icon(Icons.file_download, color: Color(0xFF00FFC2), size: 20),
-            title: const Text('データの復元', style: TextStyle(color: Colors.white70, fontSize: 14)),
-            onTap: () {
-              print('DEBUG: 復元ボタン押下');
-              // Webの制限回避のため同期的にクリック
-              final uploadInput = html.FileUploadInputElement()..accept = '.json';
-              uploadInput.click();
-              _importData(context, ref, uploadInput);
-            },
-          ),
+        title: const Text('対局記録の保存', style: TextStyle(color: Colors.white, fontSize: 16)),
+        content: const Text('現在の対局を保存しますか？', style: TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('キャンセル', style: TextStyle(color: Colors.white54))),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('保存', style: TextStyle(color: Color(0xFF00FFC2)))),
         ],
       ),
     );
+
+    if (confirmed == true) {
+      final res = await ref.read(calcProvider.notifier).saveCurrentSession(DateTime.now());
+      if (context.mounted) {
+        if (res == SaveResult.registered || res == SaveResult.updated) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(res == SaveResult.registered ? '対局を保存しました' : '対局を更新しました')));
+          // 履歴をリフレッシュ
+          ref.read(historyProvider.notifier).refresh();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('保存に失敗しました')));
+        }
+      }
+    }
   }
 
-  Future<void> _exportData(BuildContext context, WidgetRef ref) async {
-    Navigator.pop(context); // Close drawer
+  static void _confirmReset(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1B0000),
+        title: const Text('リセットの確認', style: TextStyle(color: Color(0xFFFF5252), fontSize: 16)),
+        content: const Text('現在の入力をすべてリセットしますか？\n(保存済みの履歴は削除されません)', style: TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('キャンセル', style: TextStyle(color: Colors.white54))),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('リセット', style: TextStyle(color: Color(0xFFFF5252)))),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      ref.read(calcProvider.notifier).resetGame();
+    }
+  }
+
+  static Future<void> _exportData(BuildContext context, WidgetRef ref) async {
     final db = DatabaseService();
     final data = await db.exportAllData();
     final jsonStr = jsonEncode(data);
@@ -629,14 +178,11 @@ class MainDrawer extends ConsumerWidget {
     }
   }
 
-  Future<void> _importData(BuildContext context, WidgetRef ref, html.FileUploadInputElement uploadInput) async {
+  static Future<void> _importData(BuildContext context, WidgetRef ref, html.FileUploadInputElement uploadInput) async {
     uploadInput.onChange.listen((e) async {
       final files = uploadInput.files;
       if (files == null || files.isEmpty) return;
       
-      // ドロワーを即座に閉じる
-      if (context.mounted) Navigator.pop(context);
-
       try {
         final completer = Completer<String>();
         final reader = html.FileReader();
@@ -651,16 +197,11 @@ class MainDrawer extends ConsumerWidget {
           return;
         }
 
-        // ブラウザネイティブの強制確認ダイアログ (Navigator不整合を回避)
         final confirmed = html.window.confirm('バックアップデータを復旧しますか？\n現時点の全データが上書きされ、アプリが再読み込みされます。');
         if (!confirmed) return;
 
-        print('DEBUG: ネイティブ復旧プロセス開始');
         final db = DatabaseService();
         await db.importAllData(jsonData);
-        
-        // 状態操作(ref.read等)を一切行わず、ブラウザを強制リロードして最新のDBを読み込ませる
-        print('DEBUG: 復元完了 - ブラウザをリロードします');
         html.window.location.reload();
         
       } catch (err) {
@@ -669,24 +210,190 @@ class MainDrawer extends ConsumerWidget {
     });
   }
 
-  Widget _drawerItem(BuildContext context, WidgetRef ref, IconData icon, String title, Widget? screen) {
-    return ListTile(
-      leading: Icon(icon, color: const Color(0xFF00FFC2), size: 20),
-      title: Text(title, style: const TextStyle(color: Colors.white70, fontSize: 14)),
-      onTap: () {
-        Navigator.pop(context); // Close drawer
-        if (screen != null) {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => screen)).then((result) {
-            if (screen is HistoryScreen && result != true) {
-              ref.read(calcProvider.notifier).exitHistoryMode();
-            }
-          });
-        } else {
-          // If no screen and it's "スコア計算", act as home button / reset game
-          ref.read(calcProvider.notifier).resetGame();
-        }
-      },
+  // --- UI Parts (instance helpers) ---
+
+  Widget _buildQuickRuleBar(BuildContext context, WidgetRef ref) {
+    final config = ref.watch(configProvider);
+    final state = ref.watch(calcProvider);
+    final displayRate = state.currentId != null ? state.rule.rate.toDouble() : config.rate;
+    final displayChipRate = state.currentId != null ? state.rule.chipRate : config.chipRate;
+    final displayFee = state.currentId != null ? state.rule.totalFee : config.gameFee;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(color: Colors.black.withOpacity(0.2), border: const Border(bottom: BorderSide(color: Colors.white10))),
+      child: Row(
+        children: [
+          _quickField(label: 'レート', value: displayRate.toString(), onChanged: (v) => ref.read(calcProvider.notifier).updateRuleRate(double.tryParse(v) ?? 0), width: 60),
+          const SizedBox(width: 12),
+          _quickField(label: 'チップ', value: displayChipRate.toString(), onChanged: (v) => ref.read(calcProvider.notifier).updateRuleChipRate(int.tryParse(v) ?? 0), width: 60),
+          const SizedBox(width: 12),
+          _quickField(label: '場代', value: displayFee.toString(), onChanged: (v) => ref.read(calcProvider.notifier).updateRuleGameFee(int.tryParse(v) ?? 0), width: 80),
+          const Spacer(),
+          const Text('Ver 4.0.0 (SPA)', style: TextStyle(color: Colors.white12, fontSize: 9)),
+        ],
+      ),
     );
+  }
+
+  Widget _quickField({required String label, required String value, required Function(String) onChanged, required double width}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(color: Colors.white38, fontSize: 9)),
+        SizedBox(width: width, height: 24, child: TextField(controller: TextEditingController(text: value)..selection = TextSelection.fromPosition(TextPosition(offset: value.length)), keyboardType: TextInputType.number, style: GoogleFonts.robotoMono(color: const Color(0xFF00FFC2), fontSize: 13, fontWeight: FontWeight.bold), decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.zero, border: InputBorder.none), onChanged: onChanged)),
+      ],
+    );
+  }
+
+  Widget _buildMainDataTable(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(calcProvider);
+    final config = ref.watch(configProvider);
+    return LayoutBuilder(builder: (context, constraints) {
+      const double ctrlWidth = 35;
+      final double available = constraints.maxWidth - (ctrlWidth * 3) - 12;
+      final double pWidth = available / 4;
+      return SingleChildScrollView(
+        child: Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.white10),
+          child: DataTable(
+            columnSpacing: 0, horizontalMargin: 4, showCheckboxColumn: false,
+            headingTextStyle: GoogleFonts.robotoMono(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold),
+            columns: [
+              DataColumn(label: SizedBox(width: ctrlWidth, child: const Center(child: Text('No')))),
+              ...List.generate(4, (i) => DataColumn(label: SizedBox(width: pWidth, child: Center(child: PlayerNameField(index: i, initialName: state.playerNames[i]))))),
+              DataColumn(label: SizedBox(width: ctrlWidth, child: const Center(child: Text('Chk')))),
+              DataColumn(label: SizedBox(width: ctrlWidth, child: const Center(child: Text('Del')))),
+            ],
+            rows: [
+              ...state.games.asMap().entries.map((e) {
+                final idx = e.key; final game = e.value;
+                final sum = game.inputs.fold(0, (s, p) => s + p.score);
+                final isValid = sum == config.targetTotalScore;
+                List<PlayerResult>? results;
+                if (isValid) {
+                  try { results = MahjongCalculator.calculate(inputs: game.inputs, rule: state.rule.copyWith(oka: config.oka, uma: _buildUmaList(config.umaText)), config: config, startingOyaIndex: game.startingOyaIndex); } catch (_) {}
+                }
+                return DataRow(onSelectChanged: (_) => _showEditModal(context, ref, game), cells: [
+                  DataCell(SizedBox(width: ctrlWidth, child: Center(child: Text('${idx + 1}', style: const TextStyle(fontSize: 10, color: Colors.white24))))),
+                  ...List.generate(4, (pIdx) {
+                    final p = game.inputs.firstWhere((p) => p.id == pIdx + 1, orElse: () => const PlayerInput(id: 0, score: 0));
+                    String val = p.score.toCommaString(); Color col = Colors.white70;
+                    if (results != null) {
+                      final r = results.firstWhere((r) => r.id == pIdx + 1).finalPoint;
+                      val = r > 0 ? '+${r.toCommaString()}' : r.toCommaString();
+                      col = r < 0 ? const Color(0xFFFF5252) : const Color(0xFF00FFC2);
+                    }
+                    return DataCell(SizedBox(width: pWidth, child: Center(child: Text(val, style: GoogleFonts.robotoMono(color: col, fontWeight: results != null ? FontWeight.bold : FontWeight.normal)))));
+                  }),
+                  DataCell(SizedBox(width: ctrlWidth, child: Center(child: Icon(isValid ? Icons.check_circle : Icons.error_outline, color: isValid ? const Color(0xFF00FFC2).withOpacity(0.3) : Colors.redAccent, size: 16)))),
+                  DataCell(SizedBox(width: ctrlWidth, child: Center(child: IconButton(padding: EdgeInsets.zero, constraints: const BoxConstraints(), icon: const Icon(Icons.delete_outline, color: Colors.white24, size: 16), onPressed: () => ref.read(calcProvider.notifier).deleteGame(game.id))))),
+                ]);
+              }),
+              DataRow(color: MaterialStateProperty.all(Colors.black12), cells: [
+                const DataCell(Center(child: Icon(Icons.stars, color: Colors.orangeAccent, size: 14))),
+                ...List.generate(4, (i) => DataCell(SizedBox(
+                  width: pWidth, 
+                  child: Center(
+                    child: TextFormField(
+                      initialValue: state.globalChips[i] == 0 ? '' : state.globalChips[i].toString(), 
+                      keyboardType: TextInputType.number, 
+                      textAlign: TextAlign.center, 
+                      style: GoogleFonts.robotoMono(color: Colors.orangeAccent, fontSize: 13), 
+                      decoration: const InputDecoration(isDense: true, border: InputBorder.none, hintText: '0', hintStyle: TextStyle(color: Colors.white12)), 
+                      onChanged: (v) => ref.read(calcProvider.notifier).updateGlobalChip(i + 1, int.tryParse(v) ?? 0)
+                    )
+                  )
+                ))),
+                DataCell(Center(child: Text(state.globalChips.fold(0, (s, c) => s + c) == 0 ? '' : 'ERR', style: const TextStyle(color: Colors.redAccent, fontSize: 8, fontWeight: FontWeight.bold)))),
+                const DataCell(SizedBox()),
+              ]),
+              DataRow(cells: [DataCell(Center(child: IconButton(icon: const Icon(Icons.add_circle_outline, color: Color(0xFF00FFC2), size: 20), onPressed: () => ref.read(calcProvider.notifier).addGame()))), ...List.generate(4, (_) => const DataCell(SizedBox())), const DataCell(SizedBox()), const DataCell(SizedBox())]),
+            ],
+          ),
+        ),
+      );
+    });
+  }
+
+  void _showEditModal(BuildContext context, WidgetRef ref, GameRecord game) {
+    showModalBottomSheet(context: context, backgroundColor: const Color(0xFF001F1A), isScrollControlled: true, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (context) => Consumer(builder: (context, ref, child) {
+        final updatedGame = ref.watch(calcProvider).games.firstWhere((g) => g.id == game.id);
+        return Padding(padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 16, right: 16, top: 24), child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const SizedBox(width: 48), Text('スコア編集', style: GoogleFonts.robotoMono(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)), IconButton(icon: const Icon(Icons.cleaning_services, color: Colors.white38, size: 20), onPressed: () => ref.read(calcProvider.notifier).resetGameRecord(game.id))]),
+            const Divider(color: Colors.white10),
+            ...updatedGame.inputs.map((p) => PlayerInputCard(gameId: game.id, player: p, showYakuman: (id) => _showYakumanDialog(context, ref, updatedGame, id), showTobi: (id) => _showTobiDialog(context, ref, updatedGame, id))), 
+            const SizedBox(height: 16)]));
+    }));
+  }
+
+  void _showYakumanDialog(BuildContext context, WidgetRef ref, GameRecord game, int winnerId) {
+    final names = ref.read(calcProvider).playerNames;
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      backgroundColor: const Color(0xFF001F1A),
+      title: Text('${names[winnerId-1]} の役満設定', style: const TextStyle(color: Colors.white, fontSize: 16)),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        ElevatedButton(child: const Text('ツモ和了'), onPressed: () { ref.read(calcProvider.notifier).setYakumanTsumo(game.id, winnerId); Navigator.pop(ctx); }),
+        const SizedBox(height: 16),
+        ...List.generate(4, (i) => i + 1).where((id) => id != winnerId).map((loserId) => ListTile(title: Text('${names[loserId - 1]} が放銃'), onTap: () { ref.read(calcProvider.notifier).setYakumanRon(game.id, winnerId, loserId); Navigator.pop(ctx); })),
+      ]),
+    ));
+  }
+
+  void _showTobiDialog(BuildContext context, WidgetRef ref, GameRecord game, int blownId) {
+    final names = ref.read(calcProvider).playerNames;
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      backgroundColor: const Color(0xFF001F1A),
+      title: Text('${names[blownId-1]} を飛ばした人', style: const TextStyle(color: Colors.white, fontSize: 15)),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        ...List.generate(4, (i) => i + 1).where((id) => id != blownId).map((id) => ListTile(title: Text(names[id - 1]), onTap: () { ref.read(calcProvider.notifier).setBlownBy(game.id, blownId, id); Navigator.pop(ctx); })),
+      ]),
+    ));
+  }
+
+  Widget _buildBottomSummaryFooter(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(calcProvider);
+    final config = ref.watch(configProvider);
+    final summaries = { for (int i = 1; i <= 4; i++) i: {'pt': 0, 'chip': 0} };
+    int completed = 0;
+    for (var g in state.games) {
+      if (g.inputs.fold(0, (s, ip) => s + ip.score) == config.targetTotalScore) {
+        completed++;
+        try {
+          final res = MahjongCalculator.calculate(inputs: g.inputs, rule: state.rule.copyWith(oka: config.oka, uma: _buildUmaList(config.umaText)), config: config, startingOyaIndex: g.startingOyaIndex);
+          for (var r in res) {
+            summaries[r.id]!['pt'] = (summaries[r.id]!['pt'] ?? 0) + r.finalPoint;
+            summaries[r.id]!['chip'] = (summaries[r.id]!['chip'] ?? 0) + g.inputs.firstWhere((inp) => inp.id == r.id).chip;
+          }
+        } catch (_) {}
+      }
+    }
+    for (int i=0; i<4; i++) summaries[i+1]!['chip'] = (summaries[i+1]!['chip'] ?? 0) + state.globalChips[i];
+    return Container(padding: const EdgeInsets.symmetric(vertical: 8), decoration: BoxDecoration(color: Colors.black26, border: const Border(top: BorderSide(color: Color(0xFF00FFC2), width: 1))), child: Row(children: [
+        for (int i = 1; i <= 4; i++) Expanded(child: _buildSumBlock(state.playerNames[i - 1], summaries[i]!, config, 4, completed, state.snapshottedMoneys != null && state.snapshottedMoneys!.length >= i ? state.snapshottedMoneys![i-1] : null))
+    ]));
+  }
+
+  Widget _buildSumBlock(String name, Map<String, int> data, AppConfig conf, int players, int count, [int? snap]) {
+    final pt = data['pt']!; final ch = data['chip']!;
+    final income = (pt * conf.rate) + (ch * conf.chipRate);
+    final balance = snap ?? (income - (conf.gameFee / players)).round();
+    return Column(mainAxisSize: MainAxisSize.min, children: [
+      Text(name, style: const TextStyle(color: Color(0xFF00FFC2), fontSize: 13), overflow: TextOverflow.ellipsis),
+      Text('Pt:${pt.toCommaString()}|Ch:${ch.toCommaString()}', style: const TextStyle(color: Colors.white54, fontSize: 11)),
+      Text('¥${income.toInt().toCommaString()}', style: TextStyle(color: income < 0 ? Colors.redAccent : Colors.white60, fontSize: 10)),
+      Text('¥${balance.toInt().toCommaString()}', style: TextStyle(color: balance < 0 ? Colors.redAccent : const Color(0xFF00FFC2), fontSize: 11, fontWeight: FontWeight.bold)),
+    ]);
+  }
+
+  List<int> _buildUmaList(String umaText) {
+    final parts = umaText.split('-');
+    if (parts.length == 2) {
+      final a = int.tryParse(parts[0]) ?? 10;
+      final b = int.tryParse(parts[1]) ?? 20;
+      return [b, a, -a, -b];
+    }
+    return [20, 10, -10, -20];
   }
 }
 
@@ -696,20 +403,30 @@ class SettingsModal extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(configProvider);
     return Padding(padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 20, right: 20, top: 24), child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text('アプリ設定', style: GoogleFonts.robotoMono(color: const Color(0xFF00FFC2), fontSize: 18, fontWeight: FontWeight.bold)), IconButton(icon: const Icon(Icons.close, color: Colors.white38), onPressed: () => Navigator.pop(context))]),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('アプリ設定', style: TextStyle(color: Color(0xFF00FFC2), fontSize: 18, fontWeight: FontWeight.bold)), IconButton(icon: const Icon(Icons.close, color: Colors.white38), onPressed: () => Navigator.pop(context))]),
         const SizedBox(height: 16),
-        _row([_field(ref, 'Uma (例: 10-30)', config.umaText, (v) => ref.read(configProvider.notifier).updateUmaText(v)), _field(ref, '配給原点', config.startingPoints.toString(), (v) => ref.read(configProvider.notifier).updateStartingPoints(int.tryParse(v) ?? 25000))]),
+        Row(children: [
+            Expanded(child: _field(ref, 'Uma (例: 10-30)', config.umaText, (v) => ref.read(configProvider.notifier).updateUmaText(v))),
+            const SizedBox(width: 8),
+            Expanded(child: _field(ref, '配給原点', config.startingPoints.toString(), (v) => ref.read(configProvider.notifier).updateStartingPoints(int.tryParse(v) ?? 25000))),
+        ]),
         const SizedBox(height: 12),
-        _row([_field(ref, 'Oka', config.oka.toString(), (v) => ref.read(configProvider.notifier).updateOka(int.tryParse(v) ?? 0)), _field(ref, 'トビ賞', config.tobiPrize.toString(), (v) => ref.read(configProvider.notifier).updateTobiPrize(int.tryParse(v) ?? 10), suffixText: 'Pt')]),
+        Row(children: [
+            Expanded(child: _field(ref, 'Oka', config.oka.toString(), (v) => ref.read(configProvider.notifier).updateOka(int.tryParse(v) ?? 0))),
+            const SizedBox(width: 8),
+            Expanded(child: _field(ref, 'トビ賞', config.tobiPrize.toString(), (v) => ref.read(configProvider.notifier).updateTobiPrize(int.tryParse(v) ?? 10), suffixText: 'Pt')),
+        ]),
         const SizedBox(height: 12),
-        _row([_field(ref, '役満賞(ツモ)', config.yakumanTsumoPrize.toString(), (v) => ref.read(configProvider.notifier).updateYakumanTsumoPrize(int.tryParse(v) ?? 5), suffixText: 'Pt'), _field(ref, '役満賞(ロン)', config.yakumanRonPrize.toString(), (v) => ref.read(configProvider.notifier).updateYakumanRonPrize(int.tryParse(v) ?? 10), suffixText: 'Pt')]),
+        Row(children: [
+            Expanded(child: _field(ref, '役満賞(ツモ)', config.yakumanTsumoPrize.toString(), (v) => ref.read(configProvider.notifier).updateYakumanTsumoPrize(int.tryParse(v) ?? 5), suffixText: 'Pt')),
+            const SizedBox(width: 8),
+            Expanded(child: _field(ref, '役満賞(ロン)', config.yakumanRonPrize.toString(), (v) => ref.read(configProvider.notifier).updateYakumanRonPrize(int.tryParse(v) ?? 10), suffixText: 'Pt')),
+        ]),
         const SizedBox(height: 32),
     ]));
   }
-  Widget _row(List<Widget> c) => Row(children: c.map((w) => Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: w))).toList());
-  Widget _field(WidgetRef ref, String l, String i, Function(String) o, {bool isDec = false, String? suffixText}) => TextFormField(initialValue: i, keyboardType: TextInputType.numberWithOptions(decimal: isDec), textAlign: TextAlign.center, style: GoogleFonts.robotoMono(color: Colors.white, fontSize: 15), decoration: InputDecoration(labelText: l, labelStyle: const TextStyle(color: Colors.white38, fontSize: 11), filled: true, fillColor: Colors.white.withOpacity(0.04), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none), contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10), suffixText: suffixText, suffixStyle: const TextStyle(color: Colors.white24, fontSize: 10)), onChanged: o);
+  Widget _field(WidgetRef ref, String l, String i, Function(String) o, {String? suffixText}) => TextFormField(initialValue: i, keyboardType: TextInputType.number, style: const TextStyle(color: Colors.white, fontSize: 14), decoration: InputDecoration(labelText: l, labelStyle: const TextStyle(color: Colors.white38, fontSize: 11), filled: true, fillColor: Colors.white.withOpacity(0.04), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none), suffixText: suffixText), onChanged: o);
 }
-
 
 class PlayerNameField extends ConsumerStatefulWidget {
   final int index; final String initialName;
@@ -738,47 +455,16 @@ class _PlayerInputCardState extends ConsumerState<PlayerInputCard> {
   @override Widget build(BuildContext context) {
     final state = ref.watch(calcProvider); final game = state.games.firstWhere((g) => g.id == widget.gameId);
     final oya = game.startingOyaIndex == widget.player.id - 1; final wind = ['東', '南', '西', '北'][((widget.player.id - 1) - game.startingOyaIndex + 4) % 4];
-    
-    // Tobi Icon Logic
-    final tobiPt = widget.player.tobiPt;
-    IconData tobiIcon = Icons.favorite_border; Color tobiColor = Colors.grey.shade400;
-    if (tobiPt > 0) { tobiIcon = Icons.favorite; tobiColor = Colors.red; }
-    else if (tobiPt < 0) { tobiIcon = Icons.heart_broken; tobiColor = Colors.blueGrey; }
-    
-    // Yakuman Icon Logic
-    final yakumanPt = widget.player.yakumanPt;
-    IconData yakumanIcon = Icons.emoji_events; Color yakumanColor = Colors.grey.shade400;
-    if (yakumanPt > 0) { yakumanIcon = Icons.emoji_events; yakumanColor = Colors.orange; }
-    else if (yakumanPt < 0) { yakumanIcon = Icons.sentiment_dissatisfied; yakumanColor = Colors.blueGrey; }
-
+    final tPt = widget.player.tobiPt; final yPt = widget.player.yakumanPt;
     return Container(margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), decoration: BoxDecoration(color: const Color(0xFF002922), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white10)), child: Row(children: [
         GestureDetector(onTap: () => ref.read(calcProvider.notifier).setStartingOya(widget.gameId, widget.player.id - 1), child: Container(width: 28, height: 28, decoration: BoxDecoration(shape: BoxShape.circle, color: oya ? const Color(0xFF00FFC2) : Colors.transparent, border: Border.all(color: oya ? const Color(0xFF00FFC2) : Colors.white24)), child: Center(child: Text(wind, style: TextStyle(color: oya ? const Color(0xFF004D40) : Colors.white, fontSize: 11, fontWeight: FontWeight.bold))))),
         const SizedBox(width: 12),
-        Expanded(flex: 3, child: Text(state.playerNames[widget.player.id - 1], style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)),
+        Expanded(flex: 3, child: Text(state.playerNames[widget.player.id - 1], style: const TextStyle(color: Colors.white70, fontSize: 13), overflow: TextOverflow.ellipsis)),
         const SizedBox(width: 8),
-        Expanded(flex: 4, child: TextField(
-            controller: _s, 
-            textAlign: TextAlign.center, 
-            keyboardType: const TextInputType.numberWithOptions(signed: true), 
-            maxLength: 6, // #2 Allow up to 6 digits (999,999)
-            style: const TextStyle(color: Color(0xFF00FFC2), fontSize: 16, fontWeight: FontWeight.bold), 
-            decoration: InputDecoration(
-                isDense: true, 
-                counterText: '', // Hide the length counter text
-                contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4), 
-                hintText: '0', 
-                hintStyle: const TextStyle(color: Colors.white12), 
-                filled: true,
-                fillColor: Colors.black12,
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.white12)), 
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFF00FFC2)))
-            ), 
-            onChanged: (v) => ref.read(calcProvider.notifier).updateScore(widget.gameId, widget.player.id, int.tryParse(v) ?? 0)
-        )),
+        Expanded(flex: 4, child: TextField(controller: _s, textAlign: TextAlign.center, keyboardType: const TextInputType.numberWithOptions(signed: true), maxLength: 6, style: const TextStyle(color: Color(0xFF00FFC2), fontSize: 16, fontWeight: FontWeight.bold), decoration: const InputDecoration(isDense: true, counterText: '', hintText: '0', hintStyle: TextStyle(color: Colors.white12), filled: true, fillColor: Colors.black12, border: InputBorder.none), onChanged: (v) => ref.read(calcProvider.notifier).updateScore(widget.gameId, widget.player.id, int.tryParse(v) ?? 0))),
         const SizedBox(width: 12),
-        SizedBox(width: 34, child: IconButton(icon: Icon(tobiIcon, color: tobiColor, size: 20), onPressed: () => widget.showTobi(widget.player.id), padding: EdgeInsets.zero, constraints: const BoxConstraints())),
-        const SizedBox(width: 4),
-        SizedBox(width: 34, child: IconButton(icon: Icon(yakumanIcon, color: yakumanColor, size: 20), onPressed: () => widget.showYakuman(widget.player.id), padding: EdgeInsets.zero, constraints: const BoxConstraints())),
+        IconButton(icon: Icon(tPt != 0 ? Icons.favorite : Icons.favorite_border, color: tPt > 0 ? Colors.red : (tPt < 0 ? Colors.blue : Colors.white24)), onPressed: () => widget.showTobi(widget.player.id)),
+        IconButton(icon: Icon(yPt != 0 ? Icons.emoji_events : Icons.emoji_events_outlined, color: yPt > 0 ? Colors.orange : (yPt < 0 ? Colors.blueGrey : Colors.white24)), onPressed: () => widget.showYakuman(widget.player.id)),
     ]));
   }
 }
