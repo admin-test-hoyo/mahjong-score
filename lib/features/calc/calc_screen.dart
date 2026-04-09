@@ -221,8 +221,12 @@ class CalcScreen extends ConsumerWidget {
 
   Widget _buildQuickRuleBar(BuildContext context, WidgetRef ref) {
     final config = ref.watch(configProvider);
-    final textStyle = GoogleFonts.robotoMono(color: const Color(0xFF00FFC2), fontSize: 13, fontWeight: FontWeight.bold);
-    final labelStyle = const TextStyle(color: Colors.white38, fontSize: 10);
+    final state = ref.watch(calcProvider);
+    
+    // 履歴モード(state.currentId != null)の場合は当時のルール(state.rule)を優先表示
+    final displayRate = state.currentId != null ? state.rule.rate.toDouble() : config.rate;
+    final displayChipRate = state.currentId != null ? state.rule.chipRate : config.chipRate;
+    final displayFee = state.currentId != null ? state.rule.totalFee : config.gameFee;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -234,26 +238,26 @@ class CalcScreen extends ConsumerWidget {
         children: [
           _quickField(
             label: 'レート',
-            value: config.rate.toString(),
-            onChanged: (v) => ref.read(configProvider.notifier).updateRate(double.tryParse(v) ?? 0),
+            value: displayRate.toString(),
+            onChanged: (v) => ref.read(calcProvider.notifier).updateRuleRate(double.tryParse(v) ?? 0),
             width: 60,
           ),
           const SizedBox(width: 12),
           _quickField(
             label: 'チップ',
-            value: config.chipRate.toString(),
-            onChanged: (v) => ref.read(configProvider.notifier).updateChipRate(int.tryParse(v) ?? 0),
+            value: displayChipRate.toString(),
+            onChanged: (v) => ref.read(calcProvider.notifier).updateRuleChipRate(int.tryParse(v) ?? 0),
             width: 60,
           ),
           const SizedBox(width: 12),
           _quickField(
             label: '場代',
-            value: config.gameFee.toString(),
-            onChanged: (v) => ref.read(configProvider.notifier).updateGameFee(int.tryParse(v) ?? 0),
+            value: displayFee.toString(),
+            onChanged: (v) => ref.read(calcProvider.notifier).updateRuleGameFee(int.tryParse(v) ?? 0),
             width: 80,
           ),
           const Spacer(),
-          const Text('Ver 1.9.8', style: TextStyle(color: Colors.white12, fontSize: 9)),
+          const Text('Ver 2.0.1', style: TextStyle(color: Colors.white12, fontSize: 9)),
         ],
       ),
     );

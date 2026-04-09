@@ -536,7 +536,9 @@ class DatabaseService {
       s['tobiRate'] = games > 0 ? (s['tobiCount'] as int) / games * 100 : 0.0;
     }
 
-    return stats.values.toList();
+    final result = stats.values.toList();
+    result.sort((a, b) => (b['totalPt'] as num).compareTo(a['totalPt'] as num));
+    return result;
   }
 
   Future<Map<String, dynamic>> getUserStats(String playerName, {int? groupId}) async {

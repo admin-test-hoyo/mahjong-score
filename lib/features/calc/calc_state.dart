@@ -170,15 +170,42 @@ class CalcNotifier extends Notifier<CalcState> {
     );
   }
 
-  void updatePlayerName(int playerId, String name) {
+  void updatePlayerName(int id, String name) {
+    if (id < 1 || id > 4) return;
     final newNames = List<String>.from(state.playerNames);
-    newNames[playerId - 1] = name;
+    newNames[id - 1] = name;
     state = state.copyWith(playerNames: newNames);
     
     // 4名の名前が埋まったら自動判別を試行
     if (newNames.every((n) => n.trim().isNotEmpty)) {
       _checkGroupMatches(newNames);
     }
+  }
+
+  // --- Rule Update Methods (Clears Snapshot for Real-time Recalculation) ---
+  void updateRuleRate(double rate) {
+    state = state.copyWith(
+      rule: state.rule.copyWith(rate: rate.toInt()),
+      snapshottedMoneys: null,
+    );
+    // 同時にアプリ設定も更新
+    ref.read(configProvider.notifier).updateRate(rate);
+  }
+
+  void updateRuleChipRate(int chipRate) {
+    state = state.copyWith(
+      rule: state.rule.copyWith(chipRate: chipRate),
+      snapshottedMoneys: null,
+    );
+    ref.read(configProvider.notifier).updateChipRate(chipRate);
+  }
+
+  void updateRuleGameFee(int gameFee) {
+    state = state.copyWith(
+      rule: state.rule.copyWith(totalFee: gameFee),
+      snapshottedMoneys: null,
+    );
+    ref.read(configProvider.notifier).updateGameFee(gameFee);
   }
 
   Future<void> _checkGroupMatches(List<String> names) async {
