@@ -12,48 +12,7 @@ class GroupScreen extends ConsumerStatefulWidget {
 }
 
 class _GroupScreenState extends ConsumerState<GroupScreen> {
-  List<Map<String, dynamic>> _groups = [];
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadGroups();
-  }
-
-  Future<void> _loadGroups() async {
-    setState(() => _loading = true);
-    try {
-      final db = DatabaseService();
-      _groups = await db.getGroups();
-    } catch (e) {
-      print('Group load error: $e');
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _addGroup(String name) async {
-    if (name.isEmpty) return;
-    final db = DatabaseService();
-    await db.insertGroup(name);
-    _loadGroups();
-  }
-
-  Future<void> _editGroup(int id, String name) async {
-    if (name.isEmpty) return;
-    final db = DatabaseService();
-    await db.updateGroupName(id, name);
-    _loadGroups();
-  }
-
-  Future<void> _deleteGroup(int id) async {
-    final db = DatabaseService();
-    await db.deleteGroup(id);
-    _loadGroups();
-  }
-
-  void _showAddGroupDialog() {
+  static void showAddGroup(BuildContext context, WidgetRef ref) {
     final controller = TextEditingController();
     showDialog(
       context: context,
@@ -75,15 +34,106 @@ class _GroupScreenState extends ConsumerState<GroupScreen> {
             child: const Text('キャンセル', style: TextStyle(color: Colors.white54)),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              _addGroup(controller.text);
+              if (controller.text.isNotEmpty) {
+                await DatabaseService().insertGroup(controller.text);
+                ref.read(databaseVersionProvider.notifier).increment();
+              }
             },
             child: const Text('追加', style: TextStyle(color: Color(0xFF00FFC2), fontWeight: FontWeight.bold)),
           ),
         ],
       ),
     );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final groupListAsync = ref.watch(groupListProvider);
+    final state = ref.watch(calcProvider);
+    final notifier = ref.read(calcProvider.notifier);
+
+    return Column(
+      children: [
+        Expanded(
+          child: groupListAsync.when(
+            data: (groups) {
+              if (groups.isEmpty) {
+                return const Center(child: Text('グループが登録されていません', style: TextStyle(color: Colors.white24)));
+              }
+              return ListView.builder(
+                padding: const EdgeInsets.only(top: 8, bottom: 80),
+                itemCount: groups.length,
+                itemBuilder: (context, index) {
+                  final group = groups[index];
+                  final groupId = group['id'] as int;
+                  final isSelected = state.selectedGroupId == groupId;
+
+                  return Card(
+                    color: Colors.black26,
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(color: isSelected ? const Color(0xFF00FFC2) : Colors.white10),
+                    ),
+                    child: ExpansionTile(
+                      tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      leading: Icon(Icons.group, color: isSelected ? const Color(0xFF00FFC2) : Colors.white54),
+                      title: Text(group['name'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                      subtitle: const Text('タップしてメニューを表示', style: TextStyle(color: Colors.white38, fontSize: 10)),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (isSelected) const Icon(Icons.check_circle, color: Color(0xFF00FFC2), size: 18),
+                          const Icon(Icons.expand_more, color: Colors.white24),
+                        ],
+                      ),
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          decoration: const BoxDecoration(color: Colors.black12, borderRadius: BorderRadius.only(bottomLeft: Radius.circular(12), bottomRight: Radius.circular(12))),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              _actionIcon(Icons.person_outline, 'メンバー編集', () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => MemberEditScreen(groupId: groupId, groupName: group['name']),
+                                  ),
+                                );
+                              }),
+                              _actionIcon(Icons.edit_outlined, '名前変更', () => _showEditGroupDialog(groupId, group['name'])),
+                              _actionIcon(isSelected ? Icons.radio_button_checked : Icons.radio_button_off, isSelected ? '選択解除' : 'グループ選択', () {
+                                notifier.state = state.copyWith(selectedGroupId: isSelected ? null : groupId);
+                              }, color: isSelected ? const Color(0xFF00FFC2) : null),
+                              _actionIcon(Icons.delete_outline, '削除', () => _confirmDeleteGroup(groupId, group['name']), color: Colors.redAccent.withOpacity(0.8)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
+            loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF00FFC2))),
+            error: (e, s) => Center(child: Text('エラー: $e', style: const TextStyle(color: Colors.redAccent))),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _editGroupWrapper(int id, String name) async {
+    await DatabaseService().updateGroupName(id, name);
+    ref.read(databaseVersionProvider.notifier).increment();
+  }
+
+  Future<void> _deleteGroupWrapper(int id) async {
+    await DatabaseService().deleteGroup(id);
+    ref.read(databaseVersionProvider.notifier).increment();
   }
 
   void _showEditGroupDialog(int id, String currentName) {
@@ -110,7 +160,7 @@ class _GroupScreenState extends ConsumerState<GroupScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              _editGroup(id, controller.text);
+              _editGroupWrapper(id, controller.text);
             },
             child: const Text('保存', style: TextStyle(color: Color(0xFF00FFC2), fontWeight: FontWeight.bold)),
           ),
@@ -134,106 +184,12 @@ class _GroupScreenState extends ConsumerState<GroupScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              _deleteGroup(id);
+              _deleteGroupWrapper(id);
             },
             child: const Text('削除', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final state = ref.watch(calcProvider);
-    final notifier = ref.read(calcProvider.notifier);
-
-    return Scaffold(
-      backgroundColor: const Color(0xFF004D40),
-      appBar: AppBar(
-        title: Text('グループ管理', style: GoogleFonts.robotoMono(color: const Color(0xFF00FFC2), fontWeight: FontWeight.bold, fontSize: 22)),
-        backgroundColor: Colors.black.withOpacity(0.3),
-        elevation: 0,
-      ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFF00FFC2),
-        foregroundColor: const Color(0xFF004D40),
-        onPressed: _showAddGroupDialog,
-        child: const Icon(Icons.add),
-      ),
-      body: _loading 
-        ? const Center(child: CircularProgressIndicator(color: Color(0xFF00FFC2)))
-        : _groups.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.group_add, color: Colors.white24, size: 64),
-                  const SizedBox(height: 16),
-                  const Text('グループが登録されていません。', style: TextStyle(color: Colors.white70)),
-                  const SizedBox(height: 8),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 32),
-                    child: Text('右下の「+」ボタンから、麻雀仲間などのグループを作成してください。', style: TextStyle(color: Colors.white54, fontSize: 12), textAlign: TextAlign.center),
-                  ),
-                ],
-              ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.only(top: 8, bottom: 80),
-              itemCount: _groups.length,
-              itemBuilder: (context, index) {
-                final group = _groups[index];
-                final groupId = group['id'] as int;
-                final isSelected = state.selectedGroupId == groupId;
-
-                return Card(
-                  color: Colors.black26,
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: isSelected ? const Color(0xFF00FFC2) : Colors.white10),
-                  ),
-                  child: ExpansionTile(
-                    tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    leading: Icon(Icons.group, color: isSelected ? const Color(0xFF00FFC2) : Colors.white54),
-                    title: Text(group['name'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                    subtitle: const Text('タップしてメニューを表示', style: TextStyle(color: Colors.white38, fontSize: 10)),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (isSelected) const Icon(Icons.check_circle, color: Color(0xFF00FFC2), size: 18),
-                        const Icon(Icons.expand_more, color: Colors.white24),
-                      ],
-                    ),
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: const BoxDecoration(color: Colors.black12, borderRadius: BorderRadius.only(bottomLeft: Radius.circular(12), bottomRight: Radius.circular(12))),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            _actionIcon(Icons.person_outline, 'メンバー編集', () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => MemberEditScreen(groupId: groupId, groupName: group['name']),
-                                ),
-                              ).then((_) => _loadGroups());
-                            }),
-                            _actionIcon(Icons.edit_outlined, '名前変更', () => _showEditGroupDialog(groupId, group['name'])),
-                            _actionIcon(isSelected ? Icons.radio_button_checked : Icons.radio_button_off, isSelected ? '選択解除' : 'グループ選択', () {
-                              notifier.state = state.copyWith(selectedGroupId: isSelected ? null : groupId);
-                            }, color: isSelected ? const Color(0xFF00FFC2) : null),
-                            _actionIcon(Icons.delete_outline, '削除', () => _confirmDeleteGroup(groupId, group['name']), color: Colors.redAccent.withOpacity(0.8)),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
     );
   }
 

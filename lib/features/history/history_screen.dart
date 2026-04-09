@@ -6,10 +6,12 @@ import '../../core/database/database_service.dart';
 import '../../core/models/db_models.dart';
 import '../calc/calc_state.dart';
 import '../stats/stats_providers.dart';
+import '../../core/database/database_providers.dart';
 
 class HistoryNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
   @override
   Future<List<Map<String, dynamic>>> build() async {
+    ref.watch(databaseVersionProvider);
     return _fetchSessions();
   }
 
@@ -114,16 +116,28 @@ final historyProvider = AsyncNotifierProvider<HistoryNotifier, List<Map<String, 
   return HistoryNotifier();
 });
 
+final historyFilterProvider = StateProvider<DateTimeRange?>((ref) => null);
+
 class HistoryScreen extends ConsumerStatefulWidget {
   const HistoryScreen({super.key});
 
+  static void showFilter(BuildContext context) async {
+    // フィルターダイアログの表示ロジックは本来State内にあるべきだが、
+    // SPA化のために一時的にProvider経由でコントロールできるようにするか、
+    // あるいはMainScreenからこのScreenのメソッドを呼べるようにする。
+    // ここでは簡易的に、MainScreen側で直接showDateRangePickerを呼ぶようにMainScreenを修正する方針にするため
+    // このメソッドはプレースホルダーとするか、Providerを更新するだけにする。
+  }
+
+  static void showCleanup(BuildContext context) {
+    // Cleanupダイアログの表示
+  }
+
   @override
-  ConsumerState<HistoryScreen> createState() => _HistoryScreenState();
+  ConsumerState<HistoryScreen> createState() => HistoryScreenState();
 }
 
-class _HistoryScreenState extends ConsumerState<HistoryScreen> {
-  DateTimeRange? _selectedDateRange;
-
+class HistoryScreenState extends ConsumerState<HistoryScreen> {
   @override
   void initState() {
     super.initState();
@@ -133,188 +147,149 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   @override
   Widget build(BuildContext context) {
     final history = ref.watch(historyProvider);
+    final selectedDateRange = ref.watch(historyFilterProvider);
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF004D40),
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF00FFC2)),
-          onPressed: () => Navigator.pop(context, false),
-        ),
-        title: Text('対局履歴', style: GoogleFonts.robotoMono(color: const Color(0xFF00FFC2), fontWeight: FontWeight.bold, fontSize: 22)),
-        backgroundColor: Colors.black.withOpacity(0.3),
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.date_range, color: Color(0xFF00FFC2), size: 18),
-            onPressed: () async {
-              final picked = await showDateRangePicker(
-                context: context,
-                initialDateRange: _selectedDateRange,
-                firstDate: DateTime(2020),
-                lastDate: DateTime.now().add(const Duration(days: 1)),
-                builder: (context, child) => Theme(
-                  data: Theme.of(context).copyWith(
-                    colorScheme: const ColorScheme.dark(
-                      primary: Color(0xFF00BFA5),
-                      onPrimary: Colors.white,
-                      surface: Color(0xFF001F1A),
-                      onSurface: Colors.white,
+    return history.when(
+      data: (sessions) {
+        var filteredSessions = sessions;
+        if (selectedDateRange != null) {
+          filteredSessions = filteredSessions.where((s) {
+            final dt = (s['session'] as Session).date;
+            final date = DateFormat('yyyy/MM/dd').parse(dt);
+            return !date.isBefore(selectedDateRange.start) && 
+                   date.isBefore(selectedDateRange.end.add(const Duration(days: 1)));
+          }).toList();
+        }
+
+        return Column(
+          children: [
+            if (selectedDateRange != null)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
+                color: Colors.black26,
+                child: Row(
+                  children: [
+                    const Icon(Icons.filter_alt, size: 12, color: Colors.white54),
+                    const SizedBox(width: 4),
+                    Text(
+                      '期間指定: ${DateFormat('M/d').format(selectedDateRange.start)} 〜 ${DateFormat('M/d').format(selectedDateRange.end)}',
+                      style: const TextStyle(color: Colors.white70, fontSize: 11),
                     ),
-                  ),
-                  child: child!,
+                    const Spacer(),
+                    InkWell(
+                      onTap: () => ref.read(historyFilterProvider.notifier).state = null,
+                      child: const Icon(Icons.close, size: 14, color: Colors.white54),
+                    ),
+                  ],
                 ),
-              );
-              if (picked != null) setState(() => _selectedDateRange = picked);
-              else setState(() => _selectedDateRange = null);
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_sweep, color: Color(0xFF00FFC2), size: 18),
-            onPressed: () => _showCleanupDialog(context, ref),
-          ),
-        ],
-      ),
-      body: history.when(
-        data: (sessions) {
-          var filteredSessions = sessions;
-          if (_selectedDateRange != null) {
-            filteredSessions = filteredSessions.where((s) {
-              final dt = (s['session'] as Session).date;
-              final date = DateFormat('yyyy/MM/dd').parse(dt);
-              return !date.isBefore(_selectedDateRange!.start) && 
-                     date.isBefore(_selectedDateRange!.end.add(const Duration(days: 1)));
-            }).toList();
-          }
+              ),
+            Expanded(
+              child: filteredSessions.isEmpty 
+                ? const Center(child: Text('対局履歴がありません', style: TextStyle(color: Colors.white24)))
+                : RefreshIndicator(
+                    onRefresh: () => ref.read(historyProvider.notifier).refresh(),
+                    color: const Color(0xFF00FFC2),
+                    child: ListView.builder(
+                      itemCount: filteredSessions.length,
+                      itemBuilder: (context, index) {
+                        final sessionData = filteredSessions[index];
+                        final Session session = sessionData['session'];
+                        final String groupName = sessionData['groupName'];
+                        final int gameCount = sessionData['gameCount'];
+                        final List<int> totalPts = sessionData['totalPt'];
+                        final List<int> totalMoneys = sessionData['totalMoney'];
 
-          return Column(
-            children: [
-              if (_selectedDateRange != null)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
-                  color: Colors.black26,
-                  child: Row(
-                    children: [
-                      const Icon(Icons.filter_alt, size: 12, color: Colors.white54),
-                      const SizedBox(width: 4),
-                      Text(
-                        '期間指定: ${DateFormat('M/d').format(_selectedDateRange!.start)} 〜 ${DateFormat('M/d').format(_selectedDateRange!.end)}',
-                        style: const TextStyle(color: Colors.white70, fontSize: 11),
-                      ),
-                      const Spacer(),
-                      InkWell(
-                        onTap: () => setState(() => _selectedDateRange = null),
-                        child: const Icon(Icons.close, size: 14, color: Colors.white54),
-                      ),
-                    ],
-                  ),
-                ),
-              Expanded(
-                child: filteredSessions.isEmpty 
-                  ? const Center(child: Text('対局履歴がありません', style: TextStyle(color: Colors.white24)))
-                  : RefreshIndicator(
-                      onRefresh: () => ref.read(historyProvider.notifier).refresh(),
-                      color: const Color(0xFF00FFC2),
-                      child: ListView.builder(
-                        itemCount: filteredSessions.length,
-                        itemBuilder: (context, index) {
-                          final sessionData = filteredSessions[index];
-                          final Session session = sessionData['session'];
-                          final String groupName = sessionData['groupName'];
-                          final int gameCount = sessionData['gameCount'];
-                          final List<int> totalPts = sessionData['totalPt'];
-                          final List<int> totalMoneys = sessionData['totalMoney'];
-
-                          return Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: Colors.black26,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.white10),
-                            ),
-                            child: InkWell(
-                              onTap: () {
-                                ref.read(calcProvider.notifier).loadSession(session, sessionData['games']);
-                                Navigator.pop(context, true);
-                              },
-                              borderRadius: BorderRadius.circular(12),
-                              child: Column(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.05),
-                                      borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                        return Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.black26,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.white10),
+                          ),
+                          child: InkWell(
+                            onTap: () {
+                              FocusManager.instance.primaryFocus?.unfocus();
+                              ref.read(calcProvider.notifier).loadSession(session, sessionData['games']);
+                              // Navigator.pop の代わりに Calc タブへ切り替え
+                              ref.read(navigationProvider.notifier).setTab(MainTab.calc);
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Column(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.05),
+                                    borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text('${session.date} - $gameCount局', style: const TextStyle(color: Colors.white38, fontSize: 10)),
+                                          Text(
+                                            groupName,
+                                            style: TextStyle(
+                                              color: session.groupId == null ? Colors.orangeAccent : const Color(0xFF00FFC2),
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const Spacer(),
+                                      IconButton(
+                                        icon: const Icon(Icons.delete_forever, color: Colors.white24, size: 20),
+                                        onPressed: () => _showDeleteConfirmDialog(context, ref, session.id!),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.edit_note, color: Colors.white24, size: 20),
+                                        onPressed: () => _showGroupAssignmentDialog(context, ref, session),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                    children: List.generate(session.playerNames.length, (i) {
+                                      final pt = totalPts[i];
+                                      final money = totalMoneys[i];
+                                      return Expanded(
+                                        child: Column(
                                           children: [
-                                            Text('${session.date} - $gameCount局', style: const TextStyle(color: Colors.white38, fontSize: 10)),
+                                            Text(session.playerNames[i], style: const TextStyle(color: Colors.white54, fontSize: 9), overflow: TextOverflow.ellipsis),
                                             Text(
-                                              groupName,
+                                              pt > 0 ? '+$pt' : pt.toString(),
                                               style: TextStyle(
-                                                color: session.groupId == null ? Colors.orangeAccent : const Color(0xFF00FFC2),
+                                                color: pt >= 0 ? const Color(0xFF00FFC2) : Colors.redAccent,
+                                                fontSize: 12,
                                                 fontWeight: FontWeight.bold,
-                                                fontSize: 14,
                                               ),
                                             ),
+                                            Text('¥${money >= 0 ? "+" : ""}$money', style: const TextStyle(color: Colors.white24, fontSize: 9)),
                                           ],
                                         ),
-                                        const Spacer(),
-                                        IconButton(
-                                          icon: const Icon(Icons.delete_forever, color: Colors.white24, size: 20),
-                                          onPressed: () => _showDeleteConfirmDialog(context, ref, session.id!),
-                                        ),
-                                        IconButton(
-                                          icon: const Icon(Icons.edit_note, color: Colors.white24, size: 20),
-                                          onPressed: () => _showGroupAssignmentDialog(context, ref, session),
-                                        ),
-                                      ],
-                                    ),
+                                      );
+                                    }),
                                   ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                                      children: List.generate(session.playerNames.length, (i) {
-                                        final pt = totalPts[i];
-                                        final money = totalMoneys[i];
-                                        return Expanded(
-                                          child: Column(
-                                            children: [
-                                              Text(session.playerNames[i], style: const TextStyle(color: Colors.white54, fontSize: 9), overflow: TextOverflow.ellipsis),
-                                              Text(
-                                                pt > 0 ? '+$pt' : pt.toString(),
-                                                style: TextStyle(
-                                                  color: pt >= 0 ? const Color(0xFF00FFC2) : Colors.redAccent,
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                              Text('¥${money >= 0 ? "+" : ""}$money', style: const TextStyle(color: Colors.white24, fontSize: 9)),
-                                            ],
-                                          ),
-                                        );
-                                      }),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
-                          );
-                        },
-                      ),
+                          ),
+                        );
+                      },
                     ),
-              ),
-            ],
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF00FFC2))),
-        error: (e, s) => const Center(child: Text('読み込みエラー', style: TextStyle(color: Colors.white24))),
-      ),
+                  ),
+            ),
+          ],
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF00FFC2))),
+      error: (e, s) => const Center(child: Text('読み込みエラー', style: TextStyle(color: Colors.white24))),
     );
   }
 
@@ -355,6 +330,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
 
   void _confirmAndClear(BuildContext context, WidgetRef ref, {bool all = false, int months = 0}) async {
     Navigator.pop(context);
+    if (!context.mounted) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -416,16 +392,16 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
             children: [
               ...groups.map((g) => ListTile(
                 title: Text(g['name'], style: const TextStyle(color: Color(0xFF00FFC2))),
-                onTap: () {
-                  ref.read(historyProvider.notifier).updateSessionGroupId(session.id!, g['id']);
-                  Navigator.pop(context);
+                onTap: () async {
+                  await ref.read(historyProvider.notifier).updateSessionGroupId(session.id!, g['id']);
+                  if (context.mounted) Navigator.pop(context);
                 },
               )),
               ListTile(
                 title: const Text('フリー対局に戻す', style: TextStyle(color: Colors.white54)),
-                onTap: () {
-                  ref.read(historyProvider.notifier).updateSessionGroupId(session.id!, null);
-                  Navigator.pop(context);
+                onTap: () async {
+                  await ref.read(historyProvider.notifier).updateSessionGroupId(session.id!, null);
+                  if (context.mounted) Navigator.pop(context);
                 },
               ),
             ],

@@ -173,22 +173,16 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
       });
     }
 
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        backgroundColor: const Color(0xFF004D40),
-        appBar: AppBar(
-          title: Text(
-            '統計・分析',
-            style: GoogleFonts.robotoMono(
-              color: const Color(0xFF00FFC2),
-              fontWeight: FontWeight.bold,
-              fontSize: 22,
-            ),
-          ),
-          backgroundColor: Colors.black.withOpacity(0.3),
-          elevation: 0,
-          bottom: TabBar(
+    if (_loading) {
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFF00FFC2)));
+    }
+
+    return Column(
+      children: [
+        Container(
+          color: Colors.black12,
+          child: TabBar(
             controller: _tabController,
             indicatorColor: const Color(0xFF00FFC2),
             labelColor: const Color(0xFF00FFC2),
@@ -201,17 +195,16 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
             ],
           ),
         ),
-        body: _loading
-            ? const Center(
-                child: CircularProgressIndicator(color: Color(0xFF00FFC2)))
-            : TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildPersonalTab(),
-                  _buildGroupTab(),
-                ],
-              ),
-      ),
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildPersonalTab(),
+              _buildGroupTab(),
+            ],
+          ),
+        ),
+      ],
     );
   }
 

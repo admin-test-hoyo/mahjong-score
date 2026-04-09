@@ -141,6 +141,7 @@ class CalcNotifier extends Notifier<CalcState> {
 
   @override
   CalcState build() {
+    ref.keepAlive();
     // 起動時に過去データの収支不整合を自動修復する
     Future.microtask(() async {
       final db = DatabaseService();

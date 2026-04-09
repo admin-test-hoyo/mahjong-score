@@ -1,13 +1,25 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'features/calc/calc_screen.dart';
+import 'features/main/main_screen.dart';
 import 'features/calc/calc_state.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    print('【FlutterError】: ${details.exceptionAsString()}');
+  };
+
+  PlatformDispatcher.instance.onError = (error, stack) {
+    print('【PlatformError】: $error');
+    return true;
+  };
+
   final sharedPrefs = await SharedPreferences.getInstance();
 
   runApp(
@@ -47,7 +59,7 @@ class MahjongApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: const CalcScreen(),
+      home: const MainScreen(),
     );
   }
 }

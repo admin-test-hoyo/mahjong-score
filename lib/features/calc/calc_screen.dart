@@ -1,21 +1,53 @@
-import 'dart:ui';
+import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:universal_html/html.dart' as html;
+import '../../core/database/database_providers.dart';
 import '../../core/calculator.dart';
 import '../../core/models/app_config.dart';
 import '../../core/models/db_models.dart';
+import '../../core/database/database_service.dart';
 import 'calc_state.dart';
 import '../history/history_screen.dart';
 import '../stats/stats_screen.dart';
+import '../stats/stats_providers.dart';
 import '../group/group_screen.dart';
 
 class CalcScreen extends ConsumerWidget {
   const CalcScreen({super.key});
 
+  // SPA対応のための静的メソッド
+  static void exportData(BuildContext context, WidgetRef ref) {
+    const screen = CalcScreen();
+    screen._exportData(context, ref);
+  }
+
+  static void importData(BuildContext context, WidgetRef ref) {
+    final uploadInput = html.FileUploadInputElement()..accept = '.json';
+    uploadInput.click();
+    const screen = CalcScreen();
+    screen._importData(context, ref, uploadInput);
+  }
+
+  static void showSettings(BuildContext context, WidgetRef ref) {
+    const screen = CalcScreen();
+    screen._showSettingsModal(context, ref);
+  }
+
+  static void showSave(BuildContext context, WidgetRef ref) {
+    const screen = CalcScreen();
+    screen._showSaveLogic(context, ref);
+  }
+
+  static void showReset(BuildContext context, WidgetRef ref) {
+    const screen = CalcScreen();
+    screen._confirmReset(context, ref);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final config = ref.watch(configProvider);
     final state = ref.watch(calcProvider);
 
     ref.listen<List<Map<String, dynamic>>?>(
@@ -55,148 +87,92 @@ class CalcScreen extends ConsumerWidget {
       },
     );
     
-    return Scaffold(
-      backgroundColor: const Color(0xFF004D40),
-      drawer: const MainDrawer(),
-      appBar: AppBar(
-        leading: state.currentId != null 
-          ? IconButton(
-              icon: const Icon(Icons.arrow_back, color: Color(0xFF00FFC2)),
-              onPressed: () async {
-                final result = await Navigator.push(context, MaterialPageRoute(builder: (context) => const HistoryScreen()));
-                if (result != true) {
-                  ref.read(calcProvider.notifier).exitHistoryMode();
-                }
-              },
-            )
-          : null,
-        title: GestureDetector(
-          onTap: () => ref.read(calcProvider.notifier).resetGame(),
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              state.currentId == null ? '麻雀スコア表' : '麻雀スコア表(履歴)',
-              style: const TextStyle(
-                color: Color(0xFF00FFC2),
-                fontWeight: FontWeight.bold,
-                fontSize: 22.0, // 一回り大きく (18.0 -> 22.0)
-              ),
-            ),
-          ),
-        ),
-        backgroundColor: Colors.black.withOpacity(0.3),
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings, color: Color(0xFF00FFC2), size: 18),
-            padding: const EdgeInsets.symmetric(horizontal: 4.0),
-            constraints: const BoxConstraints(),
-            onPressed: () => _showSettingsModal(context, ref)
-          ),
-          IconButton(
-            icon: const Icon(Icons.save, color: Color(0xFF00FFC2), size: 18),
-            padding: const EdgeInsets.symmetric(horizontal: 4.0),
-            constraints: const BoxConstraints(),
-            onPressed: () async {
-              final calcNotifier = ref.read(calcProvider.notifier);
-              final currentState = ref.read(calcProvider);
-              final isUpdate = currentState.currentId != null;
-
-              if (isUpdate) {
-                // 更新の場合
-                final confirmed = await showDialog<bool>(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    backgroundColor: const Color(0xFF001F1A),
-                    title: const Text('更新の確認', style: TextStyle(color: Colors.white, fontSize: 16)),
-                    content: const Text('画面内容で更新します。よろしいですか？', style: TextStyle(color: Colors.white70, fontSize: 14)),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('キャンセル', style: TextStyle(color: Colors.white54))),
-                      TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('OK', style: TextStyle(color: Color(0xFF00FFC2), fontWeight: FontWeight.bold))),
-                    ],
-                  ),
-                );
-
-                if (confirmed == true) {
-                  // 更新時は現在保持しているデータの日付（または現在日時）を使用
-                  // 厳密には既存データをDBから引くべきだが、Webでのビルドエラー回避のため
-                  // stateから取得するか、DateTime.now()を暫定で使用（calc_state側で調整可能）
-                  final result = await calcNotifier.saveCurrentSession(DateTime.now());
-                  if (context.mounted) {
-                    _showSaveSnackBar(context, result);
-                    if (result == SaveResult.registered || result == SaveResult.updated) {
-                      ref.read(historyProvider.notifier).refresh();
-                    }
-                  }
-                }
-              } else {
-                // 新規登録の場合
-                final selectedDate = await showDatePicker(
-                  context: context,
-                  initialDate: DateTime.now(),
-                  firstDate: DateTime(2000),
-                  lastDate: DateTime(2100),
-                  locale: const Locale('ja'),
-                  builder: (context, child) => Theme(
-                    data: Theme.of(context).copyWith(
-                      colorScheme: const ColorScheme.dark(
-                        primary: Color(0xFF00BFA5),
-                        onPrimary: Color(0xFF004D40),
-                        surface: Color(0xFF001F1A),
-                        onSurface: Colors.white,
-                      ),
-                    ),
-                    child: child!,
-                  ),
-                );
-
-                if (selectedDate != null && context.mounted) {
-                  final dateStr = "${selectedDate.year}/${selectedDate.month.toString().padLeft(2, '0')}/${selectedDate.day.toString().padLeft(2, '0')}";
-                  final confirmed = await showDialog<bool>(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      backgroundColor: const Color(0xFF001F1A),
-                      title: const Text('登録の確認', style: TextStyle(color: Colors.white, fontSize: 16)),
-                      content: Text('$dateStrの対局データとして登録します。よろしいですか？', style: const TextStyle(color: Colors.white70, fontSize: 14)),
-                      actions: [
-                        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('キャンセル', style: TextStyle(color: Colors.white54))),
-                        TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('OK', style: TextStyle(color: Color(0xFF00FFC2), fontWeight: FontWeight.bold))),
-                      ],
-                    ),
-                  );
-
-                  if (confirmed == true) {
-                    final result = await calcNotifier.saveCurrentSession(selectedDate);
-                    if (context.mounted) {
-                      _showSaveSnackBar(context, result);
-                      if (result == SaveResult.registered || result == SaveResult.updated) {
-                        ref.read(historyProvider.notifier).refresh();
-                      }
-                    }
-                  }
-                }
-              }
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Color(0xFFFF5252), size: 18),
-            padding: const EdgeInsets.symmetric(horizontal: 4.0),
-            constraints: const BoxConstraints(),
-            onPressed: () => _confirmReset(context, ref)
-          ),
-          const SizedBox(width: 4),
+    return SafeArea(
+      child: Column(
+        children: [
+          _buildQuickRuleBar(context, ref),
+          Expanded(child: _buildMainDataTable(context, ref)),
+          _buildBottomSummaryFooter(context, ref),
         ],
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildQuickRuleBar(context, ref),
-            Expanded(child: _buildMainDataTable(context, ref)),
-            _buildBottomSummaryFooter(context, ref),
+    );
+  }
+
+  // 元のAppBarにあったSave処理をロジックとして分離
+  Future<void> _showSaveLogic(BuildContext context, WidgetRef ref) async {
+    final calcNotifier = ref.read(calcProvider.notifier);
+    final currentState = ref.read(calcProvider);
+    final isUpdate = currentState.currentId != null;
+
+    if (isUpdate) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: const Color(0xFF001F1A),
+          title: const Text('更新の確認', style: TextStyle(color: Colors.white, fontSize: 16)),
+          content: const Text('画面内容で更新します。よろしいですか？', style: TextStyle(color: Colors.white70, fontSize: 14)),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('キャンセル', style: TextStyle(color: Colors.white54))),
+            TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('OK', style: TextStyle(color: Color(0xFF00FFC2), fontWeight: FontWeight.bold))),
           ],
         ),
-      ),
-    );
+      );
+
+      if (confirmed == true) {
+        final result = await calcNotifier.saveCurrentSession(DateTime.now());
+        if (context.mounted) {
+          _showSaveSnackBar(context, result);
+          if (result == SaveResult.registered || result == SaveResult.updated) {
+            ref.read(historyProvider.notifier).refresh();
+          }
+        }
+      }
+    } else {
+      final selectedDate = await showDatePicker(
+        context: context,
+        initialDate: DateTime.now(),
+        firstDate: DateTime(2000),
+        lastDate: DateTime(2100),
+        locale: const Locale('ja'),
+        builder: (context, child) => Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: Color(0xFF00BFA5),
+              onPrimary: Color(0xFF004D40),
+              surface: Color(0xFF001F1A),
+              onSurface: Colors.white,
+            ),
+          ),
+          child: child!,
+        ),
+      );
+
+      if (selectedDate != null && context.mounted) {
+        final dateStr = "${selectedDate.year}/${selectedDate.month.toString().padLeft(2, '0')}/${selectedDate.day.toString().padLeft(2, '0')}";
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            backgroundColor: const Color(0xFF001F1A),
+            title: const Text('登録の確認', style: TextStyle(color: Colors.white, fontSize: 16)),
+            content: Text('$dateStrの対局データとして登録します。よろしいですか？', style: const TextStyle(color: Colors.white70, fontSize: 14)),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('キャンセル', style: TextStyle(color: Colors.white54))),
+              TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('OK', style: TextStyle(color: Color(0xFF00FFC2), fontWeight: FontWeight.bold))),
+            ],
+          ),
+        );
+
+        if (confirmed == true) {
+          final result = await calcNotifier.saveCurrentSession(selectedDate);
+          if (context.mounted) {
+            _showSaveSnackBar(context, result);
+            if (result == SaveResult.registered || result == SaveResult.updated) {
+              ref.read(historyProvider.notifier).refresh();
+            }
+          }
+        }
+      }
+    }
   }
 
   void _showSaveSnackBar(BuildContext context, SaveResult result) {
@@ -257,7 +233,7 @@ class CalcScreen extends ConsumerWidget {
             width: 80,
           ),
           const Spacer(),
-          const Text('Ver 2.0.1', style: TextStyle(color: Colors.white12, fontSize: 9)),
+          const Text('Ver 3.0.0 (Kick-off)', style: TextStyle(color: Colors.white12, fontSize: 9)),
         ],
       ),
     );
@@ -598,7 +574,7 @@ class MainDrawer extends ConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 Text('麻雀スコア表', style: GoogleFonts.robotoMono(color: const Color(0xFF00FFC2), fontWeight: FontWeight.bold, fontSize: 20)),
-                const Text('Ver 1.6', style: TextStyle(color: Colors.white24, fontSize: 10)),
+                const Text('Ver 3.0.0 (Kick-off)', style: TextStyle(color: Colors.white24, fontSize: 10)),
               ],
             ),
           ),
@@ -606,9 +582,91 @@ class MainDrawer extends ConsumerWidget {
           _drawerItem(context, ref, Icons.history, '対局履歴', const HistoryScreen()),
           _drawerItem(context, ref, Icons.analytics, '統計・分析', const StatsScreen()),
           _drawerItem(context, ref, Icons.groups, 'グループ管理', const GroupScreen()),
+          const Divider(color: Colors.white10),
+          const Padding(
+            padding: EdgeInsets.only(left: 16, top: 16, bottom: 8),
+            child: Text('システム管理', style: TextStyle(color: Colors.white24, fontSize: 11, fontWeight: FontWeight.bold)),
+          ),
+          ListTile(
+            leading: const Icon(Icons.file_upload, color: Colors.orangeAccent, size: 20),
+            title: const Text('データのバックアップ', style: TextStyle(color: Colors.white70, fontSize: 14)),
+            onTap: () => _exportData(context, ref),
+          ),
+          ListTile(
+            leading: const Icon(Icons.file_download, color: Color(0xFF00FFC2), size: 20),
+            title: const Text('データの復元', style: TextStyle(color: Colors.white70, fontSize: 14)),
+            onTap: () {
+              print('DEBUG: 復元ボタン押下');
+              // Webの制限回避のため同期的にクリック
+              final uploadInput = html.FileUploadInputElement()..accept = '.json';
+              uploadInput.click();
+              _importData(context, ref, uploadInput);
+            },
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _exportData(BuildContext context, WidgetRef ref) async {
+    Navigator.pop(context); // Close drawer
+    final db = DatabaseService();
+    final data = await db.exportAllData();
+    final jsonStr = jsonEncode(data);
+    final date = DateTime.now().toString().substring(0, 10).replaceAll('-', '');
+    final filename = 'mahjong_backup_$date.json';
+    
+    final bytes = utf8.encode(jsonStr);
+    final blob = html.Blob([bytes]);
+    final url = html.Url.createObjectUrlFromBlob(blob);
+    final anchor = html.AnchorElement(href: url)
+      ..setAttribute("download", filename)
+      ..click();
+    html.Url.revokeObjectUrl(url);
+    
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('バックアップファイルをダウンロードしました')));
+    }
+  }
+
+  Future<void> _importData(BuildContext context, WidgetRef ref, html.FileUploadInputElement uploadInput) async {
+    uploadInput.onChange.listen((e) async {
+      final files = uploadInput.files;
+      if (files == null || files.isEmpty) return;
+      
+      // ドロワーを即座に閉じる
+      if (context.mounted) Navigator.pop(context);
+
+      try {
+        final completer = Completer<String>();
+        final reader = html.FileReader();
+        reader.onLoadEnd.listen((_) => completer.complete(reader.result as String));
+        reader.onError.listen((e) => completer.completeError('読み取り失敗'));
+        reader.readAsText(files[0]!);
+        final content = await completer.future;
+        
+        final jsonData = jsonDecode(content);
+        if (jsonData is! Map<String, dynamic> || !jsonData.containsKey('sessions') || !jsonData.containsKey('games')) {
+          html.window.alert('無効なファイル形式です。正規のバックアップJSONを選択してください。');
+          return;
+        }
+
+        // ブラウザネイティブの強制確認ダイアログ (Navigator不整合を回避)
+        final confirmed = html.window.confirm('バックアップデータを復旧しますか？\n現時点の全データが上書きされ、アプリが再読み込みされます。');
+        if (!confirmed) return;
+
+        print('DEBUG: ネイティブ復旧プロセス開始');
+        final db = DatabaseService();
+        await db.importAllData(jsonData);
+        
+        // 状態操作(ref.read等)を一切行わず、ブラウザを強制リロードして最新のDBを読み込ませる
+        print('DEBUG: 復元完了 - ブラウザをリロードします');
+        html.window.location.reload();
+        
+      } catch (err) {
+        html.window.alert('エラーが発生しました: $err');
+      }
+    });
   }
 
   Widget _drawerItem(BuildContext context, WidgetRef ref, IconData icon, String title, Widget? screen) {

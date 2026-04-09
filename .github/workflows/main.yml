@@ -30,7 +30,7 @@ jobs:
         run: flutter pub get
 
       - name: Build Web
-        run: flutter build web --release --base-href /mahjong-score/
+        run: flutter build web --profile --base-href /mahjong-score/
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4

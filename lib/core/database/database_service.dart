@@ -633,37 +633,85 @@ class DatabaseService {
 
   // --- Backup & Restore (Ver 3.0) ---
   Future<Map<String, dynamic>> exportAllData() async {
+    final groups = await getGroups();
     final sessions = await getSessions();
     final games = await getGames();
     return {
       'version': '3.0.0',
       'export_date': DateTime.now().toIso8601String(),
+      'groups': groups,
       'sessions': sessions,
       'games': games,
     };
   }
 
   Future<void> importAllData(Map<String, dynamic> data) async {
+    final hasGroups = data.containsKey('groups') && (data['groups'] as List).isNotEmpty;
+    final groupsList = hasGroups ? data['groups'] as List<dynamic> : [];
     final sessionsList = data['sessions'] as List<dynamic>? ?? [];
     final gamesList = data['games'] as List<dynamic>? ?? [];
 
+    // --- 孤児データの正規化 ---
+    // インポートされるグループのID一覧を取得
+    Set<dynamic> validGroupIds = {};
+    if (hasGroups) {
+      validGroupIds = groupsList.map((g) => g['id']).toSet();
+    }
+    
+    // セッションの group_id が存在しないグループを参照している場合、null (フリー対局) に書き換え
+    // (データ内にgroupsが含まれる場合のみチェックを行う)
+    final normalizedSessions = sessionsList.map((s) {
+      final session = Map<String, dynamic>.from(s);
+      final dynamic gid = session['group_id'];
+      if (hasGroups && gid != null && !validGroupIds.contains(gid)) {
+        session['group_id'] = null;
+      }
+      return session;
+    }).toList();
+
     if (kIsWeb) {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('web_db_sessions', jsonEncode(sessionsList));
+      // groupsが含まれる場合のみ上書きする (スマート・リストア)
+      if (hasGroups) {
+        await prefs.setString('web_db_groups', jsonEncode(groupsList));
+      }
+      await prefs.setString('web_db_sessions', jsonEncode(normalizedSessions));
       await prefs.setString('web_db_games', jsonEncode(gamesList));
       return;
     }
 
     final db = await database;
     await db.transaction((txn) async {
-      await txn.delete('sessions');
+      // 外部キー制約を考慮し、子テーブル(games)から順に削除
       await txn.delete('games');
+      await txn.delete('sessions');
       
-      for (var s in sessionsList) {
-        await txn.insert('sessions', Map<String, dynamic>.from(s));
+      // groupsが含まれる場合のみ削除して再登録
+      if (hasGroups) {
+        await txn.delete('groups');
+        // 親テーブル(groups)から順に登録
+        for (var g in groupsList) {
+          await txn.insert(
+            'groups', 
+            Map<String, dynamic>.from(g),
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
+      }
+
+      for (var s in normalizedSessions) {
+        await txn.insert(
+          'sessions', 
+          Map<String, dynamic>.from(s),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
       }
       for (var g in gamesList) {
-        await txn.insert('games', Map<String, dynamic>.from(g));
+        await txn.insert(
+          'games', 
+          Map<String, dynamic>.from(g),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
       }
     });
   }
