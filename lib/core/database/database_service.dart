@@ -637,7 +637,7 @@ class DatabaseService {
     final sessions = await getSessions();
     final games = await getGames();
     return {
-      'version': '3.0.0',
+      'version': '3.1.0',
       'export_date': DateTime.now().toIso8601String(),
       'groups': groups,
       'sessions': sessions,

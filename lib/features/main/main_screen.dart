@@ -67,16 +67,25 @@ class MainScreen extends ConsumerWidget {
 
     return GestureDetector(
       onTap: tab == MainTab.calc ? () => ref.read(calcProvider.notifier).resetGame() : null,
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Text(
-          title,
-          style: GoogleFonts.robotoMono(
-            color: const Color(0xFF00FFC2),
-            fontWeight: FontWeight.bold,
-            fontSize: 22.0,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              title,
+              style: GoogleFonts.robotoMono(
+                color: const Color(0xFF00FFC2),
+                fontWeight: FontWeight.bold,
+                fontSize: 22.0,
+              ),
+            ),
           ),
-        ),
+          const Text(
+            'Ver 3.1.0',
+            style: TextStyle(color: Colors.white38, fontSize: 10),
+          ),
+        ],
       ),
     );
   }
