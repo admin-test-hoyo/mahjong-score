@@ -257,7 +257,7 @@ class CalcNotifier extends Notifier<CalcState> {
     state = state.copyWith(games: newGames, clearSnapshot: true);
   }
 
-  void updateScore(String gameId, int playerId, int score, {bool autoCalc = true}) {
+  void updateScore(String gameId, int playerId, int score) {
     final newGames = state.games.map((game) {
       if (game.id != gameId) return game;
       
@@ -272,23 +272,34 @@ class CalcNotifier extends Notifier<CalcState> {
         return p;
       }).toList();
 
-      // 自動計算ロジック
-      if (autoCalc) {
-        final config = ref.read(configProvider);
-        final enteredInputs = tempInputs.where((p) => p.score != 0 || p.id == playerId).toList();
-        final remainingInputs = tempInputs.where((p) => p.score == 0 && p.id != playerId).toList();
+      tempInputs = _recalculateTobi(tempInputs);
+      return game.copyWith(inputs: tempInputs);
+    }).toList();
+    
+    state = state.copyWith(games: newGames, clearSnapshot: true);
+  }
 
-        if (enteredInputs.length == 3 && remainingInputs.length == 1) {
-          final target = config.targetTotalScore;
-          final currentSum = enteredInputs.fold(0, (s, p) => s + p.score);
-          final remainder = target - currentSum;
-          
-          final targetId = remainingInputs.first.id;
-          tempInputs = tempInputs.map((p) {
-            if (p.id == targetId) return p.copyWith(score: remainder);
-            return p;
-          }).toList();
-        }
+  /// 4人目の残差を計算して適用する (Ver 3.2.2: 遅延評価用)
+  void applyAutoCalculation(String gameId) {
+    final newGames = state.games.map((game) {
+      if (game.id != gameId) return game;
+      
+      final config = ref.read(configProvider);
+      var tempInputs = List<PlayerInput>.from(game.inputs);
+      
+      final enteredInputs = tempInputs.where((p) => p.score != 0).toList();
+      final remainingInputs = tempInputs.where((p) => p.score == 0).toList();
+
+      if (enteredInputs.length == 3 && remainingInputs.length == 1) {
+        final target = config.targetTotalScore;
+        final currentSum = enteredInputs.fold(0, (s, p) => s + p.score);
+        final remainder = target - currentSum;
+        
+        final targetId = remainingInputs.first.id;
+        tempInputs = tempInputs.map((p) {
+          if (p.id == targetId) return p.copyWith(score: remainder);
+          return p;
+        }).toList();
       }
 
       tempInputs = _recalculateTobi(tempInputs);
