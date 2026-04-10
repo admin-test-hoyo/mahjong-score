@@ -64,9 +64,17 @@ class _HistoryBottomSheetState extends ConsumerState<HistoryBottomSheet> {
               fontWeight: FontWeight.bold,
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.close, color: Colors.white54),
-            onPressed: () => Navigator.pop(context),
+          GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.05),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white10),
+              ),
+              child: const Icon(Icons.close, color: Colors.white70, size: 20),
+            ),
           ),
         ],
       ),

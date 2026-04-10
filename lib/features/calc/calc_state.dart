@@ -59,6 +59,7 @@ class CalcState {
   final MahjongRule rule;
   final int? selectedGroupId;
   final int? currentId;
+  final String? sessionDate;
   final String? currentDraft;
   final List<int>? snapshottedMoneys; // Ver 1.9.2: 履歴表示用の固定収支
   final List<Map<String, dynamic>>? possibleGroupMatches; // 追加: マッチ候補
@@ -70,6 +71,7 @@ class CalcState {
     this.rule = const MahjongRule(),
     this.selectedGroupId,
     this.currentId,
+    this.sessionDate,
     this.currentDraft,
     this.snapshottedMoneys,
     this.possibleGroupMatches,
@@ -82,6 +84,7 @@ class CalcState {
     MahjongRule? rule,
     int? selectedGroupId,
     int? currentId,
+    String? sessionDate,
     String? currentDraft,
     bool clearDraft = false,
     List<Map<String, dynamic>>? possibleGroupMatches,
@@ -96,6 +99,7 @@ class CalcState {
       rule: rule ?? this.rule,
       selectedGroupId: selectedGroupId ?? this.selectedGroupId,
       currentId: currentId ?? this.currentId,
+      sessionDate: sessionDate ?? this.sessionDate,
       currentDraft: clearDraft ? null : (currentDraft ?? this.currentDraft),
       snapshottedMoneys: clearSnapshot ? null : (snapshottedMoneys ?? this.snapshottedMoneys),
       possibleGroupMatches: clearMatches ? null : (possibleGroupMatches ?? this.possibleGroupMatches),
@@ -111,6 +115,7 @@ class CalcState {
     'rule': rule.toJson(),
     'selectedGroupId': selectedGroupId,
     'currentId': currentId,
+    'sessionDate': sessionDate,
     'currentDraft': currentDraft,
     'snapshottedMoneys': snapshottedMoneys,
   };
@@ -123,6 +128,7 @@ class CalcState {
       rule: json['rule'] != null ? MahjongRule.fromJson(json['rule'] as Map<String, dynamic>) : const MahjongRule(),
       selectedGroupId: json['selectedGroupId'] as int?,
       currentId: json['currentId'] as int?,
+      sessionDate: json['sessionDate'] as String?,
       currentDraft: json['currentDraft'] as String?,
       snapshottedMoneys: (json['snapshottedMoneys'] as List<dynamic>?)?.map((e) => e as int).toList(),
     );
@@ -623,6 +629,7 @@ class CalcNotifier extends Notifier<CalcState> {
 
     state = state.copyWith(
       currentId: session.id,
+      sessionDate: session.date,
       playerNames: session.playerNames,
       globalChips: loadedGlobalChips,
       games: newGames,

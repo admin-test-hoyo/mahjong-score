@@ -87,6 +87,7 @@ class CalcScreen extends ConsumerWidget {
       child: Column(
         children: [
           _buildQuickRuleBar(context, ref),
+          _buildEditingModeBanner(context, ref),
           Expanded(child: _buildMainDataTable(context, ref)),
           _buildBottomSummaryFooter(context, ref),
         ],
@@ -231,7 +232,66 @@ class CalcScreen extends ConsumerWidget {
           const SizedBox(width: 12),
           _quickField(label: '場代', value: displayFee.toString(), onChanged: (v) => ref.read(calcProvider.notifier).updateRuleGameFee(int.tryParse(v) ?? 0), width: 80),
           const Spacer(),
-          const Text('Ver 4.0.0 (SPA)', style: TextStyle(color: Colors.white12, fontSize: 9)),
+          const Text('Ver 3.1.2', style: TextStyle(color: Colors.white12, fontSize: 9)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEditingModeBanner(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(calcProvider);
+    if (state.currentId == null) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFF9100).withValues(alpha: 0.15), // Cinematic Deep Orange
+        border: const Border(bottom: BorderSide(color: Colors.orangeAccent, width: 0.5)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.edit_note, color: Colors.orangeAccent, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                '履歴編集モード中: ${state.sessionDate ?? "不明な日付"}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => _confirmReset(context, ref),
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.white54),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(Icons.close, color: Colors.white, size: 14),
+                    SizedBox(width: 4),
+                    Text(
+                      '編集を終了',
+                      style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );

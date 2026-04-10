@@ -82,7 +82,7 @@ class MainScreen extends ConsumerWidget {
             ),
           ),
           const Text(
-            'Ver 3.1.0',
+            'Ver 3.1.2',
             style: TextStyle(color: Colors.white38, fontSize: 10),
           ),
         ],
@@ -93,10 +93,6 @@ class MainScreen extends ConsumerWidget {
   List<Widget> _buildActions(BuildContext context, WidgetRef ref, MainTab tab) {
     if (tab == MainTab.calc) {
       return [
-        IconButton(
-          icon: const Icon(Icons.history, color: Color(0xFF00FFC2), size: 18),
-          onPressed: () => _openHistoryBottomSheet(context, ref),
-        ),
         IconButton(
           icon: const Icon(Icons.settings, color: Color(0xFF00FFC2), size: 18),
           onPressed: () => CalcScreen.showSettings(context, ref),
@@ -136,29 +132,6 @@ class MainScreen extends ConsumerWidget {
     );
   }
 
-  void _showHistoryFilter(BuildContext context, WidgetRef ref) async {
-    final currentRange = ref.read(historyFilterProvider);
-    final picked = await showDateRangePicker(
-      context: context,
-      initialDateRange: currentRange,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 1)),
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.dark(
-            primary: Color(0xFF00BFA5),
-            onPrimary: Colors.white,
-            surface: Color(0xFF001F1A),
-            onSurface: Colors.white,
-          ),
-        ),
-        child: child!,
-      ),
-    );
-    if (picked != null) {
-      ref.read(historyFilterProvider.notifier).setFilter(picked);
-    }
-  }
 
   void _showHistoryCleanup(BuildContext context, WidgetRef ref) {
     showModalBottomSheet(
@@ -261,7 +234,6 @@ class MainScreen extends ConsumerWidget {
           _drawerItem(context, ref, Icons.group, 'グループ管理', MainTab.groups, currentTab),
           const Spacer(),
           const Divider(color: Colors.white10),
-          _drawerAction(context, ref, Icons.date_range, '期間フィルター', () => _showHistoryFilter(context, ref)),
           _drawerAction(context, ref, Icons.delete_sweep, '履歴クリーンアップ', () => _showHistoryCleanup(context, ref)),
           const Divider(color: Colors.white10),
           _drawerAction(context, ref, Icons.download, 'バックアップ保存', () => CalcScreen.exportData(context, ref)),
