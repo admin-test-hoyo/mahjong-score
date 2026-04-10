@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'dart:convert';
 import '../../core/database/database_service.dart';
 import '../../core/models/db_models.dart';
 import 'stats_providers.dart';
@@ -383,10 +382,10 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
             sortColumnIndex: _sortColumnIndex,
             sortAscending: _sortAscending,
             headingRowColor: WidgetStateProperty.all(
-                const Color(0xFF00BFA5).withOpacity(0.15)),
+                const Color(0xFF00BFA5).withValues(alpha: 0.15)),
             dataRowColor: WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.selected)) {
-                return const Color(0xFF00FFC2).withOpacity(0.05);
+                return const Color(0xFF00FFC2).withValues(alpha: 0.05);
               }
               return Colors.transparent;
             }),
@@ -519,7 +518,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                    DataCell(Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
-                      color: scoreColor.withOpacity(0.1),
+                      color: scoreColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
@@ -574,7 +573,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
       width: 20,
       height: 20,
       decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
+        color: color.withValues(alpha: 0.2),
         border: Border.all(color: color, width: 1),
         borderRadius: BorderRadius.circular(4),
       ),
@@ -600,7 +599,6 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
   Widget _buildGeneralStats(Map<String, dynamic> stats) {
     if (_selectedPlayer == null) return const SizedBox.shrink();
 
-    final totalGames = stats['games'] as int? ?? 0;
     final totalPt = stats['totalPt'] as int? ?? 0;
     final totalChips = stats['totalChip'] as int? ?? 0;
     final totalMoney = stats['totalMoney'] as int? ?? 0;
@@ -793,7 +791,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
               dotData: const FlDotData(show: false),
               belowBarData: BarAreaData(
                   show: true,
-                  color: const Color(0xFF00FFC2).withOpacity(0.1)),
+                  color: const Color(0xFF00FFC2).withValues(alpha: 0.1)),
             ),
           ],
         ),

@@ -1,0 +1,40 @@
+﻿Analyzing lib...                                                
+
+   info - Don't invoke 'print' in production code - lib\core\database\database_service.dart:28:7 - avoid_print
+   info - The 'if' statement could be replaced by a null-aware assignment - lib\core\database\database_service.dart:225:7 - prefer_conditional_assignment
+   info - Use the null-aware marker '?' rather than a null check via an 'if' - lib\core\database\database_service.dart:283:75 - use_null_aware_elements
+   info - Unnecessary escape in string literal - lib\core\database\database_service.dart:438:28 - unnecessary_string_escapes
+   info - Unnecessary escape in string literal - lib\core\database\database_service.dart:502:31 - unnecessary_string_escapes
+   info - Unnecessary escape in string literal - lib\core\database\database_service.dart:506:58 - unnecessary_string_escapes
+   info - Unnecessary escape in string literal - lib\core\database\database_service.dart:507:62 - unnecessary_string_escapes
+   info - Unnecessary escape in string literal - lib\core\database\database_service.dart:508:31 - unnecessary_string_escapes
+   info - Unnecessary escape in string literal - lib\core\database\database_service.dart:512:23 - unnecessary_string_escapes
+   info - Unnecessary escape in string literal - lib\core\database\database_service.dart:556:44 - unnecessary_string_escapes
+   info - Unnecessary escape in string literal - lib\core\database\database_service.dart:570:44 - unnecessary_string_escapes
+   info - Use 'isNotEmpty' instead of 'length' to test whether the collection is empty - lib\core\models\db_models.dart:185:42 - prefer_is_empty
+warning - Unused import: '../../core/database/database_providers.dart' - lib\features\calc\calc_screen.dart:9:8 - unused_import
+warning - Duplicate import - lib\features\calc\calc_screen.dart:14:8 - duplicate_import
+warning - The value of the local variable 'anchor' isn't used - lib\features\calc\calc_screen.dart:171:11 - unused_local_variable
+warning - The '!' will have no effect because the receiver can't be null - lib\features\calc\calc_screen.dart:191:35 - unnecessary_non_null_assertion
+   info - 'MaterialStateProperty' is deprecated and shouldn't be used. Use WidgetStateProperty instead. Moved to the Widgets layer to make code available outside of Material. This feature was deprecated after v3.19.0-0.3.pre - lib\features\calc\calc_screen.dart:293:30 - deprecated_member_use
+   info - Statements in a for should be enclosed in a block - lib\features\calc\calc_screen.dart:371:29 - curly_braces_in_flow_control_structures
+warning - Unused import: 'package:flutter/foundation.dart' - lib\features\calc\calc_state.dart:2:8 - unused_import
+warning - Unused import: 'package:shared_preferences/shared_preferences.dart' - lib\features\calc\calc_state.dart:4:8 - unused_import
+warning - The value of the local variable 'completedCount' isn't used - lib\features\calc\calc_state.dart:456:17 - unused_local_variable
+warning - The value of the local variable 'addChips' isn't used - lib\features\calc\calc_state.dart:514:15 - unused_local_variable
+   info - Don't invoke 'print' in production code - lib\features\calc\calc_state.dart:577:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\calc\calc_state.dart:601:9 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\calc\calc_state.dart:689:9 - avoid_print
+warning - Unused import: '../calc/calc_state.dart' - lib\features\history\history_providers.dart:8:8 - unused_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\history\history_screen.dart:156:29 - deprecated_member_use
+   info - Unnecessary use of multiple underscores - lib\features\stats\stats_screen.dart:163:38 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\stats\stats_screen.dart:164:41 - unnecessary_underscores
+warning - The value of the local variable 'totalGames' isn't used - lib\features\stats\stats_screen.dart:602:11 - unused_local_variable
+
+flutter : 30 issues found. (ran in 2.1s)
+発生場所 行:1 文字:1
++ flutter analyze lib/ > analyze_report_lib.txt 2>&1
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (30 issues found. (ran in 2.1s):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 

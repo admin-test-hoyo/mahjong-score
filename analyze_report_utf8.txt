@@ -1,0 +1,52 @@
+﻿Analyzing lib...                                                
+
+   info - Don't invoke 'print' in production code - lib\core\database\database_service.dart:28:7 - avoid_print
+   info - The 'if' statement could be replaced by a null-aware assignment - lib\core\database\database_service.dart:225:7 - prefer_conditional_assignment
+   info - Use the null-aware marker '?' rather than a null check via an 'if' - lib\core\database\database_service.dart:283:75 - use_null_aware_elements
+   info - Unnecessary escape in string literal - lib\core\database\database_service.dart:438:28 - unnecessary_string_escapes
+   info - Unnecessary escape in string literal - lib\core\database\database_service.dart:502:31 - unnecessary_string_escapes
+   info - Unnecessary escape in string literal - lib\core\database\database_service.dart:506:58 - unnecessary_string_escapes
+   info - Unnecessary escape in string literal - lib\core\database\database_service.dart:507:62 - unnecessary_string_escapes
+   info - Unnecessary escape in string literal - lib\core\database\database_service.dart:508:31 - unnecessary_string_escapes
+   info - Unnecessary escape in string literal - lib\core\database\database_service.dart:512:23 - unnecessary_string_escapes
+   info - Unnecessary escape in string literal - lib\core\database\database_service.dart:556:44 - unnecessary_string_escapes
+   info - Unnecessary escape in string literal - lib\core\database\database_service.dart:570:44 - unnecessary_string_escapes
+   info - Use 'isNotEmpty' instead of 'length' to test whether the collection is empty - lib\core\models\db_models.dart:185:42 - prefer_is_empty
+warning - The value of the local variable 'state' isn't used - lib\features\calc\calc_screen.dart:46:11 - unused_local_variable
+  error - Undefined name 'historyProvider' - lib\features\calc\calc_screen.dart:135:20 - undefined_identifier
+warning - The value of the local variable 'anchor' isn't used - lib\features\calc\calc_screen.dart:172:11 - unused_local_variable
+warning - The '!' will have no effect because the receiver can't be null - lib\features\calc\calc_screen.dart:192:35 - unnecessary_non_null_assertion
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\calc\calc_screen.dart:225:53 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\calc\calc_screen.dart:290:174 - deprecated_member_use
+   info - 'MaterialStateProperty' is deprecated and shouldn't be used. Use WidgetStateProperty instead. Moved to the Widgets layer to make code available outside of Material. This feature was deprecated after v3.19.0-0.3.pre - lib\features\calc\calc_screen.dart:294:30 - deprecated_member_use
+   info - Statements in a for should be enclosed in a block - lib\features\calc\calc_screen.dart:372:29 - curly_braces_in_flow_control_structures
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\calc\calc_screen.dart:429:369 - deprecated_member_use
+warning - Unused import: 'package:flutter/foundation.dart' - lib\features\calc\calc_state.dart:2:8 - unused_import
+warning - Unused import: 'package:shared_preferences/shared_preferences.dart' - lib\features\calc\calc_state.dart:4:8 - unused_import
+  error - Directives must appear before any declarations - lib\features\calc\calc_state.dart:16:1 - directive_after_declaration
+warning - The value of the local variable 'completedCount' isn't used - lib\features\calc\calc_state.dart:457:17 - unused_local_variable
+warning - The value of the local variable 'addChips' isn't used - lib\features\calc\calc_state.dart:515:15 - unused_local_variable
+   info - Don't invoke 'print' in production code - lib\features\calc\calc_state.dart:578:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\calc\calc_state.dart:602:9 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\calc\calc_state.dart:690:9 - avoid_print
+warning - Unused import: '../calc/calc_state.dart' - lib\features\group\group_screen.dart:6:8 - unused_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\group\group_screen.dart:115:146 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\group\group_screen.dart:269:39 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\group\group_screen.dart:298:62 - deprecated_member_use
+  error - The function 'StateProvider' isn't defined - lib\features\history\history_providers.dart:106:31 - undefined_function
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\history\history_screen.dart:128:37 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\history\history_screen.dart:157:29 - deprecated_member_use
+  error - Undefined name 'calcProvider' - lib\features\history\history_screen.dart:165:20 - undefined_identifier
+  error - Undefined name 'calcProvider' - lib\features\main\main_screen.dart:21:33 - undefined_identifier
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\main\main_screen.dart:28:39 - deprecated_member_use
+  error - Undefined name 'calcProvider' - lib\features\main\main_screen.dart:69:51 - undefined_identifier
+warning - Unused import: 'dart:convert' - lib\features\stats\stats_screen.dart:5:8 - unused_import
+   info - Unnecessary use of multiple underscores - lib\features\stats\stats_screen.dart:164:38 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\stats\stats_screen.dart:165:41 - unnecessary_underscores
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\stats\stats_screen.dart:386:41 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\stats\stats_screen.dart:389:48 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\stats\stats_screen.dart:522:41 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\stats\stats_screen.dart:577:22 - deprecated_member_use
+warning - The value of the local variable 'totalGames' isn't used - lib\features\stats\stats_screen.dart:603:11 - unused_local_variable
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\stats\stats_screen.dart:796:50 - deprecated_member_use
+

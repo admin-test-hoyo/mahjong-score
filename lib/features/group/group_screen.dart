@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/database/database_service.dart';
-import '../calc/calc_state.dart';
+import '../calc/calc_providers.dart';
 import '../../core/database/database_providers.dart';
 import '../stats/stats_providers.dart';
 
@@ -111,7 +111,7 @@ class _GroupScreenState extends ConsumerState<GroupScreen> {
                               _actionIcon(isSelected ? Icons.radio_button_checked : Icons.radio_button_off, isSelected ? '選択解除' : 'グループ選択', () {
                                 notifier.state = state.copyWith(selectedGroupId: isSelected ? null : groupId);
                               }, color: isSelected ? const Color(0xFF00FFC2) : null),
-                              _actionIcon(Icons.delete_outline, '削除', () => _confirmDeleteGroup(groupId, group['name']), color: Colors.redAccent.withOpacity(0.8)),
+                              _actionIcon(Icons.delete_outline, '削除', () => _confirmDeleteGroup(groupId, group['name']), color: Colors.redAccent.withValues(alpha: 0.8)),
                             ],
                           ),
                         ),
@@ -265,7 +265,7 @@ class _MemberEditScreenState extends State<MemberEditScreen> {
       backgroundColor: const Color(0xFF004D40),
       appBar: AppBar(
         title: Text('${widget.groupName} のメンバー', style: GoogleFonts.robotoMono(color: const Color(0xFF00FFC2), fontWeight: FontWeight.bold, fontSize: 22)),
-        backgroundColor: Colors.black.withOpacity(0.3),
+        backgroundColor: Colors.black.withValues(alpha: 0.3),
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white70),
       ),
@@ -294,7 +294,7 @@ class _MemberEditScreenState extends State<MemberEditScreen> {
                 const SizedBox(width: 12),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF00FFC2).withOpacity(0.1),
+                    backgroundColor: const Color(0xFF00FFC2).withValues(alpha: 0.1),
                     foregroundColor: const Color(0xFF00FFC2),
                     padding: const EdgeInsets.all(12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),

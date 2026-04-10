@@ -1,20 +1,17 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/material.dart';
 import '../../core/calculator.dart';
 import '../../core/models/app_config.dart';
 import '../../core/database/database_service.dart';
 import '../../core/models/db_models.dart';
-import '../history/history_screen.dart';
+import '../history/history_providers.dart';
 import '../stats/stats_providers.dart';
 
-enum SaveResult { registered, updated, failed }
+import 'calc_providers.dart';
 
-final sharedPrefsProvider = Provider<SharedPreferences>((ref) {
-  throw UnimplementedError();
-});
+enum SaveResult { registered, updated, failed }
 
 class GameRecord {
   final String id;
@@ -255,7 +252,6 @@ class CalcNotifier extends Notifier<CalcState> {
   }
 
   void updateScore(String gameId, int playerId, int score) {
-    
     final newGames = state.games.map((game) {
       if (game.id != gameId) return game;
       
@@ -455,7 +451,6 @@ class CalcNotifier extends Notifier<CalcState> {
       if (calculatedGames.isEmpty) return SaveResult.failed;
 
       // フッターUIと同一のロジックでセッション全体の収支を確定（一括計算・一回丸め）
-      final int completedCount = calculatedGames.length;
       final List<int> ptTotals = [0, 0, 0, 0];
       final List<int> chipTotals = [0, 0, 0, 0];
       for (var cg in calculatedGames) {
@@ -513,7 +508,6 @@ class CalcNotifier extends Notifier<CalcState> {
         final g = cg['game'] as GameRecord;
         final result = cg['result'] as List<PlayerResult>;
         final gameMoneys = cg['moneys'] as Map<String, int>;
-        final addChips = cg['addChips'] as List<int>;
 
         final Map<String, dynamic> row = {
           'session_id': sessionId,
@@ -695,9 +689,7 @@ class CalcNotifier extends Notifier<CalcState> {
   }
 }
 
-final calcProvider = NotifierProvider<CalcNotifier, CalcState>(() {
-  return CalcNotifier();
-});
+// Providers moved to calc_providers.dart
 
 class ConfigNotifier extends Notifier<AppConfig> {
   @override
@@ -767,6 +759,4 @@ class ConfigNotifier extends Notifier<AppConfig> {
   }
 }
 
-final configProvider = NotifierProvider<ConfigNotifier, AppConfig>(() {
-  return ConfigNotifier();
-});
+// Providers moved to calc_providers.dart

@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'dart:async';
+import 'calc_providers.dart';
+import '../history/history_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -42,7 +44,6 @@ class CalcScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(calcProvider);
 
     // グループの自動判別ダイアログの監視
     ref.listen<List<Map<String, dynamic>>?>(
@@ -221,7 +222,7 @@ class CalcScreen extends ConsumerWidget {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(color: Colors.black.withOpacity(0.2), border: const Border(bottom: BorderSide(color: Colors.white10))),
+      decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.2), border: const Border(bottom: BorderSide(color: Colors.white10))),
       child: Row(
         children: [
           _quickField(label: 'レート', value: displayRate.toString(), onChanged: (v) => ref.read(calcProvider.notifier).updateRuleRate(double.tryParse(v) ?? 0), width: 60),
@@ -286,11 +287,11 @@ class CalcScreen extends ConsumerWidget {
                     }
                     return DataCell(SizedBox(width: pWidth, child: Center(child: Text(val, style: GoogleFonts.robotoMono(color: col, fontWeight: results != null ? FontWeight.bold : FontWeight.normal)))));
                   }),
-                  DataCell(SizedBox(width: ctrlWidth, child: Center(child: Icon(isValid ? Icons.check_circle : Icons.error_outline, color: isValid ? const Color(0xFF00FFC2).withOpacity(0.3) : Colors.redAccent, size: 16)))),
+                  DataCell(SizedBox(width: ctrlWidth, child: Center(child: Icon(isValid ? Icons.check_circle : Icons.error_outline, color: isValid ? const Color(0xFF00FFC2).withValues(alpha: 0.3) : Colors.redAccent, size: 16)))),
                   DataCell(SizedBox(width: ctrlWidth, child: Center(child: IconButton(padding: EdgeInsets.zero, constraints: const BoxConstraints(), icon: const Icon(Icons.delete_outline, color: Colors.white24, size: 16), onPressed: () => ref.read(calcProvider.notifier).deleteGame(game.id))))),
                 ]);
               }),
-              DataRow(color: MaterialStateProperty.all(Colors.black12), cells: [
+              DataRow(color: WidgetStateProperty.all(const Color(0xFF00FFC2).withValues(alpha: 0.1)), cells: [
                 const DataCell(Center(child: Icon(Icons.stars, color: Colors.orangeAccent, size: 14))),
                 ...List.generate(4, (i) => DataCell(SizedBox(
                   width: pWidth, 
@@ -425,7 +426,7 @@ class SettingsModal extends ConsumerWidget {
         const SizedBox(height: 32),
     ]));
   }
-  Widget _field(WidgetRef ref, String l, String i, Function(String) o, {String? suffixText}) => TextFormField(initialValue: i, keyboardType: TextInputType.number, style: const TextStyle(color: Colors.white, fontSize: 14), decoration: InputDecoration(labelText: l, labelStyle: const TextStyle(color: Colors.white38, fontSize: 11), filled: true, fillColor: Colors.white.withOpacity(0.04), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none), suffixText: suffixText), onChanged: o);
+  Widget _field(WidgetRef ref, String l, String i, Function(String) o, {String? suffixText}) => TextFormField(initialValue: i, keyboardType: TextInputType.number, style: const TextStyle(color: Colors.white, fontSize: 14), decoration: InputDecoration(labelText: l, labelStyle: const TextStyle(color: Colors.white38, fontSize: 11), filled: true, fillColor: Colors.white.withValues(alpha: 0.04), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none), suffixText: suffixText), onChanged: o);
 }
 
 class PlayerNameField extends ConsumerStatefulWidget {

@@ -1,22 +1,16 @@
+import '../calc/calc_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
 import '../calc/calc_screen.dart';
 import '../history/history_screen.dart';
 import '../stats/stats_screen.dart';
 import '../group/group_screen.dart';
 import '../calc/calc_state.dart';
+import 'main_providers.dart';
+import '../history/history_providers.dart';
 
-enum MainTab { calc, history, stats, groups }
-
-class NavigationNotifier extends Notifier<MainTab> {
-  @override
-  MainTab build() => MainTab.calc;
-  void setTab(MainTab tab) => state = tab;
-}
-
-final navigationProvider = NotifierProvider<NavigationNotifier, MainTab>(NavigationNotifier.new);
+// Navigation definitions moved to main_providers.dart
 
 class MainScreen extends ConsumerWidget {
   const MainScreen({super.key});
@@ -31,16 +25,15 @@ class MainScreen extends ConsumerWidget {
       appBar: AppBar(
         leading: _buildLeading(context, ref, currentTab, calcState),
         title: _buildTitle(context, ref, currentTab, calcState),
-        backgroundColor: Colors.black.withOpacity(0.3),
+        backgroundColor: Colors.black.withValues(alpha: 0.3),
         elevation: 0,
         actions: _buildActions(context, ref, currentTab),
       ),
       drawer: _buildDrawer(context, ref, currentTab),
       body: IndexedStack(
-        index: currentTab.index,
+        index: _getTabIndex(currentTab),
         children: const [
           CalcScreen(),
-          HistoryScreen(),
           StatsScreen(),
           GroupScreen(),
         ],
@@ -48,13 +41,16 @@ class MainScreen extends ConsumerWidget {
     );
   }
 
-  Widget? _buildLeading(BuildContext context, WidgetRef ref, MainTab tab, CalcState calcState) {
-    if (tab == MainTab.calc && calcState.currentId != null) {
-      return IconButton(
-        icon: const Icon(Icons.arrow_back, color: Color(0xFF00FFC2)),
-        onPressed: () => ref.read(navigationProvider.notifier).setTab(MainTab.history),
-      );
+  int _getTabIndex(MainTab tab) {
+    switch (tab) {
+      case MainTab.calc: return 0;
+      case MainTab.stats: return 1;
+      case MainTab.groups: return 2;
+      default: return 0;
     }
+  }
+
+  Widget? _buildLeading(BuildContext context, WidgetRef ref, MainTab tab, CalcState calcState) {
     return Builder(
       builder: (context) => IconButton(
         icon: const Icon(Icons.menu, color: Color(0xFF00FFC2)),
@@ -65,10 +61,9 @@ class MainScreen extends ConsumerWidget {
 
   Widget _buildTitle(BuildContext context, WidgetRef ref, MainTab tab, CalcState calcState) {
     String title = '麻雀スコア表';
-    if (tab == MainTab.history) title = '対局履歴';
     if (tab == MainTab.stats) title = '統計・分析';
     if (tab == MainTab.groups) title = 'グループ管理';
-    if (tab == MainTab.calc && calcState.currentId != null) title = '麻雀スコア表(履歴)';
+    if (tab == MainTab.calc && calcState.currentId != null) title = '麻雀スコア表(履歴編集)';
 
     return GestureDetector(
       onTap: tab == MainTab.calc ? () => ref.read(calcProvider.notifier).resetGame() : null,
@@ -90,6 +85,10 @@ class MainScreen extends ConsumerWidget {
     if (tab == MainTab.calc) {
       return [
         IconButton(
+          icon: const Icon(Icons.history, color: Color(0xFF00FFC2), size: 18),
+          onPressed: () => _openHistoryBottomSheet(context, ref),
+        ),
+        IconButton(
           icon: const Icon(Icons.settings, color: Color(0xFF00FFC2), size: 18),
           onPressed: () => CalcScreen.showSettings(context, ref),
         ),
@@ -104,19 +103,6 @@ class MainScreen extends ConsumerWidget {
         const SizedBox(width: 8),
       ];
     }
-    if (tab == MainTab.history) {
-      return [
-        IconButton(
-          icon: const Icon(Icons.date_range, color: Color(0xFF00FFC2), size: 18),
-          onPressed: () => _showHistoryFilter(context, ref),
-        ),
-        IconButton(
-          icon: const Icon(Icons.delete_sweep, color: Color(0xFF00FFC2), size: 18),
-          onPressed: () => _showHistoryCleanup(context, ref),
-        ),
-        const SizedBox(width: 8),
-      ];
-    }
     if (tab == MainTab.groups) {
       return [
         IconButton(
@@ -127,6 +113,18 @@ class MainScreen extends ConsumerWidget {
       ];
     }
     return [];
+  }
+
+  void _openHistoryBottomSheet(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 20),
+        child: const HistoryBottomSheet(),
+      ),
+    );
   }
 
   void _showHistoryFilter(BuildContext context, WidgetRef ref) async {
@@ -149,7 +147,7 @@ class MainScreen extends ConsumerWidget {
       ),
     );
     if (picked != null) {
-      ref.read(historyFilterProvider.notifier).state = picked;
+      ref.read(historyFilterProvider.notifier).setFilter(picked);
     }
   }
 
@@ -242,10 +240,20 @@ class MainScreen extends ConsumerWidget {
             ),
           ),
           _drawerItem(context, ref, Icons.calculate, 'スコア計算', MainTab.calc, currentTab),
-          _drawerItem(context, ref, Icons.history, '対局履歴', MainTab.history, currentTab),
+          ListTile(
+            leading: const Icon(Icons.history, color: Colors.white38, size: 20),
+            title: const Text('対局履歴', style: TextStyle(color: Colors.white70, fontSize: 14)),
+            onTap: () {
+              Navigator.pop(context);
+              _openHistoryBottomSheet(context, ref);
+            },
+          ),
           _drawerItem(context, ref, Icons.bar_chart, '統計・分析', MainTab.stats, currentTab),
           _drawerItem(context, ref, Icons.group, 'グループ管理', MainTab.groups, currentTab),
           const Spacer(),
+          const Divider(color: Colors.white10),
+          _drawerAction(context, ref, Icons.date_range, '期間フィルター', () => _showHistoryFilter(context, ref)),
+          _drawerAction(context, ref, Icons.delete_sweep, '履歴クリーンアップ', () => _showHistoryCleanup(context, ref)),
           const Divider(color: Colors.white10),
           _drawerAction(context, ref, Icons.download, 'バックアップ保存', () => CalcScreen.exportData(context, ref)),
           _drawerAction(context, ref, Icons.upload, 'データ復元', () => CalcScreen.importData(context, ref)),
