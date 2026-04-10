@@ -232,7 +232,7 @@ class CalcScreen extends ConsumerWidget {
           const SizedBox(width: 12),
           _quickField(label: '場代', value: displayFee.toString(), onChanged: (v) => ref.read(calcProvider.notifier).updateRuleGameFee(int.tryParse(v) ?? 0), width: 80),
           const Spacer(),
-          const Text('Ver 3.1.3', style: TextStyle(color: Colors.white12, fontSize: 9)),
+          const Text('Ver 3.2.0', style: TextStyle(color: Colors.white12, fontSize: 9)),
         ],
       ),
     );
@@ -378,14 +378,74 @@ class CalcScreen extends ConsumerWidget {
   }
 
   void _showEditModal(BuildContext context, WidgetRef ref, GameRecord game) {
-    showModalBottomSheet(context: context, backgroundColor: const Color(0xFF001F1A), isScrollControlled: true, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (context) => Consumer(builder: (context, ref, child) {
+    showModalBottomSheet(
+      context: context, 
+      backgroundColor: const Color(0xFF001F1A), 
+      isScrollControlled: true, 
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), 
+      builder: (context) => Consumer(builder: (context, ref, child) {
         final updatedGame = ref.watch(calcProvider).games.firstWhere((g) => g.id == game.id);
-        return Padding(padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 16, right: 16, top: 24), child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const SizedBox(width: 48), Text('スコア編集', style: GoogleFonts.robotoMono(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)), IconButton(icon: const Icon(Icons.cleaning_services, color: Colors.white38, size: 20), onPressed: () => ref.read(calcProvider.notifier).resetGameRecord(game.id))]),
-            const Divider(color: Colors.white10),
-            ...updatedGame.inputs.map((p) => PlayerInputCard(gameId: game.id, player: p, showYakuman: (id) => _showYakumanDialog(context, ref, updatedGame, id), showTobi: (id) => _showTobiDialog(context, ref, updatedGame, id))), 
-            const SizedBox(height: 16)]));
-    }));
+        
+        // 順位（Rank）を計算
+        final sortedInputs = List<PlayerInput>.from(updatedGame.inputs)
+          ..sort((a, b) {
+            if (b.score != a.score) return b.score.compareTo(a.score);
+            return a.id.compareTo(b.id); // タイブレーク: ID
+          });
+          
+        final Map<int, int> playerRanks = {
+          for (int i = 0; i < sortedInputs.length; i++) sortedInputs[i].id: i
+        };
+
+        const double cardHeight = 68.0;
+        const double spacing = 8.0;
+
+        return Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 16, right: 16, top: 24), 
+          child: Column(
+            mainAxisSize: MainAxisSize.min, 
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween, 
+                children: [
+                  const SizedBox(width: 48), 
+                  Text('スコア編集', style: GoogleFonts.robotoMono(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)), 
+                  IconButton(
+                    icon: const Icon(Icons.cleaning_services, color: Colors.white38, size: 20), 
+                    onPressed: () => ref.read(calcProvider.notifier).resetGameRecord(game.id)
+                  )
+                ]
+              ),
+              const Divider(color: Colors.white10),
+              SizedBox(
+                height: (cardHeight + spacing) * 4,
+                child: Stack(
+                  children: updatedGame.inputs.map((p) {
+                    final rankIndex = playerRanks[p.id]!;
+                    return AnimatedPositioned(
+                      key: ValueKey('player_card_${p.id}'),
+                      duration: const Duration(milliseconds: 500),
+                      curve: Curves.easeInOutCubic,
+                      top: rankIndex * (cardHeight + spacing),
+                      left: 0,
+                      right: 0,
+                      child: PlayerInputCard(
+                        gameId: game.id, 
+                        player: p, 
+                        showYakuman: (id) => _showYakumanDialog(context, ref, updatedGame, id), 
+                        showTobi: (id) => _showTobiDialog(context, ref, updatedGame, id),
+                        cardHeight: cardHeight,
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+              const SizedBox(height: 16)
+            ]
+          )
+        );
+      })
+    );
   }
 
   void _showYakumanDialog(BuildContext context, WidgetRef ref, GameRecord game, int winnerId) {
@@ -505,27 +565,87 @@ class _PlayerNameFieldState extends ConsumerState<PlayerNameField> {
 class PlayerInputCard extends ConsumerStatefulWidget {
   final String gameId; final PlayerInput player;
   final Function(int) showYakuman; final Function(int) showTobi;
-  const PlayerInputCard({super.key, required this.gameId, required this.player, required this.showYakuman, required this.showTobi});
+  final double cardHeight;
+  const PlayerInputCard({super.key, required this.gameId, required this.player, required this.showYakuman, required this.showTobi, required this.cardHeight});
   @override ConsumerState<PlayerInputCard> createState() => _PlayerInputCardState();
 }
-class _PlayerInputCardState extends ConsumerState<PlayerInputCard> {
+class _PlayerInputCardState extends ConsumerState<PlayerInputCard> with SingleTickerProviderStateMixin {
   late TextEditingController _s;
-  @override void initState() { super.initState(); _s = TextEditingController(text: widget.player.score == 0 ? '' : widget.player.score.toString()); }
-  @override void didUpdateWidget(PlayerInputCard old) { super.didUpdateWidget(old); if (old.player.score != widget.player.score) { if (widget.player.score != (int.tryParse(_s.text) ?? 0)) _s.text = widget.player.score == 0 ? '' : widget.player.score.toString(); } }
-  @override void dispose() { _s.dispose(); super.dispose(); }
+  late AnimationController _glowController;
+  int _lastScore = 0;
+
+  @override void initState() { 
+    super.initState(); 
+    _s = TextEditingController(text: widget.player.score == 0 ? '' : widget.player.score.toString()); 
+    _lastScore = widget.player.score;
+    _glowController = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
+  }
+
+  @override void didUpdateWidget(PlayerInputCard old) { 
+    super.didUpdateWidget(old); 
+    if (old.player.score != widget.player.score) { 
+      if (widget.player.score != (int.tryParse(_s.text) ?? 0)) {
+        _s.text = widget.player.score == 0 ? '' : widget.player.score.toString(); 
+      }
+      // スコア変動時にグローアニメーション
+      if (widget.player.score != _lastScore) {
+        _glowController.forward(from: 0).then((_) => _glowController.reverse());
+        _lastScore = widget.player.score;
+      }
+    } 
+  }
+  @override void dispose() { _s.dispose(); _glowController.dispose(); super.dispose(); }
+
   @override Widget build(BuildContext context) {
     final state = ref.watch(calcProvider); final game = state.games.firstWhere((g) => g.id == widget.gameId);
     final oya = game.startingOyaIndex == widget.player.id - 1; final wind = ['東', '南', '西', '北'][((widget.player.id - 1) - game.startingOyaIndex + 4) % 4];
     final tPt = widget.player.tobiPt; final yPt = widget.player.yakumanPt;
-    return Container(margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), decoration: BoxDecoration(color: const Color(0xFF002922), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white10)), child: Row(children: [
-        GestureDetector(onTap: () => ref.read(calcProvider.notifier).setStartingOya(widget.gameId, widget.player.id - 1), child: Container(width: 28, height: 28, decoration: BoxDecoration(shape: BoxShape.circle, color: oya ? const Color(0xFF00FFC2) : Colors.transparent, border: Border.all(color: oya ? const Color(0xFF00FFC2) : Colors.white24)), child: Center(child: Text(wind, style: TextStyle(color: oya ? const Color(0xFF004D40) : Colors.white, fontSize: 11, fontWeight: FontWeight.bold))))),
-        const SizedBox(width: 12),
-        Expanded(flex: 3, child: Text(state.playerNames[widget.player.id - 1], style: const TextStyle(color: Colors.white70, fontSize: 13), overflow: TextOverflow.ellipsis)),
-        const SizedBox(width: 8),
-        Expanded(flex: 4, child: TextField(controller: _s, textAlign: TextAlign.center, keyboardType: const TextInputType.numberWithOptions(signed: true), maxLength: 6, style: const TextStyle(color: Color(0xFF00FFC2), fontSize: 16, fontWeight: FontWeight.bold), decoration: const InputDecoration(isDense: true, counterText: '', hintText: '0', hintStyle: TextStyle(color: Colors.white12), filled: true, fillColor: Colors.black12, border: InputBorder.none), onChanged: (v) => ref.read(calcProvider.notifier).updateScore(widget.gameId, widget.player.id, int.tryParse(v) ?? 0))),
-        const SizedBox(width: 12),
-        IconButton(icon: Icon(tPt != 0 ? Icons.favorite : Icons.favorite_border, color: tPt > 0 ? Colors.red : (tPt < 0 ? Colors.blue : Colors.white24)), onPressed: () => widget.showTobi(widget.player.id)),
-        IconButton(icon: Icon(yPt != 0 ? Icons.emoji_events : Icons.emoji_events_outlined, color: yPt > 0 ? Colors.orange : (yPt < 0 ? Colors.blueGrey : Colors.white24)), onPressed: () => widget.showYakuman(widget.player.id)),
-    ]));
+
+    return AnimatedBuilder(
+      animation: _glowController,
+      builder: (context, child) {
+        final glowColor = _lastScore > 0 ? const Color(0xFF00FFC2) : Colors.redAccent;
+        final glowAmount = _glowController.value * 12.0;
+
+        return PhysicalModel(
+          color: Colors.transparent,
+          elevation: _glowController.value * 8.0,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            height: widget.cardHeight,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), 
+            decoration: BoxDecoration(
+              color: const Color(0xFF002922), 
+              borderRadius: BorderRadius.circular(12), 
+              border: Border.all(color: _glowController.value > 0 ? glowColor.withValues(alpha: 0.5) : Colors.white10),
+              boxShadow: [
+                if (_glowController.value > 0)
+                  BoxShadow(color: glowColor.withValues(alpha: 0.3 * _glowController.value), blurRadius: glowAmount, spreadRadius: glowAmount / 2),
+              ],
+            ), 
+            child: Row(children: [
+              GestureDetector(onTap: () => ref.read(calcProvider.notifier).setStartingOya(widget.gameId, widget.player.id - 1), child: Container(width: 28, height: 28, decoration: BoxDecoration(shape: BoxShape.circle, color: oya ? const Color(0xFF00FFC2) : Colors.transparent, border: Border.all(color: oya ? const Color(0xFF00FFC2) : Colors.white24)), child: Center(child: Text(wind, style: TextStyle(color: oya ? const Color(0xFF004D40) : Colors.white, fontSize: 11, fontWeight: FontWeight.bold))))),
+              const SizedBox(width: 12),
+              Expanded(flex: 3, child: Text(state.playerNames[widget.player.id - 1], style: const TextStyle(color: Colors.white70, fontSize: 13), overflow: TextOverflow.ellipsis)),
+              const SizedBox(width: 8),
+              Expanded(flex: 4, child: TextField(
+                controller: _s, 
+                textAlign: TextAlign.center, 
+                keyboardType: TextInputType.number,
+                textInputAction: TextInputAction.done,
+                onTapOutside: (_) => FocusScope.of(context).unfocus(),
+                maxLength: 6, 
+                style: const TextStyle(color: Color(0xFF00FFC2), fontSize: 16, fontWeight: FontWeight.bold), 
+                decoration: const InputDecoration(isDense: true, counterText: '', hintText: '0', hintStyle: TextStyle(color: Colors.white12), filled: true, fillColor: Colors.black12, border: InputBorder.none), 
+                onChanged: (v) => ref.read(calcProvider.notifier).updateScore(widget.gameId, widget.player.id, int.tryParse(v) ?? 0)
+              )),
+              const SizedBox(width: 12),
+              IconButton(icon: Icon(tPt != 0 ? Icons.favorite : Icons.favorite_border, color: tPt > 0 ? Colors.red : (tPt < 0 ? Colors.blue : Colors.white24)), onPressed: () => widget.showTobi(widget.player.id)),
+              IconButton(icon: Icon(yPt != 0 ? Icons.emoji_events : Icons.emoji_events_outlined, color: yPt > 0 ? Colors.orange : (yPt < 0 ? Colors.blueGrey : Colors.white24)), onPressed: () => widget.showYakuman(widget.player.id)),
+            ])
+          ),
+        );
+      },
+    );
   }
 }
