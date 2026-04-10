@@ -31,7 +31,7 @@ class HistoryNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
 
       final groupRows = await db.getGroups();
       final groupName = s['group_id'] != null 
-          ? groupRows.firstWhere((g) => g['id'] == s['group_id'], orElse: () => {'name': '不明'})['name']
+          ? groupRows.firstWhere((g) => g['id'] == s['group_id'], orElse: () => {'name': 'フリー対局'})['name']
           : 'フリー対局';
 
       final List<int> totalPt = [0, 0, 0, 0];

@@ -5,6 +5,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../core/models/db_models.dart';
 import 'history_providers.dart';
+import '../main/main_providers.dart';
+import '../stats/stats_providers.dart';
 
 class HistoryBottomSheet extends ConsumerStatefulWidget {
   const HistoryBottomSheet({super.key});
@@ -170,6 +172,7 @@ class _HistoryCard extends ConsumerWidget {
         onTap: () {
           FocusManager.instance.primaryFocus?.unfocus();
           ref.read(calcProvider.notifier).loadSession(session, data['games']);
+          ref.read(navigationProvider.notifier).setTab(MainTab.calc);
           Navigator.pop(context);
         },
         child: Padding(
@@ -193,7 +196,7 @@ class _HistoryCard extends ConsumerWidget {
                     ],
                   ),
                   const Spacer(),
-                  const Icon(Icons.arrow_forward_ios, color: Colors.white12, size: 14),
+                  _buildHistoryActions(context, ref, session),
                 ],
               ),
               const SizedBox(height: 16),
@@ -224,6 +227,71 @@ class _HistoryCard extends ConsumerWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildHistoryActions(BuildContext context, WidgetRef ref, Session session) {
+    final groupsAsync = ref.watch(groupListProvider);
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Group Edit Menu
+        groupsAsync.when(
+          data: (groups) => PopupMenuButton<int?>(
+            icon: const Icon(Icons.folder_shared_outlined, color: Colors.white24, size: 18),
+            tooltip: 'グループを変更',
+            onSelected: (groupId) {
+              ref.read(historyProvider.notifier).updateSessionGroupId(session.id!, groupId);
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: null,
+                child: Text('フリー対局', style: TextStyle(fontSize: 13)),
+              ),
+              ...groups.map((g) => PopupMenuItem(
+                    value: g['id'],
+                    child: Text(g['name'], style: const TextStyle(fontSize: 13)),
+                  )),
+            ],
+          ),
+          loading: () => const SizedBox.shrink(),
+          error: (_, __) => const SizedBox.shrink(),
+        ),
+        const SizedBox(width: 4),
+        // Delete Button
+        IconButton(
+          icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 18),
+          onPressed: () => _confirmDelete(context, ref, session.id!),
+        ),
+        const SizedBox(width: 4),
+        const Icon(Icons.arrow_forward_ios, color: Colors.white12, size: 14),
+      ],
+    );
+  }
+
+  void _confirmDelete(BuildContext context, WidgetRef ref, int sessionId) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF001F1A),
+        title: const Text('履歴削除', style: TextStyle(color: Colors.white, fontSize: 16)),
+        content: const Text('この対局履歴を削除してもよろしいですか？', style: TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('キャンセル', style: TextStyle(color: Colors.white54)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ref.read(historyProvider.notifier).deleteSession(sessionId);
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('履歴を削除しました')));
+            },
+            child: const Text('削除', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+          ),
+        ],
       ),
     );
   }
