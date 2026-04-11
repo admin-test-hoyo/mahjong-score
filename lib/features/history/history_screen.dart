@@ -188,7 +188,7 @@ class _HistoryCard extends ConsumerWidget {
                       Text(
                         groupName,
                         style: TextStyle(
-                          color: session.groupId == null ? Colors.orangeAccent : const Color(0xFF00FFC2),
+                          color: groupName == 'フリー対局' ? Colors.orangeAccent : const Color(0xFF00FFC2),
                           fontWeight: FontWeight.bold,
                           fontSize: 15,
                         ),

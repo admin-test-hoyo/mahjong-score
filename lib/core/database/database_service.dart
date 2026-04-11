@@ -15,15 +15,23 @@ class DatabaseService {
 
   Future<Database> get database async {
     try {
-      if (_database != null) return _database!;
+      final db = _database;
+      if (db != null) return db;
+      
       if (!kIsWeb) {
-        _database = await _initDatabase();
-        await _migrateToHeaderDetail(_database!);
+        final initializedDb = await _initDatabase();
+        _database = initializedDb;
+        await _migrateToHeaderDetail(initializedDb);
         await forceSyncSessionTotals();
       } else {
         await forceSyncSessionTotals(); 
       }
-      return _database!;
+      
+      final result = _database;
+      if (result == null) {
+        throw Exception("Database could not be initialized");
+      }
+      return result;
     } catch (e) {
       print('Database initialization error: $e');
       rethrow;
@@ -236,18 +244,23 @@ class DatabaseService {
     return await db.insert('games', row);
   }
 
-  Future<List<Map<String, dynamic>>> getGames({int? groupId}) async {
+  Future<List<Map<String, dynamic>>> getGames({int? groupId, bool all = false}) async {
     if (kIsWeb) {
-      final all = await _webQuery('web_db_games');
-      var filtered = groupId != null 
-          ? all.where((e) => (e['group_id'] as num?)?.toInt() == groupId).toList() 
-          : all.where((e) => e['group_id'] == null).toList();
-      filtered.sort((a, b) => (a['date'] as String).compareTo(b['date'] as String)); // 時系列昇順にソート（グラフ用）
+      final list = await _webQuery('web_db_games');
+      var filtered = all 
+          ? list 
+          : (groupId != null 
+              ? list.where((e) => (e['group_id'] as num?)?.toInt() == groupId).toList() 
+              : list.where((e) => e['group_id'] == null).toList());
+      filtered.sort((a, b) => (a['date'] as String).compareTo(b['date'] as String));
       return filtered;
     }
     final db = await database;
     String? where; List<dynamic>? whereArgs;
-    if (groupId != null) { where = 'group_id = ?'; whereArgs = [groupId]; }
+    if (!all) {
+      if (groupId != null) { where = 'group_id = ?'; whereArgs = [groupId]; }
+      else { where = 'group_id IS NULL'; }
+    }
     return await db.query('games', where: where, whereArgs: whereArgs, orderBy: 'date DESC');
   }
 
@@ -304,18 +317,23 @@ class DatabaseService {
     await db.update('sessions', {'group_id': groupId}, where: 'id = ?', whereArgs: [sessionId]);
   }
 
-  Future<List<Map<String, dynamic>>> getSessions({int? groupId}) async {
+  Future<List<Map<String, dynamic>>> getSessions({int? groupId, bool all = false}) async {
     if (kIsWeb) {
       final list = await _webQuery('web_db_sessions');
-      var filtered = groupId != null 
-          ? list.where((s) => (s['group_id'] as num?)?.toInt() == groupId).toList() 
-          : list.where((s) => s['group_id'] == null).toList();
+      var filtered = all 
+          ? list 
+          : (groupId != null 
+              ? list.where((s) => (s['group_id'] as num?)?.toInt() == groupId).toList() 
+              : list.where((s) => s['group_id'] == null).toList());
       filtered.sort((a,b) => (b['date'] as String).compareTo(a['date'] as String));
       return filtered;
     }
     final db = await database;
     String? where; List<dynamic>? whereArgs;
-    if (groupId != null) { where = 'group_id = ?'; whereArgs = [groupId]; }
+    if (!all) {
+      if (groupId != null) { where = 'group_id = ?'; whereArgs = [groupId]; }
+      else { where = 'group_id IS NULL'; }
+    }
     return await db.query('sessions', where: where, whereArgs: whereArgs, orderBy: 'date DESC');
   }
 

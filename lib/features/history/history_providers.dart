@@ -6,6 +6,7 @@ import '../../core/database/database_providers.dart';
 import '../../core/models/db_models.dart';
 import '../calc/calc_providers.dart';
 import '../stats/stats_providers.dart';
+import 'package:collection/collection.dart';
 
 class HistoryNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
   @override
@@ -16,8 +17,9 @@ class HistoryNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
 
   Future<List<Map<String, dynamic>>> _fetchSessions() async {
     final db = DatabaseService();
-    final sessionRows = await db.getSessions();
-    final gameRows = await db.getGames();
+    final sessionRows = await db.getSessions(all: true);
+    final gameRows = await db.getGames(all: true);
+    final groupRows = await db.getGroups();
     
     final List<Map<String, dynamic>> sessionsWithGames = [];
     
@@ -29,19 +31,21 @@ class HistoryNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
       
       if (sessionGames.isEmpty) continue;
 
-      final groupRows = await db.getGroups();
-      final groupName = s['group_id'] != null 
-          ? groupRows.firstWhere((g) => g['id'] == s['group_id'], orElse: () => {'name': 'フリー対局'})['name']
-          : 'フリー対局';
+      final groupId = s['group_id'] as int?;
+      String groupName = 'フリー対局';
+      if (groupId != null) {
+        final group = groupRows.firstWhereOrNull((g) => g['id'] == groupId);
+        if (group != null) {
+          groupName = group['name'] as String? ?? 'フリー対局';
+        }
+      }
 
       final List<int> totalPt = [0, 0, 0, 0];
-      final List<int> totalMoney = [0, 0, 0, 0];
       
       for (var g in sessionGames) {
         for (int i = 0; i < g.playerNames.length; i++) {
           if (i < 4) {
             totalPt[i] += g.points[i];
-            totalMoney[i] += g.moneys[i];
           }
         }
       }
@@ -105,9 +109,7 @@ class HistoryNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
   }
 }
 
-final historyProvider = AsyncNotifierProvider<HistoryNotifier, List<Map<String, dynamic>>>(() {
-  return HistoryNotifier();
-});
+final historyProvider = AsyncNotifierProvider<HistoryNotifier, List<Map<String, dynamic>>>(HistoryNotifier.new);
 
 class HistoryFilterNotifier extends Notifier<DateTimeRange?> {
   @override
@@ -115,6 +117,4 @@ class HistoryFilterNotifier extends Notifier<DateTimeRange?> {
   void setFilter(DateTimeRange? range) => state = range;
 }
 
-final historyFilterProvider = NotifierProvider<HistoryFilterNotifier, DateTimeRange?>(() {
-  return HistoryFilterNotifier();
-});
+final historyFilterProvider = NotifierProvider<HistoryFilterNotifier, DateTimeRange?>(HistoryFilterNotifier.new);
