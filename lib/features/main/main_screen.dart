@@ -82,7 +82,7 @@ class MainScreen extends ConsumerWidget {
             ),
           ),
           const Text(
-            'Ver 3.2.2',
+            'Ver 3.2.3',
             style: TextStyle(color: Colors.white38, fontSize: 10),
           ),
         ],
@@ -207,14 +207,29 @@ class MainScreen extends ConsumerWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.casino, color: Color(0xFF00FFC2), size: 40),
-                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.05),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF00FFC2).withOpacity(0.1),
+                          blurRadius: 20,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    ),
+                    child: const Text('🀄', style: TextStyle(fontSize: 44)),
+                  ),
+                  const SizedBox(height: 16),
                   Text(
-                    'MAHJONG SCORE',
-                    style: GoogleFonts.robotoMono(
+                    '麻雀スコア表',
+                    style: GoogleFonts.notoSansJp(
                       color: const Color(0xFF00FFC2),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 20,
+                      letterSpacing: 1.2,
                     ),
                   ),
                 ],

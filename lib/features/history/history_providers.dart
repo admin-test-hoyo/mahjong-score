@@ -80,6 +80,7 @@ class HistoryNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
   Future<void> updateSessionGroupId(int sessionId, int? groupId) async {
     final db = DatabaseService();
     await db.updateSessionGroupId(sessionId, groupId);
+    ref.read(databaseVersionProvider.notifier).increment(); 
     await refresh();
   }
 
