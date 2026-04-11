@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:async';
 import 'calc_providers.dart';
 import '../history/history_providers.dart';
@@ -62,7 +61,7 @@ class CalcScreen extends ConsumerWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Ver 3.3.5', style: TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold)),
+              const Text('Ver 3.3.7', style: TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold)),
               Text(DateFormat('yyyy/MM/dd').format(DateTime.now()), style: const TextStyle(color: Colors.white24, fontSize: 10)),
             ],
           ),
@@ -232,7 +231,7 @@ class CalcScreen extends ConsumerWidget {
           const SizedBox(width: 12),
           _quickField(label: '場代', value: displayFee.toString(), onChanged: (v) => ref.read(calcProvider.notifier).updateRuleGameFee(int.tryParse(v) ?? 0), width: 80),
           const Spacer(),
-          const Text('Ver 3.3.5', style: TextStyle(color: Colors.white12, fontSize: 9)),
+          const Text('Ver 3.3.7', style: TextStyle(color: Colors.white12, fontSize: 9)),
         ],
       ),
     );
