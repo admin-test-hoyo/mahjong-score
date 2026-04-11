@@ -16,8 +16,10 @@ class HistoryNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
 
   Future<List<Map<String, dynamic>>> _fetchSessions() async {
     final db = DatabaseService();
-    final sessionRows = await db.getSessions();
-    final gameRows = await db.getGames();
+    // Ver 3.3.6: データベースレベルでのフィルターを完全撤廃し、全件取得メソッドを呼び出す
+    final sessionRows = await db.getAllSessions();
+    final gameRows = await db.getAllGames();
+    final groupRows = await db.getGroups();
     
     final List<Map<String, dynamic>> sessionsWithGames = [];
     
@@ -29,30 +31,17 @@ class HistoryNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
       
       if (sessionGames.isEmpty) continue;
 
-      final groupRows = await db.getGroups();
-      final groupName = s['group_id'] != null 
-          ? groupRows.firstWhere((g) => g['id'] == s['group_id'], orElse: () => {'name': 'フリー対局'})['name']
-          : 'フリー対局';
+      // Ver 3.3.6: 安全なマッピング（見つからない場合は'フリー対局'）
+      final group = groupRows.firstWhere((g) => g['id'] == s['group_id'], orElse: () => {'name': 'フリー対局'});
+      final groupName = group['name'] as String;
 
-      final List<int> totalPt = [0, 0, 0, 0];
-      final List<int> totalMoney = [0, 0, 0, 0];
-      
-      for (var g in sessionGames) {
-        for (int i = 0; i < g.playerNames.length; i++) {
-          if (i < 4) {
-            totalPt[i] += g.points[i];
-            totalMoney[i] += g.moneys[i];
-          }
-        }
-      }
-
-      final session = Session.fromMap(s);
+      final Session session = Session.fromMap(s);
 
       sessionsWithGames.add({
         'session': session,
         'games': sessionGames,
         'groupName': groupName,
-        'totalPt': totalPt,
+        'totalPt': [0, 0, 0, 0], // Not used directly in timeline summary if session has totalMoneys
         'totalMoney': [
           session.totalMoneys?[0] ?? 0,
           session.totalMoneys?[1] ?? 0,

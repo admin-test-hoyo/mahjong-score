@@ -1,23 +1,22 @@
 import 'dart:async';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:universal_html/html.dart' as html;
+import 'package:flutter/foundation.dart';
 import 'features/calc/calc_providers.dart';
 import 'features/main/main_screen.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main() async {
-  html.window.console.log('【AppStatus】: main() started');
+  debugPrint('【AppStatus】: main() started');
   WidgetsFlutterBinding.ensureInitialized();
 
   // 1. Flutterフレームワーク内のエラー捕捉
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.presentError(details);
     final errorStr = '【FlutterError】: ${details.exceptionAsString()}\n${details.stack}';
-    html.window.console.error(errorStr); // ブラウザコンソールに赤色で出力
+    debugPrint(errorStr);
   };
 
   // 2. 非同期・プラットフォーム例外の捕捉 (Dart 3.x以降の推奨)
@@ -41,7 +40,7 @@ void main() async {
     );
   }, (error, stack) {
     final errorStr = '【ZonedError】: $error\n$stack';
-    html.window.console.error(errorStr);
+    debugPrint(errorStr);
   });
 }
 

@@ -259,6 +259,14 @@ class DatabaseService {
     return await db.query('games', where: where, whereArgs: whereArgs, orderBy: 'date DESC');
   }
 
+  Future<List<Map<String, dynamic>>> getAllGames() async {
+    if (kIsWeb) {
+      return await _webQuery('web_db_games');
+    }
+    final db = await database;
+    return await db.query('games');
+  }
+
   Future<int> deleteGamesBySessionId(int sessionId) async {
     if (kIsWeb) {
       final games = await _webQuery('web_db_games');
@@ -325,6 +333,16 @@ class DatabaseService {
     String? where; List<dynamic>? whereArgs;
     if (groupId != null) { where = 'group_id = ?'; whereArgs = [groupId]; }
     return await db.query('sessions', where: where, whereArgs: whereArgs, orderBy: 'date DESC');
+  }
+
+  Future<List<Map<String, dynamic>>> getAllSessions() async {
+    if (kIsWeb) {
+      final list = await _webQuery('web_db_sessions');
+      list.sort((a,b) => (b['date'] as String).compareTo(a['date'] as String));
+      return list;
+    }
+    final db = await database;
+    return await db.query('sessions', orderBy: 'date DESC, id DESC');
   }
 
   // Groups
