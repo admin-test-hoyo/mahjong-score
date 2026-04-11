@@ -108,9 +108,6 @@ class _GroupScreenState extends ConsumerState<GroupScreen> {
                                 );
                               }),
                               _actionIcon(Icons.edit_outlined, '名前変更', () => _showEditGroupDialog(groupId, group['name'])),
-                              _actionIcon(isSelected ? Icons.radio_button_checked : Icons.radio_button_off, isSelected ? '選択解除' : 'グループ選択', () {
-                                notifier.state = state.copyWith(selectedGroupId: isSelected ? null : groupId);
-                              }, color: isSelected ? const Color(0xFF00FFC2) : null),
                               _actionIcon(Icons.delete_outline, '削除', () => _confirmDeleteGroup(groupId, group['name']), color: Colors.redAccent.withValues(alpha: 0.8)),
                             ],
                           ),

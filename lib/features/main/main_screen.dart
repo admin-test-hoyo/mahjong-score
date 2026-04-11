@@ -94,6 +94,11 @@ class MainScreen extends ConsumerWidget {
     if (tab == MainTab.calc) {
       return [
         IconButton(
+          icon: const Icon(Icons.group_add, color: Color(0xFF00FFC2), size: 18),
+          tooltip: 'グループからメンバーを呼び出す',
+          onPressed: () => CalcScreen.showMemberPicker(context, ref),
+        ),
+        IconButton(
           icon: const Icon(Icons.settings, color: Color(0xFF00FFC2), size: 18),
           onPressed: () => CalcScreen.showSettings(context, ref),
         ),
