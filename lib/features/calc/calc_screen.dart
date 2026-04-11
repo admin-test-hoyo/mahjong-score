@@ -49,7 +49,7 @@ class CalcScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
 
-    // Ver 3.3.4: グループ自動判別の監視ロジックを物理削除
+    // Ver 3.3.5: 履歴画面の全件表示化と安全なグループ解決
     
     return SafeArea(
       child: Column(
@@ -221,7 +221,7 @@ class CalcScreen extends ConsumerWidget {
           const SizedBox(width: 12),
           _quickField(label: '場代', value: displayFee.toString(), onChanged: (v) => ref.read(calcProvider.notifier).updateRuleGameFee(int.tryParse(v) ?? 0), width: 80),
           const Spacer(),
-          const Text('Ver 3.3.4', style: TextStyle(color: Colors.white12, fontSize: 9)),
+          const Text('Ver 3.3.5', style: TextStyle(color: Colors.white12, fontSize: 9)),
         ],
       ),
     );
