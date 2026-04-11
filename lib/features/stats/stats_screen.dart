@@ -4,7 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../core/database/database_service.dart';
 import '../../core/models/db_models.dart';
-import 'stats_providers.dart';
+import '../../core/database/database_providers.dart';
+import '../stats/stats_providers.dart';
 
 class StatsScreen extends ConsumerStatefulWidget {
   const StatsScreen({super.key});

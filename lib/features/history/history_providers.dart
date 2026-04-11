@@ -5,7 +5,6 @@ import '../../core/database/database_service.dart';
 import '../../core/database/database_providers.dart';
 import '../../core/models/db_models.dart';
 import '../calc/calc_providers.dart';
-import '../calc/calc_state.dart';
 import '../stats/stats_providers.dart';
 
 class HistoryNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
