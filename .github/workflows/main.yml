@@ -42,6 +42,6 @@ jobs:
           if git diff --staged --quiet; then
             echo "No changes in docs to commit"
           else
-            git commit -m "chore: [CI] Auto-deploy Ver 3.3.1 to docs folder"
+            git commit -m "chore: [CI] Auto-deploy build to docs folder"
             git push origin ${{ github.ref_name }}
           fi
