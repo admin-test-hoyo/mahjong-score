@@ -15,15 +15,23 @@ class DatabaseService {
 
   Future<Database> get database async {
     try {
-      if (_database != null) return _database!;
+      final db = _database;
+      if (db != null) return db;
+      
       if (!kIsWeb) {
-        _database = await _initDatabase();
-        await _migrateToHeaderDetail(_database!);
+        final initializedDb = await _initDatabase();
+        _database = initializedDb;
+        await _migrateToHeaderDetail(initializedDb);
         await forceSyncSessionTotals();
       } else {
         await forceSyncSessionTotals(); 
       }
-      return _database!;
+      
+      final result = _database;
+      if (result == null) {
+        throw Exception("Database could not be initialized");
+      }
+      return result;
     } catch (e) {
       print('Database initialization error: $e');
       rethrow;

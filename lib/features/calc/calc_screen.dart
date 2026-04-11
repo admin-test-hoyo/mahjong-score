@@ -49,43 +49,7 @@ class CalcScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
 
-    // グループの自動判別ダイアログの監視
-    ref.listen<List<Map<String, dynamic>>?>(
-      calcProvider.select((s) => s.possibleGroupMatches),
-      (previous, next) {
-        if (next != null && next.isNotEmpty) {
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (context) => AlertDialog(
-              backgroundColor: const Color(0xFF001F1A),
-              title: const Text('グループの自動判別', style: TextStyle(color: Colors.white, fontSize: 16)),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('複数のグループが一致しました。保存先を選択してください。', style: TextStyle(color: Colors.white70, fontSize: 13)),
-                  const SizedBox(height: 16),
-                  ...next.map((g) => ListTile(
-                    title: Text(g['name'], style: const TextStyle(color: Color(0xFF00FFC2), fontWeight: FontWeight.bold)),
-                    onTap: () {
-                      ref.read(calcProvider.notifier).setSelectedGroupId(g['id']);
-                      Navigator.pop(context);
-                    },
-                  )),
-                  ListTile(
-                    title: const Text('フリー対局として保存', style: TextStyle(color: Colors.white54)),
-                    onTap: () {
-                      ref.read(calcProvider.notifier).setSelectedGroupId(null);
-                      Navigator.pop(context);
-                    },
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-      },
-    );
+    // Ver 3.3.4: グループ自動判別の監視ロジックを物理削除
     
     return SafeArea(
       child: Column(
@@ -257,7 +221,7 @@ class CalcScreen extends ConsumerWidget {
           const SizedBox(width: 12),
           _quickField(label: '場代', value: displayFee.toString(), onChanged: (v) => ref.read(calcProvider.notifier).updateRuleGameFee(int.tryParse(v) ?? 0), width: 80),
           const Spacer(),
-          const Text('Ver 3.2.6', style: TextStyle(color: Colors.white12, fontSize: 9)),
+          const Text('Ver 3.3.4', style: TextStyle(color: Colors.white12, fontSize: 9)),
         ],
       ),
     );
@@ -606,10 +570,11 @@ class _MemberPickerModalState extends State<_MemberPickerModal> {
 
   Widget _buildMemberList(int groupId) {
     return FutureBuilder<List<String>>(
-      future: DatabaseService().getGroupMembers(groupId),
+      future: DatabaseService().getGroupMembers(groupId).timeout(const Duration(seconds: 3)),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Color(0xFF00FFC2)));
-        final members = snapshot.data!;
+        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: Color(0xFF00FFC2)));
+        if (snapshot.hasError) return const Center(child: Text('データ取得に失敗しました', style: TextStyle(color: Colors.redAccent, fontSize: 12)));
+        final members = snapshot.data ?? [];
         return SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Column(
@@ -672,9 +637,6 @@ class _MemberPickerModalState extends State<_MemberPickerModal> {
           onPressed: canConfirm ? () {
             for (int i = 0; i < _selectedMembers.length; i++) {
               widget.ref.read(calcProvider.notifier).setPlayerName(i, _selectedMembers[i]);
-            }
-            if (_selectedGroupId != null) {
-              widget.ref.read(calcProvider.notifier).setSelectedGroupId(_selectedGroupId);
             }
             Navigator.pop(context);
           } : null,

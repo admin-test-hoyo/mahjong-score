@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
+import 'package:collection/collection.dart';
 import '../../core/calculator.dart';
 import '../../core/models/app_config.dart';
 import '../../core/database/database_service.dart';
@@ -57,7 +58,6 @@ class CalcState {
   final List<int> globalChips; // [p1, p2, p3, p4]
   final List<GameRecord> games;
   final MahjongRule rule;
-  final int? selectedGroupId;
   final int? currentId;
   final String? sessionDate;
   final String? currentDraft;
@@ -69,7 +69,6 @@ class CalcState {
     this.globalChips = const [0, 0, 0, 0],
     this.games = const [],
     this.rule = const MahjongRule(),
-    this.selectedGroupId,
     this.currentId,
     this.sessionDate,
     this.currentDraft,
@@ -82,7 +81,6 @@ class CalcState {
     List<int>? globalChips,
     List<GameRecord>? games,
     MahjongRule? rule,
-    int? selectedGroupId,
     int? currentId,
     String? sessionDate,
     String? currentDraft,
@@ -97,7 +95,6 @@ class CalcState {
       globalChips: globalChips ?? this.globalChips,
       games: games ?? this.games,
       rule: rule ?? this.rule,
-      selectedGroupId: selectedGroupId ?? this.selectedGroupId,
       currentId: currentId ?? this.currentId,
       sessionDate: sessionDate ?? this.sessionDate,
       currentDraft: clearDraft ? null : (currentDraft ?? this.currentDraft),
@@ -113,7 +110,6 @@ class CalcState {
     'globalChips': globalChips,
     'games': games.map((e) => e.toJson()).toList(),
     'rule': rule.toJson(),
-    'selectedGroupId': selectedGroupId,
     'currentId': currentId,
     'sessionDate': sessionDate,
     'currentDraft': currentDraft,
@@ -126,7 +122,6 @@ class CalcState {
       globalChips: (json['globalChips'] as List<dynamic>?)?.map((e) => e as int).toList() ?? const [0, 0, 0, 0],
       games: (json['games'] as List<dynamic>?)?.map((e) => GameRecord.fromJson(e as Map<String, dynamic>)).toList() ?? [],
       rule: json['rule'] != null ? MahjongRule.fromJson(json['rule'] as Map<String, dynamic>) : const MahjongRule(),
-      selectedGroupId: json['selectedGroupId'] as int?,
       currentId: json['currentId'] as int?,
       sessionDate: json['sessionDate'] as String?,
       currentDraft: json['currentDraft'] as String?,
@@ -181,11 +176,6 @@ class CalcNotifier extends Notifier<CalcState> {
     final newNames = List<String>.from(state.playerNames);
     newNames[id - 1] = name;
     state = state.copyWith(playerNames: newNames);
-    
-    // 4名の名前が埋まったら自動判別を試行
-    if (newNames.every((n) => n.trim().isNotEmpty)) {
-      _checkGroupMatches(newNames);
-    }
   }
 
   void setPlayerName(int index, String name) {
@@ -221,36 +211,6 @@ class CalcNotifier extends Notifier<CalcState> {
     ref.read(configProvider.notifier).updateGameFee(gameFee);
   }
 
-  Future<void> _checkGroupMatches(List<String> names) async {
-    final db = DatabaseService();
-    final allGroups = await db.getGroups();
-    final List<Map<String, dynamic>> matches = [];
-
-    for (var group in allGroups) {
-      final members = await db.getMembers(group['id']);
-      final memberNames = members.map((m) => m['name'] as String).toList()..sort();
-      final inputNames = List<String>.from(names.map((e) => e.trim()))..sort();
-      
-      if (memberNames.join(',') == inputNames.join(',')) {
-        matches.add(group);
-      }
-    }
-
-    if (matches.length == 1) {
-      // 1つだけ一致なら自動選択
-      state = state.copyWith(selectedGroupId: matches.first['id'], clearMatches: true);
-    } else if (matches.length > 1) {
-      // 複数一致なら候補を保存して選択を促す
-      state = state.copyWith(possibleGroupMatches: matches);
-    } else {
-       // 一致なし
-       state = state.copyWith(clearMatches: true);
-    }
-  }
-
-  void setSelectedGroupId(int? id) {
-    state = state.copyWith(selectedGroupId: id, clearMatches: true);
-  }
 
   void updateGlobalChip(int playerId, int chip) {
     final newChips = List<int>.from(state.globalChips);
@@ -516,8 +476,9 @@ class CalcNotifier extends Notifier<CalcState> {
       // 2. セッション（ヘッダー）の特定または作成
       String sessionDay = DateFormat('yyyy/MM/dd').format(date);
       final int sessionId;
-      if (isUpdate) {
-        sessionId = state.currentId!;
+      final currentId = state.currentId;
+      if (currentId != null) {
+        sessionId = currentId;
         // 既存のセッション情報を取得して日付を維持する
         final existing = await db.getSessionById(sessionId);
         if (existing != null) {
@@ -528,7 +489,7 @@ class CalcNotifier extends Notifier<CalcState> {
           id: sessionId,
           date: sessionDay,
           playerNames: state.playerNames,
-          groupId: state.selectedGroupId,
+          groupId: null, // Ver 3.3.4: グループ選択概念を物理削除
           configJson: configJson,
           globalChipsJson: jsonEncode(state.globalChips),
           totalMoneys: sessionFinalMoneys,
@@ -539,7 +500,7 @@ class CalcNotifier extends Notifier<CalcState> {
         sessionId = await db.findOrCreateSession(
           date: sessionDay,
           playerNames: state.playerNames,
-          groupId: state.selectedGroupId,
+          groupId: null, // Ver 3.3.4: 物理削除
           configJson: configJson,
           globalChipsJson: jsonEncode(state.globalChips),
           totalMoneys: sessionFinalMoneys,
@@ -556,7 +517,7 @@ class CalcNotifier extends Notifier<CalcState> {
           'session_id': sessionId,
           'type': '4-player',
           'date': date.toIso8601String(),
-          'group_id': state.selectedGroupId,
+          'group_id': null, // Ver 3.3.4: 物理削除
           'p1_name': state.playerNames[0],
           'p2_name': state.playerNames[1],
           'p3_name': state.playerNames[2],
@@ -565,10 +526,10 @@ class CalcNotifier extends Notifier<CalcState> {
           'p2_score': g.inputs[1].score,
           'p3_score': g.inputs[2].score,
           'p4_score': g.inputs[3].score,
-          'p1_pt': result.firstWhere((r) => r.id == 1).finalPoint,
-          'p2_pt': result.firstWhere((r) => r.id == 2).finalPoint,
-          'p3_pt': result.firstWhere((r) => r.id == 3).finalPoint,
-          'p4_pt': result.firstWhere((r) => r.id == 4).finalPoint,
+          'p1_pt': result.firstWhereOrNull((r) => r.id == 1)?.finalPoint ?? 0,
+          'p2_pt': result.firstWhereOrNull((r) => r.id == 2)?.finalPoint ?? 0,
+          'p3_pt': result.firstWhereOrNull((r) => r.id == 3)?.finalPoint ?? 0,
+          'p4_pt': result.firstWhereOrNull((r) => r.id == 4)?.finalPoint ?? 0,
           'p1_ch': g.inputs[0].chip, 
           'p2_ch': g.inputs[1].chip,
           'p3_ch': g.inputs[2].chip,
@@ -608,9 +569,6 @@ class CalcNotifier extends Notifier<CalcState> {
       ref.invalidate(playerNamesProvider);
       ref.invalidate(allGamesProvider);
       ref.invalidate(allSessionsProvider);
-      if (state.selectedGroupId != null) {
-        ref.invalidate(groupRankingProvider(state.selectedGroupId!));
-      }
       return isUpdate ? SaveResult.updated : SaveResult.registered;
     } catch (e) {
       print('Save error: $e');
@@ -621,31 +579,33 @@ class CalcNotifier extends Notifier<CalcState> {
   Future<void> loadSession(Session session, List<SavedGame> sessionGames) async {
     final draft = state.currentId == null ? jsonEncode(state.toJson()) : state.currentDraft;
     MahjongRule historyRule = state.rule;
-    if (session.configJson != null) {
       try {
-        final configMap = jsonDecode(session.configJson!) as Map<String, dynamic>;
-        final AppConfig historyConfig = AppConfig.fromJson(configMap);
-        historyRule = MahjongRule(
-          rate: historyConfig.rate.toInt(),
-          chipRate: historyConfig.chipRate,
-          returnScore: historyConfig.startingPoints + (historyConfig.oka * 1000 / 4).round(),
-          uma: _buildUmaList(historyConfig.umaText),
-          oka: historyConfig.oka,
-          tobiPrize: historyConfig.tobiPrize,
-          yakumanRonPrize: historyConfig.yakumanRonPrize,
-          yakumanTsumoPrize: historyConfig.yakumanTsumoPrize,
-          totalFee: historyConfig.gameFee,
-        );
+        final configJson = session.configJson;
+        if (configJson != null) {
+          final configMap = jsonDecode(configJson) as Map<String, dynamic>;
+          final AppConfig historyConfig = AppConfig.fromJson(configMap);
+          historyRule = MahjongRule(
+            rate: historyConfig.rate.toInt(),
+            chipRate: historyConfig.chipRate,
+            returnScore: historyConfig.startingPoints + (historyConfig.oka * 1000 / 4).round(),
+            uma: _buildUmaList(historyConfig.umaText),
+            oka: historyConfig.oka,
+            tobiPrize: historyConfig.tobiPrize,
+            yakumanRonPrize: historyConfig.yakumanRonPrize,
+            yakumanTsumoPrize: historyConfig.yakumanTsumoPrize,
+            totalFee: historyConfig.gameFee,
+          );
+        }
       } catch (e) {
         print('History rule restore error: $e');
       }
-    }
 
     // ロード前に状態を完全に初期化（チップ二重計上防止）
     state = const CalcState(games: []);
 
-    final List<int> loadedGlobalChips = session.globalChipsJson != null 
-        ? (jsonDecode(session.globalChipsJson!) as List<dynamic>).map((e) => e as int).toList()
+    final sessionGlobalChips = session.globalChipsJson;
+    final List<int> loadedGlobalChips = sessionGlobalChips != null 
+        ? (jsonDecode(sessionGlobalChips) as List<dynamic>).map((e) => e as int).toList()
         : const [0, 0, 0, 0];
 
     final List<GameRecord> newGames = sessionGames.map((game) {
@@ -671,7 +631,6 @@ class CalcNotifier extends Notifier<CalcState> {
       globalChips: loadedGlobalChips,
       games: newGames,
       rule: historyRule,
-      selectedGroupId: session.groupId,
       currentDraft: draft,
       snapshottedMoneys: session.totalMoneys,
     );
@@ -692,7 +651,6 @@ class CalcNotifier extends Notifier<CalcState> {
       playerNames: game.playerNames,
       globalChips: const [0, 0, 0, 0],
       games: [GameRecord(id: 'load_${game.id}', inputs: _recalculateTobi(inputs), startingOyaIndex: game.startingOyaIndex)],
-      selectedGroupId: game.groupId,
       currentDraft: draft,
       snapshottedMoneys: game.moneys,
     );

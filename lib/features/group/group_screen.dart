@@ -71,27 +71,20 @@ class _GroupScreenState extends ConsumerState<GroupScreen> {
                 itemBuilder: (context, index) {
                   final group = groups[index];
                   final groupId = group['id'] as int;
-                  final isSelected = state.selectedGroupId == groupId;
 
                   return Card(
                     color: Colors.black26,
                     margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(color: isSelected ? const Color(0xFF00FFC2) : Colors.white10),
+                      side: const BorderSide(color: Colors.white10),
                     ),
                     child: ExpansionTile(
                       tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      leading: Icon(Icons.group, color: isSelected ? const Color(0xFF00FFC2) : Colors.white54),
+                      leading: const Icon(Icons.group, color: Colors.white54),
                       title: Text(group['name'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
                       subtitle: const Text('タップしてメニューを表示', style: TextStyle(color: Colors.white38, fontSize: 10)),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (isSelected) const Icon(Icons.check_circle, color: Color(0xFF00FFC2), size: 18),
-                          const Icon(Icons.expand_more, color: Colors.white24),
-                        ],
-                      ),
+                      trailing: const Icon(Icons.expand_more, color: Colors.white24),
                       children: [
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
