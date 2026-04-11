@@ -663,39 +663,41 @@ class DatabaseService {
   }
 
   Future<void> importAllData(Map<String, dynamic> data) async {
-    final hasGroups = data.containsKey('groups') && (data['groups'] as List).isNotEmpty;
-    final groupsList = hasGroups ? data['groups'] as List<dynamic> : [];
+    final groupsInJson = data['groups'] as List<dynamic>? ?? [];
+    final hasGroupsInJson = groupsInJson.isNotEmpty;
     final sessionsList = data['sessions'] as List<dynamic>? ?? [];
     final gamesList = data['games'] as List<dynamic>? ?? [];
 
-    // --- 孤児データの正規化 ---
-    // インポートされるグループのID一覧を取得
-    Set<dynamic> validGroupIds = {};
-    if (hasGroups) {
-      validGroupIds = groupsList.map((g) => g['id']).toSet();
+    // --- 孤児データの正規化 (フェイルセーフ) ---
+    // 有効なグループIDの集合を作成
+    Set<int> validGroupIds = {};
+    if (hasGroupsInJson) {
+      // JSON内のグループが優先される場合
+      validGroupIds = groupsInJson.map((g) => (g['id'] as num).toInt()).toSet();
+    } else {
+      // JSONにグループが含まれない場合、現在のDB内のグループを有効とする
+      final currentGroups = await getGroups();
+      validGroupIds = currentGroups.map((g) => (g['id'] as num).toInt()).toSet();
     }
     
-    // セッションの group_id が存在しないグループを参照している場合、null (フリー対局) に書き換え
-    // (データ内にgroupsが含まれる場合のみチェックを行う)
+    // セッションの group_id が有効なグループを参照しているかチェックし、なければ null (フリー対局) に置換
     final normalizedSessions = sessionsList.map((s) {
       final session = Map<String, dynamic>.from(s);
-      final dynamic gid = session['group_id'];
-      if (hasGroups && gid != null && !validGroupIds.contains(gid)) {
-        session['group_id'] = null;
+      final gidRaw = session['group_id'];
+      if (gidRaw != null) {
+        final gid = (gidRaw as num).toInt();
+        if (!validGroupIds.contains(gid)) {
+          session['group_id'] = null;
+        }
       }
       return session;
     }).toList();
 
     if (kIsWeb) {
       final prefs = await SharedPreferences.getInstance();
-      
-      // groupsが含まれる場合のみ上書きする (スマート・リストア)
-      if (hasGroups) {
-        // ID保持を確実にするため、そのまま保存
-        await prefs.setString('web_db_groups', jsonEncode(groupsList));
+      if (hasGroupsInJson) {
+        await prefs.setString('web_db_groups', jsonEncode(groupsInJson));
       }
-      
-      // セッションとゲームもIDが含まれた状態で保存されるため、リレーションが維持される
       await prefs.setString('web_db_sessions', jsonEncode(normalizedSessions));
       await prefs.setString('web_db_games', jsonEncode(gamesList));
       return;
@@ -703,39 +705,22 @@ class DatabaseService {
 
     final db = await database;
     await db.transaction((txn) async {
-      // 親子関係の整合性を保つため、全削除してから挿入
       await txn.delete('games');
       await txn.delete('sessions');
       
-      if (hasGroups) {
+      if (hasGroupsInJson) {
         await txn.delete('groups');
-        for (var g in groupsList) {
-          final groupMap = Map<String, dynamic>.from(g);
-          // IDを明示的に指定してインサート（AUTOINCREMENTより優先される）
-          await txn.insert(
-            'groups', 
-            groupMap,
-            conflictAlgorithm: ConflictAlgorithm.replace,
-          );
+        for (var g in groupsInJson) {
+          await txn.insert('groups', Map<String, dynamic>.from(g), conflictAlgorithm: ConflictAlgorithm.replace);
         }
       }
 
       for (var s in normalizedSessions) {
-        final sessionMap = Map<String, dynamic>.from(s);
-        await txn.insert(
-          'sessions', 
-          sessionMap,
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
+        await txn.insert('sessions', Map<String, dynamic>.from(s), conflictAlgorithm: ConflictAlgorithm.replace);
       }
       
       for (var g in gamesList) {
-        final gameMap = Map<String, dynamic>.from(g);
-        await txn.insert(
-          'games', 
-          gameMap,
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
+        await txn.insert('games', Map<String, dynamic>.from(g), conflictAlgorithm: ConflictAlgorithm.replace);
       }
     });
   }

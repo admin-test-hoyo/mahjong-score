@@ -81,13 +81,10 @@ class HistoryNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
     final db = DatabaseService();
     await db.updateSessionGroupId(sessionId, groupId);
     
-    // 統計プロバイダーを確実に無効化
     ref.read(databaseVersionProvider.notifier).increment(); 
     ref.invalidate(groupListProvider);
     ref.invalidate(allSessionsProvider);
     ref.invalidate(allGamesProvider);
-    // family Provider (groupRankingProvider / recordStatsProvider) は 
-    // databaseVersionProvider を watch しているので increment で自動的に refresh される
     
     await refresh();
   }
