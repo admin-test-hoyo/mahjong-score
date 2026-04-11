@@ -239,8 +239,10 @@ class DatabaseService {
   Future<List<Map<String, dynamic>>> getGames({int? groupId}) async {
     if (kIsWeb) {
       final all = await _webQuery('web_db_games');
-      var filtered = groupId != null ? all.where((e) => e['group_id'] == groupId).toList() : all;
-      filtered.sort((a, b) => (b['date'] as String).compareTo(a['date'] as String));
+      var filtered = groupId != null 
+          ? all.where((e) => (e['group_id'] as num?)?.toInt() == groupId).toList() 
+          : all.where((e) => e['group_id'] == null).toList();
+      filtered.sort((a, b) => (a['date'] as String).compareTo(b['date'] as String)); // 時系列昇順にソート（グラフ用）
       return filtered;
     }
     final db = await database;
@@ -305,7 +307,9 @@ class DatabaseService {
   Future<List<Map<String, dynamic>>> getSessions({int? groupId}) async {
     if (kIsWeb) {
       final list = await _webQuery('web_db_sessions');
-      var filtered = groupId != null ? list.where((s) => s['group_id'] == groupId).toList() : list;
+      var filtered = groupId != null 
+          ? list.where((s) => (s['group_id'] as num?)?.toInt() == groupId).toList() 
+          : list.where((s) => s['group_id'] == null).toList();
       filtered.sort((a,b) => (b['date'] as String).compareTo(a['date'] as String));
       return filtered;
     }
@@ -565,19 +569,31 @@ class DatabaseService {
       }
     }
 
+    int currentPt = 0;
+    final history = <Map<String, dynamic>>[];
+
     for (var g in games) {
       int idx = -1;
       for (int i=1; i<=4; i++) { if (g['p$i\_name'] == playerName) { idx = i-1; break; } }
       if (idx == -1) continue;
 
       gamesCount++;
-      totalPt += (g['p${idx+1}_pt'] as num?)?.toInt() ?? 0;
+      final pt = (g['p${idx+1}_pt'] as num?)?.toInt() ?? 0;
+      totalPt += pt;
+      currentPt += pt;
+      
       totalChip += (g['p${idx+1}_ch'] as num?)?.toInt() ?? 0;
       final rank = (g['p${idx+1}_rank'] as num?)?.toInt() ?? 1;
       rankSum += rank;
       if (rank == 1) topCount++;
       if (rank <= 2) rentaiCount++;
       if (((g['p${idx+1}_score'] as num?)?.toInt() ?? 0) < 0) tobiCount++;
+
+      history.add({
+        'gameNo': gamesCount,
+        'pt': pt,
+        'cumulativePt': currentPt,
+      });
     }
 
     return {
@@ -589,6 +605,7 @@ class DatabaseService {
       'rentaiRate': gamesCount > 0 ? (rentaiCount / gamesCount * 100) : 0.0,
       'tobiRate': gamesCount > 0 ? (tobiCount / gamesCount * 100) : 0.0,
       'avgRank': gamesCount > 0 ? (rankSum / gamesCount) : 0.0,
+      'pointHistory': history,
     };
   }
 

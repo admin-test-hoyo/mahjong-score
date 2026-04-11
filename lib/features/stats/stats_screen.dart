@@ -212,7 +212,6 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
   // ─────────────────── 個人分析タブ ────────────────────────
   Widget _buildPersonalTab() {
     final games = _filteredGames;
-    final sessions = _filteredSessions;
     return Column(
       children: [
         _buildPersonalFilters(),
@@ -234,16 +233,20 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                             builder: (context, ref, child) {
                               final statsAsync = ref.watch(recordStatsProvider((playerName: _selectedPlayer!, groupId: _selectedGroupId)));
                               return statsAsync.when(
-                                data: (data) => _buildGeneralStats(data),
+                                data: (data) => Column(
+                                  children: [
+                                    _buildGeneralStats(data),
+                                    const SizedBox(height: 24),
+                                    _buildRankChart(games),
+                                    const SizedBox(height: 24),
+                                    _buildPointChart(data),
+                                  ],
+                                ),
                                 loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF00FFC2))),
                                 error: (e, s) => Text('エラー: $e', style: const TextStyle(color: Colors.redAccent)),
                               );
                             },
                           ),
-                          const SizedBox(height: 24),
-                          _buildRankChart(games),
-                          const SizedBox(height: 24),
-                          _buildRevenueChart(sessions),
                         ],
                       ),
                     ),
@@ -751,51 +754,98 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
     );
   }
 
-  Widget _buildRevenueChart(List<Session> sessions) {
-    if (sessions.isEmpty) return const SizedBox.shrink();
+  Widget _buildPointChart(Map<String, dynamic> data) {
+    final history = data['pointHistory'] as List<Map<String, dynamic>>? ?? [];
+    if (history.isEmpty) return const SizedBox.shrink();
 
-    // 日付順（昇順）にソート
-    final sortedSessions = List<Session>.from(sessions)
-      ..sort((a, b) => a.date.compareTo(b.date));
+    final spots = history.map((h) => 
+      FlSpot((h['gameNo'] as int).toDouble(), (h['cumulativePt'] as int).toDouble())
+    ).toList();
 
-    int cumulative = 0;
-    final spots = <FlSpot>[];
-    for (int i = 0; i < sortedSessions.length; i++) {
-      final s = sortedSessions[i];
-      int idx = 0;
-      if (_selectedPlayer != null) {
-        idx = s.playerNames.indexOf(_selectedPlayer!);
-        if (idx == -1) continue;
-      }
-      cumulative += (s.totalMoneys?[idx] ?? 0);
-      spots.add(FlSpot(i.toDouble(), cumulative.toDouble()));
-    }
+    // 0点目（開始点）を追加
+    final allSpots = [const FlSpot(0, 0), ...spots];
 
-    return Container(
-      height: 220,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-          color: Colors.black26, borderRadius: BorderRadius.circular(16)),
-      child: LineChart(
-        LineChartData(
-          gridData: const FlGridData(show: false),
-          titlesData: const FlTitlesData(show: false),
-          borderData: FlBorderData(show: false),
-          lineBarsData: [
-            LineChartBarData(
-              spots: spots,
-              isCurved: true,
-              color: const Color(0xFF00FFC2),
-              barWidth: 2,
-              isStrokeCapRound: true,
-              dotData: const FlDotData(show: false),
-              belowBarData: BarAreaData(
-                  show: true,
-                  color: const Color(0xFF00FFC2).withValues(alpha: 0.1)),
-            ),
-          ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 16, bottom: 8),
+          child: Text('累計Pt推移', style: GoogleFonts.robotoMono(color: const Color(0xFF00FFC2), fontSize: 13, fontWeight: FontWeight.bold)),
         ),
-      ),
+        Container(
+          height: 260,
+          padding: const EdgeInsets.fromLTRB(8, 24, 24, 8),
+          decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white10)),
+          child: LineChart(
+            LineChartData(
+              gridData: FlGridData(
+                show: true,
+                drawVerticalLine: true,
+                horizontalInterval: 50,
+                verticalInterval: 5,
+                getDrawingHorizontalLine: (value) => const FlLine(color: Colors.white10, strokeWidth: 1),
+                getDrawingVerticalLine: (value) => const FlLine(color: Colors.white10, strokeWidth: 1),
+              ),
+              titlesData: FlTitlesData(
+                show: true,
+                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                bottomTitles: AxisTitles(
+                  axisNameWidget: const Text('対局数 (No.)', style: TextStyle(color: Colors.white38, fontSize: 10)),
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 30,
+                    interval: 5,
+                    getTitlesWidget: (value, meta) => Text(value.toInt().toString(), style: const TextStyle(color: Colors.white38, fontSize: 10)),
+                  ),
+                ),
+                leftTitles: AxisTitles(
+                  axisNameWidget: const Text('累計Pt', style: TextStyle(color: Colors.white38, fontSize: 10)),
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 45,
+                    getTitlesWidget: (value, meta) => Text(value.toInt().toString(), style: const TextStyle(color: Colors.white38, fontSize: 10)),
+                  ),
+                ),
+              ),
+              borderData: FlBorderData(show: true, border: Border.all(color: Colors.white10)),
+              lineBarsData: [
+                LineChartBarData(
+                  spots: allSpots,
+                  isCurved: true,
+                  color: const Color(0xFF00FFC2),
+                  barWidth: 3,
+                  isStrokeCapRound: true,
+                  dotData: FlDotData(
+                    show: true,
+                    getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(radius: 4, color: const Color(0xFF00FFC2), strokeWidth: 2, strokeColor: Colors.black),
+                  ),
+                  belowBarData: BarAreaData(show: true, color: const Color(0xFF00FFC2).withValues(alpha: 0.1)),
+                ),
+              ],
+              extraLinesData: ExtraLinesData(
+                horizontalLines: [
+                  HorizontalLine(y: 0, color: const Color(0xFFFF4D4D).withValues(alpha: 0.5), strokeWidth: 2, dashArray: [5, 5], label: HorizontalLineLabel(show: true, alignment: Alignment.topRight, style: const TextStyle(color: Color(0xFFFF4D4D), fontSize: 10), labelResolver: (_) => '基準(0pt)')),
+                ],
+              ),
+              lineTouchData: LineTouchData(
+                touchTooltipData: LineTouchTooltipData(
+                  getTooltipColor: (touchedSpot) => Colors.grey[900]!,
+                  getTooltipItems: (List<LineBarSpot> touchedSpots) {
+                    return touchedSpots.map((spot) {
+                      final h = history.firstWhere((element) => element['gameNo'] == spot.x.toInt(), orElse: () => {'pt': 0});
+                      return LineTooltipItem(
+                        'No.${spot.x.toInt()}\nPt: ${h['pt']}\n累計: ${spot.y.toInt()}',
+                        const TextStyle(color: Color(0xFF00FFC2), fontWeight: FontWeight.bold, fontSize: 12),
+                      );
+                    }).toList();
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
   
