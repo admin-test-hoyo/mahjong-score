@@ -671,10 +671,14 @@ class DatabaseService {
 
     if (kIsWeb) {
       final prefs = await SharedPreferences.getInstance();
+      
       // groupsが含まれる場合のみ上書きする (スマート・リストア)
       if (hasGroups) {
+        // ID保持を確実にするため、そのまま保存
         await prefs.setString('web_db_groups', jsonEncode(groupsList));
       }
+      
+      // セッションとゲームもIDが含まれた状態で保存されるため、リレーションが維持される
       await prefs.setString('web_db_sessions', jsonEncode(normalizedSessions));
       await prefs.setString('web_db_games', jsonEncode(gamesList));
       return;
@@ -682,37 +686,41 @@ class DatabaseService {
 
     final db = await database;
     await db.transaction((txn) async {
-      // 外部キー制約を考慮し、子テーブル(games)から順に削除
+      // 親子関係の整合性を保つため、全削除してから挿入
       await txn.delete('games');
       await txn.delete('sessions');
       
-      // groupsが含まれる場合のみ削除して再登録
       if (hasGroups) {
         await txn.delete('groups');
-        // 親テーブル(groups)から順に登録
         for (var g in groupsList) {
+          final groupMap = Map<String, dynamic>.from(g);
+          // IDを明示的に指定してインサート（AUTOINCREMENTより優先される）
           await txn.insert(
             'groups', 
-            Map<String, dynamic>.from(g),
+            groupMap,
             conflictAlgorithm: ConflictAlgorithm.replace,
           );
         }
       }
 
       for (var s in normalizedSessions) {
+        final sessionMap = Map<String, dynamic>.from(s);
         await txn.insert(
           'sessions', 
-          Map<String, dynamic>.from(s),
+          sessionMap,
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
       }
+      
       for (var g in gamesList) {
+        final gameMap = Map<String, dynamic>.from(g);
         await txn.insert(
           'games', 
-          Map<String, dynamic>.from(g),
+          gameMap,
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
       }
     });
+  }
   }
 }

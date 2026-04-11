@@ -204,6 +204,16 @@ class CalcScreen extends ConsumerWidget {
 
         final db = DatabaseService();
         await db.importAllData(jsonData);
+
+        // プロバイダー全体を強制的に無効化してリフレッシュ
+        ref.invalidate(databaseVersionProvider);
+        // import 'package:mahjong_score/features/history/history_providers.dart' etc might be needed if they are not visible
+        // However, in a static method or listener, we use 'ref' passed as argument.
+        
+        // 主要なProviderを直ちに破棄（reloadまでの数秒のためだが、同期を確実にする）
+        // stats系は databaseVersionProvider を watch しているので invalidate 1つで基本OKだが
+        // 全Providerの状態をリセット対象にする
+        
         html.window.location.reload();
         
       } catch (err) {
@@ -232,7 +242,7 @@ class CalcScreen extends ConsumerWidget {
           const SizedBox(width: 12),
           _quickField(label: '場代', value: displayFee.toString(), onChanged: (v) => ref.read(calcProvider.notifier).updateRuleGameFee(int.tryParse(v) ?? 0), width: 80),
           const Spacer(),
-          const Text('Ver 3.2.3', style: TextStyle(color: Colors.white12, fontSize: 9)),
+          const Text('Ver 3.2.4', style: TextStyle(color: Colors.white12, fontSize: 9)),
         ],
       ),
     );
