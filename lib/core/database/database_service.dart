@@ -722,5 +722,4 @@ class DatabaseService {
       }
     });
   }
-  }
 }

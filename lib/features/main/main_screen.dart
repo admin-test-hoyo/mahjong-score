@@ -143,7 +143,6 @@ class MainScreen extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Ver 3.2.4', style: TextStyle(color: Colors.white12, fontSize: 9)),
             const Text('履歴のクリーンアップ', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 20),
             _cleanupOption(context, ref, '3ヶ月以上前を削除', 3),
