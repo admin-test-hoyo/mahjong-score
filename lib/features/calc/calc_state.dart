@@ -188,6 +188,13 @@ class CalcNotifier extends Notifier<CalcState> {
     }
   }
 
+  void setPlayerName(int index, String name) {
+    if (index < 0 || index >= state.playerNames.length) return;
+    final newNames = List<String>.from(state.playerNames);
+    newNames[index] = name;
+    state = state.copyWith(playerNames: newNames);
+  }
+
   // --- Rule Update Methods (Clears Snapshot for Real-time Recalculation) ---
   void updateRuleRate(double rate) {
     state = state.copyWith(

@@ -609,6 +609,33 @@ class DatabaseService {
     };
   }
 
+  Future<List<String>> getGroupMembers(int groupId) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'sessions',
+      columns: ['player1_name', 'player2_name', 'player3_name', 'player4_name'],
+      where: 'group_id = ?',
+      whereArgs: [groupId],
+    );
+
+    final Set<String> members = {};
+    for (var m in maps) {
+      if (m['player1_name'] != null && (m['player1_name'] as String).isNotEmpty) {
+        members.add(m['player1_name'] as String);
+      }
+      if (m['player2_name'] != null && (m['player2_name'] as String).isNotEmpty) {
+        members.add(m['player2_name'] as String);
+      }
+      if (m['player3_name'] != null && (m['player3_name'] as String).isNotEmpty) {
+        members.add(m['player3_name'] as String);
+      }
+      if (m['player4_name'] != null && (m['player4_name'] as String).isNotEmpty) {
+        members.add(m['player4_name'] as String);
+      }
+    }
+    return members.toList()..sort();
+  }
+
   // Web Helpers
   Future<int> _webInsert(String key, Map<String, dynamic> row) async {
     final prefs = await SharedPreferences.getInstance();
