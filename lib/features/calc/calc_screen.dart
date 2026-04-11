@@ -242,7 +242,7 @@ class CalcScreen extends ConsumerWidget {
           const SizedBox(width: 12),
           _quickField(label: '場代', value: displayFee.toString(), onChanged: (v) => ref.read(calcProvider.notifier).updateRuleGameFee(int.tryParse(v) ?? 0), width: 80),
           const Spacer(),
-          const Text('Ver 3.2.4', style: TextStyle(color: Colors.white12, fontSize: 9)),
+          const Text('Ver 3.2.6', style: TextStyle(color: Colors.white12, fontSize: 9)),
         ],
       ),
     );

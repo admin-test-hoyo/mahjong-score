@@ -160,14 +160,15 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
   @override
   Widget build(BuildContext context) {
     // 統計データプロバイダーの状態を監視し、変更があればデータを再ロードする
-    ref.listen(allGamesProvider, (_, __) => _loadInitialData());
-    ref.listen(allSessionsProvider, (_, __) => _loadInitialData());
+    ref.listen(databaseVersionProvider, (_, __) => _loadInitialData());
+    
     if (_rankingGroupId != null) {
-      ref.listen(groupRankingProvider(_rankingGroupId!), (prev, next) {
-        if (next is AsyncData<List<Map<String, dynamic>>>) {
-          setState(() {
-            _rankingData = next.value;
-          });
+      final rankingAsync = ref.watch(groupRankingProvider(_rankingGroupId!));
+      rankingAsync.whenData((data) {
+        if (_rankingData != data) {
+           WidgetsBinding.instance.addPostFrameCallback((_) {
+             if (mounted) setState(() => _rankingData = data);
+           });
         }
       });
     }
@@ -228,16 +229,14 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          FutureBuilder<Map<String, dynamic>>(
-                            future: DatabaseService().getUserStats(_selectedPlayer!, groupId: _selectedGroupId),
-                            builder: (context, snapshot) {
-                              if (snapshot.connectionState == ConnectionState.waiting) {
-                                return const Center(child: CircularProgressIndicator(color: Color(0xFF00FFC2)));
-                              }
-                              if (snapshot.hasError) {
-                                return Text('エラー: ${snapshot.error}', style: const TextStyle(color: Colors.redAccent));
-                              }
-                              return _buildGeneralStats(snapshot.data ?? {});
+                          Consumer(
+                            builder: (context, ref, child) {
+                              final statsAsync = ref.watch(recordStatsProvider((playerName: _selectedPlayer!, groupId: _selectedGroupId)));
+                              return statsAsync.when(
+                                data: (data) => _buildGeneralStats(data),
+                                loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF00FFC2))),
+                                error: (e, s) => Text('エラー: $e', style: const TextStyle(color: Colors.redAccent)),
+                              );
                             },
                           ),
                           const SizedBox(height: 24),

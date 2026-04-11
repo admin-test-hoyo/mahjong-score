@@ -26,3 +26,9 @@ final allSessionsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) asy
   ref.watch(databaseVersionProvider);
   return DatabaseService().getSessions();
 });
+
+/// 個人の統計データを取得するProvider (引数: プレイヤー名, グループID)
+final recordStatsProvider = FutureProvider.family<Map<String, dynamic>, ({String playerName, int? groupId})>((ref, arg) async {
+  ref.watch(databaseVersionProvider);
+  return DatabaseService().getUserStats(arg.playerName, groupId: arg.groupId);
+});
