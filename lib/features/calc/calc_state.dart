@@ -423,11 +423,26 @@ class CalcNotifier extends Notifier<CalcState> {
       if (state.games.isEmpty) return SaveResult.failed;
 
       final db = DatabaseService();
-      final isUpdate = state.currentId != null;
+      final currentId = state.currentId;
+      AppConfig calcConfig = ref.read(configProvider);
+      String effectiveConfigJson = jsonEncode(calcConfig.toJson());
+
+      // Ver 3.5.1: 編集モードなら既存Session設定を完全優先
+      if (currentId != null) {
+        final existing = await db.getSessionById(currentId);
+        if (existing != null && existing.configJson != null) {
+          try {
+            effectiveConfigJson = existing.configJson!;
+            calcConfig = AppConfig.fromJson(jsonDecode(effectiveConfigJson));
+          } catch(_) {}
+        }
+      }
+
+      const players = 4;
+      if (state.games.isEmpty) return SaveResult.failed;
 
       // 1. セッション全体の場代込収支を計算するための準備
       final List<Map<String, dynamic>> calculatedGames = [];
-      final configJson = jsonEncode(config.toJson());
 
       // セッション全体のPtとチップの合計用
       final List<int> ptTotals = [0, 0, 0, 0];
@@ -435,17 +450,17 @@ class CalcNotifier extends Notifier<CalcState> {
 
       for (int i = 0; i < state.games.length; i++) {
         final g = state.games[i];
-        if (g.inputs.where((p) => p.id <= players).fold(0, (s, p) => s + p.score) != config.targetTotalScore) {
+        if (g.inputs.where((p) => p.id <= players).fold(0, (s, p) => s + p.score) != calcConfig.targetTotalScore) {
           continue;
         }
 
         final result = MahjongCalculator.calculate(
           inputs: g.inputs.where((p) => p.id <= players).toList(),
           rule: state.rule.copyWith(
-            oka: config.oka,
-            uma: _buildUmaList(config.umaText),
+            oka: calcConfig.oka,
+            uma: _buildUmaList(calcConfig.umaText),
           ),
-          config: config,
+          config: calcConfig,
           startingOyaIndex: g.startingOyaIndex,
         );
 
@@ -454,7 +469,7 @@ class CalcNotifier extends Notifier<CalcState> {
         final gameMoneys = <String, int>{};
         
         for (var r in result) {
-          final m = r.money + (addChips[r.id - 1] * config.chipRate);
+          final m = r.money + (addChips[r.id - 1] * calcConfig.chipRate);
           gameMoneys[r.id.toString()] = m;
           
           // セッション全体の集計
@@ -476,10 +491,10 @@ class CalcNotifier extends Notifier<CalcState> {
       final List<int> sessionFinalMoneys = List.generate(players, (i) {
         return MahjongCalculator.calculateMoney(
           totalPt: ptTotals[i], 
-          rate: config.rate, 
+          rate: calcConfig.rate, 
           totalChips: chipTotals[i], 
-          chipRate: config.chipRate, 
-          totalFee: config.gameFee.toDouble(),
+          chipRate: calcConfig.chipRate, 
+          totalFee: calcConfig.gameFee.toDouble(),
           playerCount: players,
         );
       });
@@ -502,7 +517,7 @@ class CalcNotifier extends Notifier<CalcState> {
           date: sessionDay,
           playerNames: state.playerNames,
           groupId: effectiveGroupId,
-          configJson: configJson,
+          configJson: effectiveConfigJson,
           globalChipsJson: jsonEncode(state.globalChips),
           totalMoneys: sessionFinalMoneys,
         ));
@@ -512,7 +527,7 @@ class CalcNotifier extends Notifier<CalcState> {
           date: sessionDay,
           playerNames: state.playerNames,
           groupId: effectiveGroupId,
-          configJson: configJson,
+          configJson: effectiveConfigJson,
           globalChipsJson: jsonEncode(state.globalChips),
           totalMoneys: sessionFinalMoneys,
         );
