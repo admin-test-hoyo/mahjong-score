@@ -5,7 +5,7 @@ import 'package:path/path.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 import '../models/db_models.dart';
-import '../utils/mahjong_calculator.dart';
+import '../calculator.dart';
 
 class DatabaseService {
   static final DatabaseService _instance = DatabaseService._internal();

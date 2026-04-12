@@ -479,7 +479,7 @@ class CalcNotifier extends Notifier<CalcState> {
           rate: config.rate, 
           totalChips: chipTotals[i], 
           chipRate: config.chipRate, 
-          totalFee: config.gameFee,
+          totalFee: config.gameFee.toDouble(),
           playerCount: players,
         );
       });

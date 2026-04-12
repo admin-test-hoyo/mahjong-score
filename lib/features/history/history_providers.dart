@@ -7,7 +7,7 @@ import '../../core/database/database_providers.dart';
 import '../../core/models/db_models.dart';
 import '../calc/calc_providers.dart';
 import '../stats/stats_providers.dart';
-import '../../core/utils/mahjong_calculator.dart';
+import '../../core/calculator.dart';
 
 class HistoryNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
   @override
@@ -82,6 +82,7 @@ class HistoryNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
           totalChips: totalChips[i],
           chipRate: chipRate,
           totalFee: fee,
+          playerCount: sessionGames[0].points.length,
         );
       }
 

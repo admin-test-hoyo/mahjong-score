@@ -4,6 +4,7 @@ import 'package:mahjong_calc/main.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mahjong_calc/features/calc/calc_state.dart';
+import 'package:mahjong_calc/features/calc/calc_providers.dart';
 
 void main() {
   testWidgets('CalcScreen renders basic spreadsheet structure without errors', (WidgetTester tester) async {
