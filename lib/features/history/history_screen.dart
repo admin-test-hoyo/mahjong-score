@@ -59,7 +59,7 @@ class _HistoryBottomSheetState extends ConsumerState<HistoryBottomSheet> {
         children: [
           const SizedBox(width: 40),
           Text(
-            '対局履歴',
+            '全対局履歴',
             style: GoogleFonts.robotoMono(
               color: const Color(0xFF00FFC2),
               fontSize: 18,
