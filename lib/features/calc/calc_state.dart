@@ -63,7 +63,7 @@ class CalcState {
   final String? currentDraft;
   final List<int>? snapshottedMoneys; // Ver 1.9.2: 履歴表示用の固定収支
   final List<Map<String, dynamic>>? possibleGroupMatches; // 追加: マッチ候補
-  final int? pickedGroupId; // Ver 3.4.2: 入力経路による自動判別用
+  final int? pickedGroupId; // Ver 3.4.9: 入力経路による自動判別用
 
   const CalcState({
     this.playerNames = const ['A', 'B', 'C', 'D'],
@@ -181,7 +181,7 @@ class CalcNotifier extends Notifier<CalcState> {
     if (id < 1 || id > 4) return;
     final newNames = List<String>.from(state.playerNames);
     newNames[id - 1] = name;
-    // Ver 3.4.2: 手動タイピング時は強制的にフリー対局とする
+    // Ver 3.4.9: 手動タイピング時は強制的にフリー対局とする
     state = state.copyWith(playerNames: newNames, pickedGroupId: null);
   }
 
@@ -689,7 +689,7 @@ class CalcNotifier extends Notifier<CalcState> {
       games: const [],
       rule: state.rule,
       currentDraft: null,
-      pickedGroupId: null, // Ver 3.4.2: リセット
+      pickedGroupId: null, // Ver 3.4.9: リセット
     );
     // 場代をリセット
     ref.read(configProvider.notifier).updateGameFee(0);
