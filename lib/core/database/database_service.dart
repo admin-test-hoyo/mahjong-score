@@ -714,10 +714,10 @@ class DatabaseService {
   // --- Backup & Restore (Ver 3.0) ---
   Future<Map<String, dynamic>> exportAllData() async {
     final groups = await getGroups();
-    final sessions = await getSessions();
-    final games = await getGames();
+    final sessions = await getAllSessions();
+    final games = await getAllGames();
     return {
-      'version': '3.1.0',
+      'version': '3.4.1',
       'export_date': DateTime.now().toIso8601String(),
       'groups': groups,
       'sessions': sessions,
@@ -765,6 +765,24 @@ class DatabaseService {
         return session;
       }).toList();
 
+      // --- 【Ver 3.4.1】データクレンジング: 欠落している games.group_id を Session から補完 ---
+      final Map<int, int?> sessionIdToGroupId = {};
+      for (var s in normalizedSessions) {
+        final sid = s['id'] as int;
+        sessionIdToGroupId[sid] = s['group_id'] as int?;
+      }
+
+      final cleansedGames = gamesList.map((g) {
+        final game = Map<String, dynamic>.from(g);
+        if (game['group_id'] == null) {
+          final sid = game['session_id'] as int?;
+          if (sid != null && sessionIdToGroupId.containsKey(sid)) {
+            game['group_id'] = sessionIdToGroupId[sid];
+          }
+        }
+        return game;
+      }).toList();
+
       if (kIsWeb) {
         final prefs = await SharedPreferences.getInstance();
         if (hasGroupsInJson) {
@@ -778,7 +796,7 @@ class DatabaseService {
           await prefs.setString('web_db_groups', jsonEncode(nGroups));
         }
         await prefs.setString('web_db_sessions', jsonEncode(normalizedSessions));
-        await prefs.setString('web_db_games', jsonEncode(gamesList));
+        await prefs.setString('web_db_games', jsonEncode(cleansedGames));
         return;
       }
 
@@ -801,7 +819,7 @@ class DatabaseService {
           await txn.insert('sessions', Map<String, dynamic>.from(s), conflictAlgorithm: ConflictAlgorithm.replace);
         }
         
-        for (var g in gamesList) {
+        for (var g in cleansedGames) {
           await txn.insert('games', Map<String, dynamic>.from(g), conflictAlgorithm: ConflictAlgorithm.replace);
         }
       });

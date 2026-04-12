@@ -10,6 +10,7 @@ import '../../core/models/db_models.dart';
 import '../history/history_providers.dart';
 import '../stats/stats_providers.dart';
 
+import '../../core/database/database_providers.dart';
 import 'calc_providers.dart';
 
 enum SaveResult { registered, updated, failed }
@@ -176,6 +177,9 @@ class CalcNotifier extends Notifier<CalcState> {
     final newNames = List<String>.from(state.playerNames);
     newNames[id - 1] = name;
     state = state.copyWith(playerNames: newNames);
+    
+    // Ver 3.4.1: 手動入力時はフリー対局として扱う（グループ選択を解除）
+    ref.read(selectedGroupIdProvider.notifier).update(null);
   }
 
   void setPlayerName(int index, String name) {
@@ -477,6 +481,8 @@ class CalcNotifier extends Notifier<CalcState> {
       String sessionDay = DateFormat('yyyy/MM/dd').format(date);
       final int sessionId;
       final currentId = state.currentId;
+      final selectedGroupId = ref.read(selectedGroupIdProvider);
+
       if (currentId != null) {
         sessionId = currentId;
         // 既存のセッション情報を取得して日付を維持する
@@ -489,7 +495,7 @@ class CalcNotifier extends Notifier<CalcState> {
           id: sessionId,
           date: sessionDay,
           playerNames: state.playerNames,
-          groupId: null, // Ver 3.3.4: グループ選択概念を物理削除
+          groupId: selectedGroupId, // Ver 3.4.1: プロバイダーから取得して同期
           configJson: configJson,
           globalChipsJson: jsonEncode(state.globalChips),
           totalMoneys: sessionFinalMoneys,
@@ -500,7 +506,7 @@ class CalcNotifier extends Notifier<CalcState> {
         sessionId = await db.findOrCreateSession(
           date: sessionDay,
           playerNames: state.playerNames,
-          groupId: null, // Ver 3.3.4: 物理削除
+          groupId: selectedGroupId, // Ver 3.4.1: プロバイダーから取得して同期
           configJson: configJson,
           globalChipsJson: jsonEncode(state.globalChips),
           totalMoneys: sessionFinalMoneys,
@@ -517,7 +523,7 @@ class CalcNotifier extends Notifier<CalcState> {
           'session_id': sessionId,
           'type': '4-player',
           'date': date.toIso8601String(),
-          'group_id': null, // Ver 3.3.4: 物理削除
+          'group_id': selectedGroupId, // Ver 3.4.1: プロバイダーから取得して同期
           'p1_name': state.playerNames[0],
           'p2_name': state.playerNames[1],
           'p3_name': state.playerNames[2],
@@ -673,6 +679,8 @@ class CalcNotifier extends Notifier<CalcState> {
     );
     // 場代をリセット
     ref.read(configProvider.notifier).updateGameFee(0);
+    // Ver 3.4.1: グループ選択もリセット（新規入力の安全のため）
+    ref.read(selectedGroupIdProvider.notifier).update(null);
   }
 
   void resetToNewEntry() => resetGame();
