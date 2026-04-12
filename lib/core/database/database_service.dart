@@ -506,13 +506,19 @@ class DatabaseService {
       final sRows = await _webQuery('web_db_sessions');
       allRows = gRows.where((g) => (g['group_id'] as num?)?.toInt() == groupId).map((g) {
         final session = sRows.firstWhere((s) => s['id'] == g['session_id'], orElse: () => {});
-        return { ...g, 'config_json': session['config_json'] };
+        return { 
+          ...g, 
+          'config_json': session['config_json'],
+          'global_chips_json': session['global_chips_json'],
+          'sp1': session['p1_name'], 'sp2': session['p2_name'], 'sp3': session['p3_name'], 'sp4': session['p4_name'],
+        };
       }).toList();
     } else {
       final db = await database;
-      // Ver 3.4.7: LEFT JOIN を採用し、データ欠落を完全に防止
       allRows = await db.rawQuery('''
-        SELECT g.*, s.config_json FROM games g
+        SELECT g.*, s.config_json, s.global_chips_json, 
+               s.p1_name as sp1, s.p2_name as sp2, s.p3_name as sp3, s.p4_name as sp4
+        FROM games g
         LEFT JOIN sessions s ON g.session_id = s.id
         WHERE s.group_id = ?
         ORDER BY g.date ASC
@@ -526,26 +532,34 @@ class DatabaseService {
       'processedSessions': <int>{}, 
     } };
 
-    // --- 効率的なConfigキャッシュ管理 (Ver 3.4.7) ---
     final Map<int, Map<String, dynamic>> configCache = {};
+    final Map<int, List<int>> chipCache = {};
 
     for (final row in allRows) {
       final sid = (row['session_id'] as num?)?.toInt() ?? 0;
       
-      // Config取得とデコード (キャッシュ利用)
       if (!configCache.containsKey(sid)) {
         final configJson = row['config_json'] as String?;
         if (configJson != null) {
-          try {
-            configCache[sid] = jsonDecode(configJson);
-          } catch (_) { configCache[sid] = {}; }
+          try { configCache[sid] = jsonDecode(configJson); } catch (_) { configCache[sid] = {}; }
         } else { configCache[sid] = {}; }
+
+        final chipsJson = row['global_chips_json'] as String?;
+        if (chipsJson != null) {
+          try {
+            final decoded = jsonDecode(chipsJson);
+            if (decoded is List) {
+              chipCache[sid] = decoded.map((e) => (e as num).toInt()).toList();
+            } else { chipCache[sid] = [0,0,0,0]; }
+          } catch (_) { chipCache[sid] = [0,0,0,0]; }
+        } else { chipCache[sid] = [0,0,0,0]; }
       }
       
       final cfg = configCache[sid]!;
       final double rate = (cfg['rate'] as num?)?.toDouble() ?? 100.0;
       final int chipRate = (cfg['chipRate'] as num?)?.toInt() ?? 100;
       final double fee = (cfg['gameFee'] as num?)?.toDouble() ?? 0.0;
+      final List<int> sessionChips = chipCache[sid]!;
 
       final dateStr = (row['date'] as String?) ?? '';
       String day = dateStr.length >= 10 ? dateStr.substring(0, 10).replaceAll('-', '/') : dateStr;
@@ -557,28 +571,33 @@ class DatabaseService {
         
         s['games'] = (s['games'] as int) + 1;
         final pt = (row['p$i\_pt'] as num?)?.toInt() ?? 0;
-        final chip = (row['p$i\_ch'] as num?)?.toInt() ?? 0;
         final rank = (row['p$i\_rank'] as num?)?.toInt() ?? 1;
         final tobi = (row['p$i\_tobi'] as num?)?.toInt() ?? 0;
 
         s['totalPt'] = (s['totalPt'] as int) + pt;
-        s['totalChip'] = (s['totalChip'] as int) + chip;
         s['rankSum'] = (s['rankSum'] as int) + rank;
         if (rank == 1) s['topCount'] = (s['topCount'] as int) + 1;
         if (rank <= 2) s['rentaiCount'] = (s['rentaiCount'] as int) + 1;
         if (tobi == 1) s['tobiCount'] = (s['tobiCount'] as int) + 1;
 
-        // 収支計算: (Pt * rate) + (Chip * chipRate)
-        double income = (pt * rate) + (chip * chipRate);
-        double moneyResult = income;
+        double gamePtIncome = pt * rate;
+        double metaResult = 0;
         
-        // 厳守：場代をセッションごとに1回だけ引く
         final sessionSet = s['processedSessions'] as Set<int>;
         if (!sessionSet.contains(sid)) {
-          moneyResult -= (fee / 4.0);
+          // セッションチップの取得
+          int pChip = 0;
+          for (int j=1; j<=4; j++) {
+            if (row['sp$j'] == name && sessionChips.length >= j) {
+              pChip = sessionChips[j-1];
+              break;
+            }
+          }
+          s['totalChip'] = (s['totalChip'] as int) + pChip;
+          metaResult = (pChip * chipRate) - (fee / 4.0);
           sessionSet.add(sid);
         }
-        s['totalMoney'] = (s['totalMoney'] as double) + moneyResult;
+        s['totalMoney'] = (s['totalMoney'] as double) + gamePtIncome + metaResult;
         if (day.isNotEmpty) (s['session_dates'] as Set<String>).add(day);
       }
     }
@@ -619,6 +638,8 @@ class DatabaseService {
         if (groupId != null && (session['group_id'] as num?)?.toInt() != groupId) return false;
         
         g['config_json'] = session['config_json'];
+        g['global_chips_json'] = session['global_chips_json'];
+        g['sp1'] = session['p1_name']; g['sp2'] = session['p2_name']; g['sp3'] = session['p3_name']; g['sp4'] = session['p4_name'];
         return true;
       }).toList();
     } else {
@@ -626,7 +647,9 @@ class DatabaseService {
       String nameClause = '(g.p1_name = ? OR g.p2_name = ? OR g.p3_name = ? OR g.p4_name = ?)';
       String groupClause = groupId != null ? 'AND s.group_id = ?' : '';
       allRows = await db.rawQuery('''
-        SELECT g.*, s.config_json FROM games g
+        SELECT g.*, s.config_json, s.global_chips_json,
+               s.p1_name as sp1, s.p2_name as sp2, s.p3_name as sp3, s.p4_name as sp4
+        FROM games g
         LEFT JOIN sessions s ON g.session_id = s.id
         WHERE $nameClause $groupClause
         ORDER BY g.date ASC
@@ -644,6 +667,7 @@ class DatabaseService {
     final Set<int> processedSessionIds = {};
     final history = <Map<String, dynamic>>[];
     final Map<int, Map<String, dynamic>> configCache = {};
+    final Map<int, List<int>> chipCache = {};
     int currentPt = 0;
 
     for (final row in allRows) {
@@ -653,13 +677,11 @@ class DatabaseService {
 
       gamesCount++;
       final pt = (row['p${pIdx}_pt'] as num?)?.toInt() ?? 0;
-      final chip = (row['p${pIdx}_ch'] as num?)?.toInt() ?? 0;
       final rank = (row['p${pIdx}_rank'] as num?)?.toInt() ?? 1;
       final tobi = (row['p${pIdx}_tobi'] as num?)?.toInt() ?? 0;
 
       totalPt += pt;
       currentPt += pt;
-      totalChip += chip;
       rankSum += rank;
       if (rank == 1) topCount++;
       if (rank <= 2) rentaiCount++;
@@ -669,25 +691,42 @@ class DatabaseService {
       if (!configCache.containsKey(sid)) {
         final configJson = row['config_json'] as String?;
         if (configJson != null) {
-          try {
-            configCache[sid] = jsonDecode(configJson);
-          } catch (_) { configCache[sid] = {}; }
+          try { configCache[sid] = jsonDecode(configJson); } catch (_) { configCache[sid] = {}; }
         } else { configCache[sid] = {}; }
+
+        final chipsJson = row['global_chips_json'] as String?;
+        if (chipsJson != null) {
+          try {
+            final decoded = jsonDecode(chipsJson);
+            if (decoded is List) {
+              chipCache[sid] = decoded.map((e) => (e as num).toInt()).toList();
+            } else { chipCache[sid] = [0,0,0,0]; }
+          } catch (_) { chipCache[sid] = [0,0,0,0]; }
+        } else { chipCache[sid] = [0,0,0,0]; }
       }
       
       final cfg = configCache[sid]!;
       final double rate = (cfg['rate'] as num?)?.toDouble() ?? 100.0;
       final int chipRate = (cfg['chipRate'] as num?)?.toInt() ?? 100;
       final double fee = (cfg['gameFee'] as num?)?.toDouble() ?? 0.0;
+      final List<int> sessionChips = chipCache[sid]!;
 
-      double income = (pt * rate) + (chip * chipRate);
-      double moneyResult = income;
+      double gamePtIncome = pt * rate;
+      double metaResult = 0;
       
       if (!processedSessionIds.contains(sid)) {
-        moneyResult -= (fee / 4.0);
+        int pChip = 0;
+        for (int j=1; j<=4; j++) {
+          if (row['sp$j'] == playerName && sessionChips.length >= j) {
+            pChip = sessionChips[j-1];
+            break;
+          }
+        }
+        totalChip += pChip;
+        metaResult = (pChip * chipRate) - (fee / 4.0);
         processedSessionIds.add(sid);
       }
-      totalMoney += moneyResult;
+      totalMoney += gamePtIncome + metaResult;
 
       history.add({
         'gameNo': gamesCount,
