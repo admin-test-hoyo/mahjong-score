@@ -505,7 +505,10 @@ class DatabaseService {
     if (kIsWeb) {
       final gRows = await _webQuery('web_db_games');
       final sRows = await _webQuery('web_db_sessions');
-      allRows = gRows.where((g) => (g['group_id'] as num?)?.toInt() == groupId).map((g) {
+      allRows = gRows.where((g) {
+        final id = (g['group_id'] as num?)?.toInt();
+        return id == groupId;
+      }).map((g) {
         final session = sRows.firstWhere((s) => s['id'] == g['session_id'], orElse: () => {});
         return { 
           ...g, 

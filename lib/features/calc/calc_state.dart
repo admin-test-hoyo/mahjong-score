@@ -425,16 +425,8 @@ class CalcNotifier extends Notifier<CalcState> {
       AppConfig calcConfig = ref.read(configProvider);
       String effectiveConfigJson = jsonEncode(calcConfig.toJson());
 
-      // Ver 3.5.1: 編集モードなら既存Session設定を完全優先
-      if (isUpdate) {
-        final existing = await db.getSessionById(currentId);
-        if (existing != null && existing.configJson != null) {
-          try {
-            effectiveConfigJson = existing.configJson!;
-            calcConfig = AppConfig.fromJson(jsonDecode(effectiveConfigJson));
-          } catch(_) {}
-        }
-      }
+      // Ver 3.5.2: 画面上の最新設定を常に使用（独立編集モード）
+      // 以前の「凍結ロジック」は、過去の対局ルールの微調整（レート変更等）を妨げるため廃止しました。
 
       const players = 4;
       if (state.games.isEmpty) return SaveResult.failed;
