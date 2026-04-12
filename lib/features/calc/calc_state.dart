@@ -418,17 +418,15 @@ class CalcNotifier extends Notifier<CalcState> {
 
   Future<SaveResult> saveCurrentSession(DateTime date) async {
     try {
-      final config = ref.read(configProvider);
-      const players = 4;
-      if (state.games.isEmpty) return SaveResult.failed;
-
       final db = DatabaseService();
       final currentId = state.currentId;
+      final isUpdate = currentId != null;
+      
       AppConfig calcConfig = ref.read(configProvider);
       String effectiveConfigJson = jsonEncode(calcConfig.toJson());
 
       // Ver 3.5.1: 編集モードなら既存Session設定を完全優先
-      if (currentId != null) {
+      if (isUpdate) {
         final existing = await db.getSessionById(currentId);
         if (existing != null && existing.configJson != null) {
           try {
@@ -502,10 +500,9 @@ class CalcNotifier extends Notifier<CalcState> {
       // 2. セッション（ヘッダー）の特定または作成
       String sessionDay = DateFormat('yyyy/MM/dd').format(date);
       final int sessionId;
-      final currentId = state.currentId;
       int? effectiveGroupId = state.pickedGroupId;
 
-      if (currentId != null) {
+      if (isUpdate) {
         sessionId = currentId;
         final existing = await db.getSessionById(sessionId);
         if (existing != null) {
