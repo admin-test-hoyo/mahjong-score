@@ -71,10 +71,11 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
 
   Future<void> _loadGames() async {
     final db = DatabaseService();
-    final rows = await db.getGames();
+    // Ver 3.4.4: 初期ロード時に全データを取得し、UI側でフィルタリングする
+    final rows = await db.getGames(all: true);
     _allGames = rows.map((e) => SavedGame.fromMap(e)).toList();
 
-    final sessionRows = await db.getSessions();
+    final sessionRows = await db.getSessions(all: true);
     _allSessions = sessionRows.map((e) {
       final names = <String>[e['p1_name']??'', e['p2_name']??'', e['p3_name']??'', e['p4_name']??''];
       final moneys = <int>[(e['p1_money'] as num?)?.toInt() ?? 0, (e['p2_money'] as num?)?.toInt() ?? 0, (e['p3_money'] as num?)?.toInt() ?? 0, (e['p4_money'] as num?)?.toInt() ?? 0];

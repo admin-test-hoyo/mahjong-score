@@ -632,14 +632,15 @@ class DatabaseService {
   }
 
   Future<Map<String, dynamic>> getUserStats(String playerName, {int? groupId}) async {
-    final sessionRows = await getSessions(groupId: groupId);
+    // Ver 3.4.4: groupIdがnullの場合は「全グループ」を対象とするため all: true を指定
+    final sessionRows = await getSessions(groupId: groupId, all: groupId == null);
     final sessions = sessionRows.where((s) => 
       (s['p1_name'] == playerName) || (s['p2_name'] == playerName) || 
       (s['p3_name'] == playerName) || (s['p4_name'] == playerName)
     ).toList();
     final sessionIds = sessions.map((s) => s['id'] as int).toSet();
 
-    final gameRows = await getGames(groupId: groupId);
+    final gameRows = await getGames(groupId: groupId, all: groupId == null);
     final games = gameRows.where((g) => sessionIds.contains(g['session_id'])).toList();
 
     // --- 個人の統計データ算出 (Ver 3.4.3: gamesテーブルからの動的集計) ---
@@ -910,6 +911,9 @@ class DatabaseService {
           await txn.insert('games', Map<String, dynamic>.from(g), conflictAlgorithm: ConflictAlgorithm.replace);
         }
       });
+
+      // --- 【Ver 3.4.4】インポート直後に全データの収支を強制計算してDBを同期 ---
+      await recalculateAllSessionTotals();
     } catch (e, stackTrace) {
       // ユーザーの指示に従い、サイレント失敗を特定するための詳細ログを出力
       print('--- IMPORT FAIL --- \nError: $e\nStack: $stackTrace');

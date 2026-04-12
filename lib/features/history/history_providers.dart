@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../core/database/database_service.dart';
@@ -38,15 +39,46 @@ class HistoryNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
 
       final Session session = Session.fromMap(s);
 
-      // Ver 3.4.2: Sessionプロパティに依存せず、常に Games リストから最新の合計値を算出する
+      // Ver 3.4.4: Sessionプロパティに依存せず、常に Games リストから最新の合計値を算出する
+      // また、セッション固有の config_json を参照して金額を正確に再計算する
       final List<int> totalPts = [0, 0, 0, 0];
-      final List<int> totalMoneysFromGames = [0, 0, 0, 0];
+      final List<int> totalChips = [0, 0, 0, 0];
       
       for (var game in sessionGames) {
         for (int i = 0; i < game.points.length && i < 4; i++) {
           totalPts[i] += game.points[i];
-          totalMoneysFromGames[i] += game.moneys[i];
+          totalChips[i] += game.chips[i];
         }
+      }
+
+      // セッション固有ルールのデコード
+      double rate = 0; int chipRate = 0; int fee = 0;
+      final configJson = s['config_json'] as String?;
+      if (configJson != null) {
+        try {
+          final cfg = jsonDecode(configJson);
+          rate = (cfg['rate'] as num?)?.toDouble() ?? 0.0;
+          chipRate = (cfg['chipRate'] as num?)?.toInt() ?? 0;
+          fee = (cfg['gameFee'] as num?)?.toInt() ?? 0;
+        } catch(_) {}
+      }
+
+      final List<int> totalMoneysCalculated = [0, 0, 0, 0];
+      for (int i = 0; i < 4; i++) {
+        final income = (totalPts[i] * rate) + (totalChips[i] * chipRate);
+        // 厳守：場代(fee / 4) はセッション合計から1回だけ引く
+        totalMoneysCalculated[i] = (income - (fee / 4.0)).round();
+      }
+
+      // グローバルチップの加算 (互換性維持)
+      if (s['global_chips_json'] != null) {
+        try {
+          final gc = (jsonDecode(s['global_chips_json'] as String) as List).cast<int>();
+          for (int i = 0; i < gc.length && i < 4; i++) {
+             totalMoneysCalculated[i] += (gc[i] * chipRate);
+             totalChips[i] += gc[i];
+          }
+        } catch(_) {}
       }
 
       sessionsWithGames.add({
@@ -54,7 +86,7 @@ class HistoryNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
         'games': sessionGames,
         'groupName': groupName,
         'totalPt': totalPts,
-        'totalMoney': totalMoneysFromGames,
+        'totalMoney': totalMoneysCalculated,
         'gameCount': sessionGames.length,
       });
     }
