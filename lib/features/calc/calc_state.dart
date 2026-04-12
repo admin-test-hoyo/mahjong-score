@@ -53,7 +53,6 @@ class GameRecord {
   }
 }
 
-// UI State that holds multiple game records
 class CalcState {
   final List<String> playerNames;
   final List<int> globalChips; // [p1, p2, p3, p4]
@@ -64,6 +63,7 @@ class CalcState {
   final String? currentDraft;
   final List<int>? snapshottedMoneys; // Ver 1.9.2: 履歴表示用の固定収支
   final List<Map<String, dynamic>>? possibleGroupMatches; // 追加: マッチ候補
+  final int? pickedGroupId; // Ver 3.4.2: 入力経路による自動判別用
 
   const CalcState({
     this.playerNames = const ['A', 'B', 'C', 'D'],
@@ -75,6 +75,7 @@ class CalcState {
     this.currentDraft,
     this.snapshottedMoneys,
     this.possibleGroupMatches,
+    this.pickedGroupId,
   });
 
   CalcState copyWith({
@@ -90,6 +91,7 @@ class CalcState {
     bool clearMatches = false,
     List<int>? snapshottedMoneys,
     bool clearSnapshot = false,
+    int? pickedGroupId,
   }) {
     return CalcState(
       playerNames: playerNames ?? this.playerNames,
@@ -101,6 +103,7 @@ class CalcState {
       currentDraft: clearDraft ? null : (currentDraft ?? this.currentDraft),
       snapshottedMoneys: clearSnapshot ? null : (snapshottedMoneys ?? this.snapshottedMoneys),
       possibleGroupMatches: clearMatches ? null : (possibleGroupMatches ?? this.possibleGroupMatches),
+      pickedGroupId: pickedGroupId ?? this.pickedGroupId,
     );
   }
 
@@ -115,6 +118,7 @@ class CalcState {
     'sessionDate': sessionDate,
     'currentDraft': currentDraft,
     'snapshottedMoneys': snapshottedMoneys,
+    'pickedGroupId': pickedGroupId,
   };
 
   factory CalcState.fromJson(Map<String, dynamic> json) {
@@ -127,6 +131,7 @@ class CalcState {
       sessionDate: json['sessionDate'] as String?,
       currentDraft: json['currentDraft'] as String?,
       snapshottedMoneys: (json['snapshottedMoneys'] as List<dynamic>?)?.map((e) => e as int).toList(),
+      pickedGroupId: json['pickedGroupId'] as int?,
     );
   }
 }
@@ -176,10 +181,16 @@ class CalcNotifier extends Notifier<CalcState> {
     if (id < 1 || id > 4) return;
     final newNames = List<String>.from(state.playerNames);
     newNames[id - 1] = name;
-    state = state.copyWith(playerNames: newNames);
-    
-    // Ver 3.4.1: 手動入力時はフリー対局として扱う（グループ選択を解除）
-    ref.read(selectedGroupIdProvider.notifier).update(null);
+    // Ver 3.4.2: 手動タイピング時は強制的にフリー対局とする
+    state = state.copyWith(playerNames: newNames, pickedGroupId: null);
+  }
+
+  void setPlayersFromGroup(int groupId, List<String> names) {
+    state = state.copyWith(
+      playerNames: names,
+      pickedGroupId: groupId,
+      clearSnapshot: true,
+    );
   }
 
   void setPlayerName(int index, String name) {
@@ -481,7 +492,7 @@ class CalcNotifier extends Notifier<CalcState> {
       String sessionDay = DateFormat('yyyy/MM/dd').format(date);
       final int sessionId;
       final currentId = state.currentId;
-      final selectedGroupId = ref.read(selectedGroupIdProvider);
+      final int? effectiveGroupId = state.pickedGroupId; // Ver 3.4.2: state内の状態を使用
 
       if (currentId != null) {
         sessionId = currentId;
@@ -490,12 +501,12 @@ class CalcNotifier extends Notifier<CalcState> {
         if (existing != null) {
           sessionDay = existing.date;
         }
-        // セッション情報を更新（設定値と合計収支のスナップショットを保存）
+        // セッション情報を更新
         await db.updateSession(Session(
           id: sessionId,
           date: sessionDay,
           playerNames: state.playerNames,
-          groupId: selectedGroupId, // Ver 3.4.1: プロバイダーから取得して同期
+          groupId: effectiveGroupId,
           configJson: configJson,
           globalChipsJson: jsonEncode(state.globalChips),
           totalMoneys: sessionFinalMoneys,
@@ -506,7 +517,7 @@ class CalcNotifier extends Notifier<CalcState> {
         sessionId = await db.findOrCreateSession(
           date: sessionDay,
           playerNames: state.playerNames,
-          groupId: selectedGroupId, // Ver 3.4.1: プロバイダーから取得して同期
+          groupId: effectiveGroupId,
           configJson: configJson,
           globalChipsJson: jsonEncode(state.globalChips),
           totalMoneys: sessionFinalMoneys,
@@ -523,7 +534,7 @@ class CalcNotifier extends Notifier<CalcState> {
           'session_id': sessionId,
           'type': '4-player',
           'date': date.toIso8601String(),
-          'group_id': selectedGroupId, // Ver 3.4.1: プロバイダーから取得して同期
+          'group_id': effectiveGroupId,
           'p1_name': state.playerNames[0],
           'p2_name': state.playerNames[1],
           'p3_name': state.playerNames[2],
@@ -670,17 +681,17 @@ class CalcNotifier extends Notifier<CalcState> {
         return;
       } catch (_) {}
     }
-    state = CalcState(
+    // 記録対象グループのリセット
+    state = state.copyWith(
       playerNames: const ['A', 'B', 'C', 'D'],
       globalChips: const [0, 0, 0, 0],
       games: const [],
       rule: state.rule,
       currentDraft: null,
+      pickedGroupId: null, // Ver 3.4.2: リセット
     );
     // 場代をリセット
     ref.read(configProvider.notifier).updateGameFee(0);
-    // Ver 3.4.1: グループ選択もリセット（新規入力の安全のため）
-    ref.read(selectedGroupIdProvider.notifier).update(null);
   }
 
   void resetToNewEntry() => resetGame();

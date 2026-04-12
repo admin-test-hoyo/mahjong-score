@@ -62,7 +62,7 @@ class CalcScreen extends ConsumerWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Ver 3.4.1', style: TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold)),
+              const Text('Ver 3.4.2', style: TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold)),
               Text(DateFormat('yyyy/MM/dd').format(DateTime.now()), style: const TextStyle(color: Colors.white24, fontSize: 10)),
             ],
           ),
@@ -232,7 +232,7 @@ class CalcScreen extends ConsumerWidget {
           const SizedBox(width: 12),
           _quickField(label: '場代', value: displayFee.toString(), onChanged: (v) => ref.read(calcProvider.notifier).updateRuleGameFee(int.tryParse(v) ?? 0), width: 80),
           const Spacer(),
-          const Text('Ver 3.4.1', style: TextStyle(color: Colors.white12, fontSize: 9)),
+          const Text('Ver 3.4.2', style: TextStyle(color: Colors.white12, fontSize: 9)),
         ],
       ),
     );
@@ -646,12 +646,8 @@ class _MemberPickerModalState extends State<_MemberPickerModal> {
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
           onPressed: canConfirm ? () {
-            // Ver 3.4.1: メンバー読み出し時にグループIDをセット
-            widget.ref.read(selectedGroupIdProvider.notifier).update(_selectedGroupId);
-            
-            for (int i = 0; i < _selectedMembers.length; i++) {
-              widget.ref.read(calcProvider.notifier).setPlayerName(i, _selectedMembers[i]);
-            }
+            // Ver 3.4.2: メンバー読み出し時にグループIDと名前を一括セット
+            widget.ref.read(calcProvider.notifier).setPlayersFromGroup(_selectedGroupId!, _selectedMembers);
             Navigator.pop(context);
           } : null,
           child: Text(
@@ -689,51 +685,10 @@ class SettingsModal extends ConsumerWidget {
             const SizedBox(width: 8),
             Expanded(child: _field(ref, '役満賞(ロン)', config.yakumanRonPrize.toString(), (v) => ref.read(configProvider.notifier).updateYakumanRonPrize(int.tryParse(v) ?? 10), suffixText: 'Pt')),
         ]),
-        const SizedBox(height: 24),
-        const Text('記録設定 (Ver 3.4.1)', style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        _buildGroupSelector(context, ref),
         const SizedBox(height: 32),
     ]));
   }
 
-  Widget _buildGroupSelector(BuildContext context, WidgetRef ref) {
-    final groupsAsync = ref.watch(groupListProvider);
-    final selectedId = ref.watch(selectedGroupIdProvider);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: groupsAsync.when(
-        data: (groups) => DropdownButtonHideUnderline(
-          child: DropdownButton<int?>(
-            value: selectedId,
-            dropdownColor: const Color(0xFF001F1A),
-            isExpanded: true,
-            hint: const Text('記録先を選択', style: TextStyle(color: Colors.white38, fontSize: 14)),
-            items: [
-              const DropdownMenuItem<int?>(
-                value: null,
-                child: Text('指定なし (フリー)', style: TextStyle(color: Colors.white70, fontSize: 14)),
-              ),
-              ...groups.map((g) => DropdownMenuItem<int?>(
-                value: g['id'] as int,
-                child: Text(g['name'], style: const TextStyle(color: Color(0xFF00FFC2), fontSize: 14)),
-              )),
-            ],
-            onChanged: (val) {
-              ref.read(selectedGroupIdProvider.notifier).update(val);
-            },
-          ),
-        ),
-        loading: () => const SizedBox(height: 48, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
-        error: (_, __) => const Text('グループ取得エラー', style: TextStyle(color: Colors.redAccent)),
-      ),
-    );
-  }
   Widget _field(WidgetRef ref, String l, String i, Function(String) o, {String? suffixText}) => TextFormField(initialValue: i, keyboardType: TextInputType.number, style: const TextStyle(color: Colors.white, fontSize: 14), decoration: InputDecoration(labelText: l, labelStyle: const TextStyle(color: Colors.white38, fontSize: 11), filled: true, fillColor: Colors.white.withValues(alpha: 0.04), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none), suffixText: suffixText), onChanged: o);
 }
 

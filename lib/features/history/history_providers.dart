@@ -38,17 +38,23 @@ class HistoryNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
 
       final Session session = Session.fromMap(s);
 
+      // Ver 3.4.2: Sessionプロパティに依存せず、常に Games リストから最新の合計値を算出する
+      final List<int> totalPts = [0, 0, 0, 0];
+      final List<int> totalMoneysFromGames = [0, 0, 0, 0];
+      
+      for (var game in sessionGames) {
+        for (int i = 0; i < game.points.length && i < 4; i++) {
+          totalPts[i] += game.points[i];
+          totalMoneysFromGames[i] += game.moneys[i];
+        }
+      }
+
       sessionsWithGames.add({
         'session': session,
         'games': sessionGames,
         'groupName': groupName,
-        'totalPt': [0, 0, 0, 0], // Not used directly in timeline summary if session has totalMoneys
-        'totalMoney': [
-          session.totalMoneys?[0] ?? 0,
-          session.totalMoneys?[1] ?? 0,
-          session.totalMoneys?[2] ?? 0,
-          session.totalMoneys?[3] ?? 0,
-        ],
+        'totalPt': totalPts,
+        'totalMoney': totalMoneysFromGames,
         'gameCount': sessionGames.length,
       });
     }
