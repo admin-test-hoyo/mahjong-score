@@ -515,8 +515,8 @@ class DatabaseService {
     }
     final sessionIds = sRows.map((s) => s['id'] as int).toSet();
 
-    // --- 合計Pt/Money等の算出 (Ver 3.4.3: gamesテーブルからの動的集計) ---
-    // 1. 各Playerの対局ごとのPt, Chip, Rankを集計 (Moneyの基礎部分)
+    // --- 合計Pt/Money等の算出 (Ver 3.4.5: gamesテーブルからの動的な詳細集計) ---
+    // 1. 各Playerの対局ごとのPt, Chip, Rank, Tobiを集計
     for (final row in allRows) {
       if (row['group_id'] != groupId && !sessionIds.contains(row['session_id'])) continue;
 
@@ -524,6 +524,8 @@ class DatabaseService {
         final name = (row['p$i\_name'] ?? '').toString().trim();
         if (name.isEmpty || !memberNameSet.contains(name)) continue;
         final s = stats[name]!;
+        
+        // 対局数カウント (半荘数)
         s['games'] = (s['games'] as int) + 1;
         
         final pt = (row['p$i\_pt'] as num?)?.toInt() ?? 0;
@@ -533,12 +535,16 @@ class DatabaseService {
         
         final rank = (row['p$i\_rank'] as num?)?.toInt() ?? 1;
         s['rankSum'] = (s['rankSum'] as int) + rank;
+        
+        // 指標用カウント
         if (rank == 1) s['topCount'] = (s['topCount'] as int) + 1;
         if (rank <= 2) s['rentaiCount'] = (s['rentaiCount'] as int) + 1;
-        if (((row['p$i\_score'] as num?)?.toInt() ?? 0) < 0) s['tobiCount'] = (s['tobiCount'] as int) + 1;
-
-        // Moneyの暫定計算 (Pt*Rate + Chip*ChipRate)
-        // ここではセッションごとのRateが必要なため、後述のセクションでまとめて計算する方が正確
+        
+        // トび判定: 厳守：tobiカラムが 1 ならトビとみなす
+        final tobiVal = (row['p$i\_tobi'] as num?)?.toInt() ?? 0;
+        if (tobiVal == 1) {
+          s['tobiCount'] = (s['tobiCount'] as int) + 1;
+        }
       }
     }
 
@@ -632,16 +638,48 @@ class DatabaseService {
   }
 
   Future<Map<String, dynamic>> getUserStats(String playerName, {int? groupId}) async {
-    // Ver 3.4.4: groupIdがnullの場合は「全グループ」を対象とするため all: true を指定
-    final sessionRows = await getSessions(groupId: groupId, all: groupId == null);
-    final sessions = sessionRows.where((s) => 
-      (s['p1_name'] == playerName) || (s['p2_name'] == playerName) || 
-      (s['p3_name'] == playerName) || (s['p4_name'] == playerName)
-    ).toList();
-    final sessionIds = sessions.map((s) => s['id'] as int).toSet();
+    // Ver 3.4.5: SQLインジェクションを防ぎつつ、playerName と groupId の論理的なAND/ORを正しく構築
+    // playerNameが参加している対局(games)を基準にし、それに関連するセッション情報を引き出す
+    
+    List<Map<String, dynamic>> sessions;
+    List<Map<String, dynamic>> games;
 
-    final gameRows = await getGames(groupId: groupId, all: groupId == null);
-    final games = gameRows.where((g) => sessionIds.contains(g['session_id'])).toList();
+    if (kIsWeb) {
+      final allSessions = await getSessions(groupId: groupId, all: groupId == null);
+      sessions = allSessions.where((s) => 
+        (s['p1_name'] == playerName) || (s['p2_name'] == playerName) || 
+        (s['p3_name'] == playerName) || (s['p4_name'] == playerName)
+      ).toList();
+      final sessionIds = sessions.map((s) => s['id'] as int).toSet();
+      
+      final allGames = await getGames(groupId: groupId, all: groupId == null);
+      games = allGames.where((g) {
+        if (!sessionIds.contains(g['session_id'])) return false;
+        for (int i=1; i<=4; i++) { if (g['p${i}_name'] == playerName) return true; }
+        return false;
+      }).toList();
+    } else {
+      final db = await database;
+      // 厳守：(p1_name = ? OR ...) 括弧でくくり、かつ group_id を AND で結合
+      String nameClause = '(p1_name = ? OR p2_name = ? OR p3_name = ? OR p4_name = ?)';
+      String? groupClause = groupId != null ? 'AND group_id = ?' : (groupId == null ? '' : 'AND group_id IS NULL');
+      
+      // playerName が参加している対局(games)を全て取得
+      String gWhere = '$nameClause ${groupId == null ? "" : groupClause}';
+      List<dynamic> gArgs = [playerName, playerName, playerName, playerName];
+      if (groupId != null) gArgs.add(groupId);
+      
+      games = await db.query('games', where: gWhere, whereArgs: gArgs, orderBy: 'date ASC');
+      final sIds = games.map((g) => g['session_id']).whereType<int>().toSet().toList();
+      
+      if (sIds.isEmpty) {
+        sessions = [];
+      } else {
+        // 関連するセッションを取得
+        String sWhere = 'id IN (${sIds.join(',')})';
+         sessions = await db.query('sessions', where: sWhere);
+      }
+    }
 
     // --- 個人の統計データ算出 (Ver 3.4.3: gamesテーブルからの動的集計) ---
     int totalPt = 0;
@@ -671,7 +709,10 @@ class DatabaseService {
       rankSum += rank;
       if (rank == 1) topCount++;
       if (rank <= 2) rentaiCount++;
-      if (((g['p${idx+1}_score'] as num?)?.toInt() ?? 0) < 0) tobiCount++;
+      
+      // トび判定: 厳守：tobiカラムが 1 ならトビとみなす
+      final tobiVal = (g['p${idx+1}_tobi'] as num?)?.toInt() ?? 0;
+      if (tobiVal == 1) tobiCount++;
 
       history.add({
         'gameNo': gamesCount,
