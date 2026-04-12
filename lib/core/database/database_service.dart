@@ -500,19 +500,16 @@ class DatabaseService {
     if (memberNames.isEmpty) return [];
     final memberNameSet = memberNames.toSet();
 
-    // Ver 3.4.6: 物理復旧指令に基づき、INNER JOIN を使用してリレーションを強制
     List<Map<String, dynamic>> allRows;
     if (kIsWeb) {
       final gRows = await _webQuery('web_db_games');
       final sRows = await _webQuery('web_db_sessions');
-      // Web(SharedPreferences)模擬JOIN
-      allRows = gRows.where((g) => g['group_id'] == groupId).map((g) {
+      allRows = gRows.where((g) => (g['group_id'] as num?)?.toInt() == groupId).map((g) {
         final session = sRows.firstWhere((s) => s['id'] == g['session_id'], orElse: () => {});
         return { ...g, 'config_json': session['config_json'] };
       }).where((row) => row['config_json'] != null).toList();
     } else {
       final db = await database;
-      // 厳守：INNER JOIN クエリ
       allRows = await db.rawQuery('''
         SELECT g.*, s.config_json FROM games g
         INNER JOIN sessions s ON g.session_id = s.id
@@ -525,10 +522,9 @@ class DatabaseService {
       'name': name, 'games': 0, 'totalPt': 0, 'totalChip': 0, 'rankSum': 0, 
       'topCount': 0, 'rentaiCount': 0, 'tobiCount': 0, 'totalMoney': 0.0, 
       'session_dates': <String>{}, 
-      'processedSessions': <int>{}, // 場代を1回だけ引くためのSet
+      'processedSessions': <int>{}, 
     } };
 
-    // 1 & 2. 明示的なループによる集計 (省略禁止)
     for (final row in allRows) {
       final configJson = row['config_json'] as String?;
       double rate = 0; int chipRate = 0; double fee = 0;
@@ -541,7 +537,7 @@ class DatabaseService {
         } catch (_) {}
       }
 
-      final sid = row['session_id'] as int;
+      final sid = (row['session_id'] as num?)?.toInt() ?? 0;
       final dateStr = (row['date'] as String?) ?? '';
       String day = dateStr.length >= 10 ? dateStr.substring(0, 10).replaceAll('-', '/') : dateStr;
 
@@ -550,7 +546,6 @@ class DatabaseService {
         if (name.isEmpty || !memberNameSet.contains(name)) continue;
         final s = stats[name]!;
         
-        // 基本指標の加算 (物理記述)
         s['games'] = (s['games'] as int) + 1;
         final pt = (row['p$i\_pt'] as num?)?.toInt() ?? 0;
         final chip = (row['p$i\_ch'] as num?)?.toInt() ?? 0;
@@ -564,11 +559,9 @@ class DatabaseService {
         if (rank <= 2) s['rentaiCount'] = (s['rentaiCount'] as int) + 1;
         if (tobi == 1) s['tobiCount'] = (s['tobiCount'] as int) + 1;
 
-        // 収支計算 (Money)
         double income = (pt * rate) + (chip * chipRate);
         double moneyResult = income;
         
-        // 厳守：場代をセッションごとに1回だけ引く
         final sessionSet = s['processedSessions'] as Set<int>;
         if (!sessionSet.contains(sid)) {
           moneyResult -= (fee / 4.0);
@@ -600,47 +593,25 @@ class DatabaseService {
     result.sort((a, b) => (b['totalPt'] as num).compareTo(a['totalPt'] as num));
     return result;
   }
-    for (final name in memberNames) {
-      final s = stats[name]!;
-      s['matches'] = (s['session_dates'] as Set<String>).length;
-    }
-    for (final s in stats.values) {
-      final games = s['games'] as int? ?? 0;
-      final rankSum = s['rankSum'] as int? ?? 0;
-      s['avgRank'] = games > 0 ? rankSum / games : 0.0;
-      s['totalScore'] = s['totalMoney'];
-      s['topRate'] = games > 0 ? (s['topCount'] as int) / games * 100 : 0.0;
-      s['rentaiRate'] = games > 0 ? (s['rentaiCount'] as int) / games * 100 : 0.0;
-      s['tobiRate'] = games > 0 ? (s['tobiCount'] as int) / games * 100 : 0.0;
-    }
-
-    final result = stats.values.toList();
-    result.sort((a, b) => (b['totalPt'] as num).compareTo(a['totalPt'] as num));
-    return result;
-  }
 
   Future<Map<String, dynamic>> getUserStats(String playerName, {int? groupId}) async {
-    // Ver 3.4.6: 物理復旧指令に基づき、INNER JOIN を使用してリレーションを強制
     List<Map<String, dynamic>> allRows;
     if (kIsWeb) {
       final gRows = await _webQuery('web_db_games');
       final sRows = await _webQuery('web_db_sessions');
-      //playerName がフィルタされ、かつ group がフィルタされた games を取得 (模擬JOIN)
       allRows = gRows.where((g) {
         bool namesMatch = false;
         for (int i=1; i<=4; i++) { if (g['p${i}_name'] == playerName) namesMatch = true; }
         if (!namesMatch) return false;
         
         final session = sRows.firstWhere((s) => s['id'] == g['session_id'], orElse: () => {});
-        if (groupId != null && session['group_id'] != groupId) return false;
-        if (groupId == null && session['group_id'] != null) { /* 全表示 */ }
+        if (groupId != null && (session['group_id'] as num?)?.toInt() != groupId) return false;
         
-        g['config_json'] = session['config_json']; // JOIN模擬
+        g['config_json'] = session['config_json'];
         return true;
       }).toList();
     } else {
       final db = await database;
-      // 厳守：INNER JOIN クエリ
       String nameClause = '(g.p1_name = ? OR g.p2_name = ? OR g.p3_name = ? OR g.p4_name = ?)';
       String groupClause = groupId != null ? 'AND s.group_id = ?' : '';
       allRows = await db.rawQuery('''
@@ -651,7 +622,6 @@ class DatabaseService {
       ''', [playerName, playerName, playerName, playerName, if (groupId != null) groupId]);
     }
 
-    // --- 個人の統計データ算出 (Ver 3.4.6: 明示的なループ集計) ---
     double totalMoney = 0.0;
     int totalPt = 0;
     int totalChip = 0;
@@ -683,7 +653,6 @@ class DatabaseService {
       if (rank <= 2) rentaiCount++;
       if (tobi == 1) tobiCount++;
 
-      // Money算出ロジック
       final configJson = row['config_json'] as String?;
       double rate = 0; int chipRate = 0; double fee = 0;
       if (configJson != null) {
@@ -698,8 +667,7 @@ class DatabaseService {
       double income = (pt * rate) + (chip * chipRate);
       double moneyResult = income;
       
-      // 厳守：場代をセッションごとに1回だけ引く
-      final sid = row['session_id'] as int;
+      final sid = (row['session_id'] as num?)?.toInt() ?? 0;
       if (!processedSessionIds.contains(sid)) {
         moneyResult -= (fee / 4.0);
         processedSessionIds.add(sid);
@@ -723,31 +691,6 @@ class DatabaseService {
       'tobiRate': gamesCount > 0 ? tobiCount / gamesCount * 100 : 0.0,
       'totalMoney': totalMoney.round(),
       'history': history,
-    };
-  }
-
-      // グローバルチップ (Ver 3.4.1以前との互換性)
-      if (s['global_chips_json'] != null) {
-        try {
-          final List<dynamic> gc = jsonDecode(s['global_chips_json'] as String);
-          if (idx < gc.length) {
-            totalChip += (gc[idx] as num).toInt();
-            totalMoney += ((gc[idx] as num).toInt() * chipRate);
-          }
-        } catch (_) {}
-      }
-    }
-
-    return {
-      'games': gamesCount,
-      'totalPt': totalPt,
-      'totalChip': totalChip,
-      'totalMoney': totalMoney,
-      'topRate': gamesCount > 0 ? (topCount / gamesCount * 100) : 0.0,
-      'rentaiRate': gamesCount > 0 ? (rentaiCount / gamesCount * 100) : 0.0,
-      'tobiRate': gamesCount > 0 ? (tobiCount / gamesCount * 100) : 0.0,
-      'avgRank': gamesCount > 0 ? (rankSum / gamesCount) : 0.0,
-      'pointHistory': history,
     };
   }
 
