@@ -175,6 +175,7 @@ class DatabaseService {
         }
         for (int i=0; i<4; i++) {
           final income = (ptSums[i] * rate) + (chipSums[i] * chipRate);
+          // 厳守：場代(fee / 4) はセッション合計から1回だけ引く
           s['p${i+1}_money'] = (income - (fee / 4.0)).round();
         }
         changed = true;
@@ -211,6 +212,7 @@ class DatabaseService {
       final Map<String, dynamic> updates = {};
       for (int i=0; i<4; i++) {
         final income = (ptSums[i] * rate) + (chipSums[i] * chipRate);
+        // 厳守：場代(fee / 4) はセッション合計から1回だけ引く
         updates['p${i+1}_money'] = (income - (fee / 4.0)).round();
       }
       await db.update('sessions', updates, where: 'id = ?', whereArgs: [sid]);
@@ -513,28 +515,8 @@ class DatabaseService {
     }
     final sessionIds = sRows.map((s) => s['id'] as int).toSet();
 
-    for (final s in sRows) {
-      final names = [(s['p1_name']??''), (s['p2_name']??''), (s['p3_name']??''), (s['p4_name']??'')];
-      final dateStr = (s['date'] as String?) ?? '';
-      String day = dateStr.length >= 10 ? dateStr.substring(0, 10).replaceAll('-', '/') : dateStr;
-
-      List<int> globalChips = [0, 0, 0, 0];
-      if (s['global_chips_json'] != null) {
-        try { globalChips = (jsonDecode(s['global_chips_json'] as String) as List).cast<int>(); } catch(_) {}
-      }
-
-      for (int i=0; i<4; i++) {
-        final name = (names[i] as String? ?? '').trim();
-        if (name.isEmpty || !memberNameSet.contains(name)) continue;
-        final stat = stats[name]!;
-        stat['totalMoney'] = (stat['totalMoney'] as int) + ((s['p${i+1}_money'] as num?)?.toInt() ?? 0);
-        if (i < globalChips.length) {
-           stat['totalChip'] = (stat['totalChip'] as int) + globalChips[i];
-        }
-        if (day.isNotEmpty) (stat['session_dates'] as Set<String>).add(day);
-      }
-    }
-
+    // --- 合計Pt/Money等の算出 (Ver 3.4.3: gamesテーブルからの動的集計) ---
+    // 1. 各Playerの対局ごとのPt, Chip, Rankを集計 (Moneyの基礎部分)
     for (final row in allRows) {
       if (row['group_id'] != groupId && !sessionIds.contains(row['session_id'])) continue;
 
@@ -543,13 +525,91 @@ class DatabaseService {
         if (name.isEmpty || !memberNameSet.contains(name)) continue;
         final s = stats[name]!;
         s['games'] = (s['games'] as int) + 1;
-        s['totalPt'] = (s['totalPt'] as int) + ((row['p$i\_pt'] as num?)?.toInt() ?? 0);
-        s['totalChip'] = (s['totalChip'] as int) + ((row['p$i\_ch'] as num?)?.toInt() ?? 0);
+        
+        final pt = (row['p$i\_pt'] as num?)?.toInt() ?? 0;
+        final ch = (row['p$i\_ch'] as num?)?.toInt() ?? 0;
+        s['totalPt'] = (s['totalPt'] as int) + pt;
+        s['totalChip'] = (s['totalChip'] as int) + ch;
+        
         final rank = (row['p$i\_rank'] as num?)?.toInt() ?? 1;
         s['rankSum'] = (s['rankSum'] as int) + rank;
         if (rank == 1) s['topCount'] = (s['topCount'] as int) + 1;
         if (rank <= 2) s['rentaiCount'] = (s['rentaiCount'] as int) + 1;
         if (((row['p$i\_score'] as num?)?.toInt() ?? 0) < 0) s['tobiCount'] = (s['tobiCount'] as int) + 1;
+
+        // Moneyの暫定計算 (Pt*Rate + Chip*ChipRate)
+        // ここではセッションごとのRateが必要なため、後述のセクションでまとめて計算する方が正確
+      }
+    }
+
+    // 2. セッション単位の集計 (場代の差し引きと最終Moneyの確定)
+    for (final s in sRows) {
+      final names = [(s['p1_name']??''), (s['p2_name']??''), (s['p3_name']??''), (s['p4_name']??'')];
+      final dateStr = (s['date'] as String?) ?? '';
+      String day = dateStr.length >= 10 ? dateStr.substring(0, 10).replaceAll('-', '/') : dateStr;
+
+      // セッション固有ルールの取得
+      double rate = 0; int chipRate = 0; int fee = 0;
+      final configJson = s['config_json'] as String?;
+      if (configJson != null) {
+        try {
+          final cfg = jsonDecode(configJson);
+          rate = (cfg['rate'] as num?)?.toDouble() ?? 0.0;
+          chipRate = (cfg['chipRate'] as num?)?.toInt() ?? 0;
+          fee = (cfg['gameFee'] as num?)?.toInt() ?? 0;
+        } catch(_) {}
+      }
+
+      // 該当セッションの全対局を取得
+      final sid = s['id'];
+      final sGames = allRows.where((g) => g['session_id'] == sid).toList();
+
+      for (int i=0; i<4; i++) {
+        final name = (names[i] as String? ?? '').trim();
+        if (name.isEmpty || !memberNameSet.contains(name)) continue;
+        final stat = stats[name]!;
+        
+        // このセッションにおけるこのプレイヤーの合計Pt/Chipを算出
+        int sessionPt = 0;
+        int sessionChip = 0;
+        for (var g in sGames) {
+          for (int j=1; j<=4; j++) {
+            if ((g['p${j}_name'] ?? '').toString().trim() == name) {
+              sessionPt += (g['p${j}_pt'] as num?)?.toInt() ?? 0;
+              sessionChip += (g['p${j}_ch'] as num?)?.toInt() ?? 0;
+            }
+          }
+        }
+        
+        // Money計算： (合計Pt * レート) + (合計チップ * チップレート) - (場代 / 4)
+        final income = (sessionPt * rate) + (sessionChip * chipRate);
+        stat['totalMoney'] = (stat['totalMoney'] as int) + (income - (fee / 4.0)).round();
+
+        if (day.isNotEmpty) (stat['session_dates'] as Set<String>).add(day);
+      }
+      
+      // グローバルチップの加算 (Ver 3.4.1以前との互換性)
+      if (s['global_chips_json'] != null) {
+        try {
+          final gc = (jsonDecode(s['global_chips_json'] as String) as List).cast<int>();
+          for (int i=0; i<4; i++) {
+            final name = (names[i] as String? ?? '').trim();
+            if (name.isEmpty || !memberNameSet.contains(name)) continue;
+            final stat = stats[name]!;
+            if (i < gc.length) {
+              // グローバルチップ分もMoneyに換算して加算
+              // セッション固有のchipRateを使用
+              double rate = 0; int chipRate = 0;
+              final configJson = s['config_json'] as String?;
+              if (configJson != null) {
+                final cfg = jsonDecode(configJson);
+                chipRate = (cfg['chipRate'] as num?)?.toInt() ?? 0;
+              }
+              stat['totalMoney'] = (stat['totalMoney'] as int) + (gc[i] * chipRate);
+              stat['totalChip'] = (stat['totalChip'] as int) + gc[i];
+            }
+          }
+        } catch(_) {}
       }
     }
     for (final name in memberNames) {
@@ -582,6 +642,7 @@ class DatabaseService {
     final gameRows = await getGames(groupId: groupId);
     final games = gameRows.where((g) => sessionIds.contains(g['session_id'])).toList();
 
+    // --- 個人の統計データ算出 (Ver 3.4.3: gamesテーブルからの動的集計) ---
     int totalPt = 0;
     int totalChip = 0;
     int totalMoney = 0;
@@ -590,24 +651,10 @@ class DatabaseService {
     int topCount = 0;
     int rentaiCount = 0;
     int tobiCount = 0;
-
-    for (var s in sessions) {
-      int idx = -1;
-      for (int i=1; i<=4; i++) { if (s['p$i\_name'] == playerName) { idx = i-1; break; } }
-      if (idx == -1) continue;
-      totalMoney += (s['p${idx+1}_money'] as num?)?.toInt() ?? 0;
-      
-      if (s['global_chips_json'] != null) {
-        try {
-          final List<dynamic> gc = jsonDecode(s['global_chips_json'] as String);
-          if (idx < gc.length) totalChip += (gc[idx] as num).toInt();
-        } catch (_) {}
-      }
-    }
-
-    int currentPt = 0;
     final history = <Map<String, dynamic>>[];
+    int currentPt = 0;
 
+    // 1. 各対局データの集計
     for (var g in games) {
       int idx = -1;
       for (int i=1; i<=4; i++) { if (g['p$i\_name'] == playerName) { idx = i-1; break; } }
@@ -617,8 +664,8 @@ class DatabaseService {
       final pt = (g['p${idx+1}_pt'] as num?)?.toInt() ?? 0;
       totalPt += pt;
       currentPt += pt;
-      
       totalChip += (g['p${idx+1}_ch'] as num?)?.toInt() ?? 0;
+      
       final rank = (g['p${idx+1}_rank'] as num?)?.toInt() ?? 1;
       rankSum += rank;
       if (rank == 1) topCount++;
@@ -630,6 +677,54 @@ class DatabaseService {
         'pt': pt,
         'cumulativePt': currentPt,
       });
+    }
+
+    // 2. セッション単位の計算 (Moneyの確定と場代の差し引き)
+    for (var s in sessions) {
+      int idx = -1;
+      for (int i=1; i<=4; i++) { if (s['p$i\_name'] == playerName) { idx = i-1; break; } }
+      if (idx == -1) continue;
+
+      // セッション固有ルールの取得
+      double rate = 0; int chipRate = 0; int fee = 0;
+      final configJson = s['config_json'] as String?;
+      if (configJson != null) {
+        try {
+          final cfg = jsonDecode(configJson);
+          rate = (cfg['rate'] as num?)?.toDouble() ?? 0.0;
+          chipRate = (cfg['chipRate'] as num?)?.toInt() ?? 0;
+          fee = (cfg['gameFee'] as num?)?.toInt() ?? 0;
+        } catch(_) {}
+      }
+
+      // 該当セッション、該当プレイヤーの合計Pt/Chipをゲームレコードから抽出
+      final sid = s['id'];
+      final sGames = games.where((g) => g['session_id'] == sid).toList();
+      int sessionPt = 0;
+      int sessionChip = 0;
+      for (var g in sGames) {
+        for (int j=1; j<=4; j++) {
+          if ((g['p${j}_name'] ?? '').toString().trim() == playerName) {
+            sessionPt += (g['p${j}_pt'] as num?)?.toInt() ?? 0;
+            sessionChip += (g['p${j}_ch'] as num?)?.toInt() ?? 0;
+          }
+        }
+      }
+
+      // Money計算： (セッション計Pt * レート) + (セッション計Chip * チップレート) - (場代 / 4)
+      final income = (sessionPt * rate) + (sessionChip * chipRate);
+      totalMoney += (income - (fee / 4.0)).round();
+
+      // グローバルチップ (Ver 3.4.1以前との互換性)
+      if (s['global_chips_json'] != null) {
+        try {
+          final List<dynamic> gc = jsonDecode(s['global_chips_json'] as String);
+          if (idx < gc.length) {
+            totalChip += (gc[idx] as num).toInt();
+            totalMoney += ((gc[idx] as num).toInt() * chipRate);
+          }
+        } catch (_) {}
+      }
     }
 
     return {
@@ -649,25 +744,17 @@ class DatabaseService {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
       'sessions',
-      columns: ['player1_name', 'player2_name', 'player3_name', 'player4_name'],
+      columns: ['p1_name', 'p2_name', 'p3_name', 'p4_name'],
       where: 'group_id = ?',
       whereArgs: [groupId],
     );
 
     final Set<String> members = {};
     for (var m in maps) {
-      if (m['player1_name'] != null && (m['player1_name'] as String).isNotEmpty) {
-        members.add(m['player1_name'] as String);
-      }
-      if (m['player2_name'] != null && (m['player2_name'] as String).isNotEmpty) {
-        members.add(m['player2_name'] as String);
-      }
-      if (m['player3_name'] != null && (m['player3_name'] as String).isNotEmpty) {
-        members.add(m['player3_name'] as String);
-      }
-      if (m['player4_name'] != null && (m['player4_name'] as String).isNotEmpty) {
-        members.add(m['player4_name'] as String);
-      }
+      if (m['p1_name'] != null && (m['p1_name'] as String).isNotEmpty) members.add(m['p1_name'] as String);
+      if (m['p2_name'] != null && (m['p2_name'] as String).isNotEmpty) members.add(m['p2_name'] as String);
+      if (m['p3_name'] != null && (m['p3_name'] as String).isNotEmpty) members.add(m['p3_name'] as String);
+      if (m['p4_name'] != null && (m['p4_name'] as String).isNotEmpty) members.add(m['p4_name'] as String);
     }
     return members.toList()..sort();
   }

@@ -300,7 +300,8 @@ class MahjongCalculator {
       
       final income = (r.finalPoint * config.rate) + (input.chip * config.chipRate);
       
-      // ユーザー指示：場代はセッション合計で1回だけ引く。ここでは引かない。
+      // Note: Fee subtraction (gameFee / 4) is handled at the session/aggregation level
+      // to ensure it applies exactly once per session.
       return r.copyWith(money: income.round());
     }).toList();
     

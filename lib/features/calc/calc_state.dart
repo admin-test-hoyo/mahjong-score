@@ -492,14 +492,15 @@ class CalcNotifier extends Notifier<CalcState> {
       String sessionDay = DateFormat('yyyy/MM/dd').format(date);
       final int sessionId;
       final currentId = state.currentId;
-      final int? effectiveGroupId = state.pickedGroupId; // Ver 3.4.2: state内の状態を使用
+      int? effectiveGroupId = state.pickedGroupId;
 
       if (currentId != null) {
         sessionId = currentId;
-        // 既存のセッション情報を取得して日付を維持する
         final existing = await db.getSessionById(sessionId);
         if (existing != null) {
           sessionDay = existing.date;
+          // Ver 3.4.3: 手動修正などでPickedがnullの場合も、既存のグループIDを維持する
+          effectiveGroupId ??= existing.groupId;
         }
         // セッション情報を更新
         await db.updateSession(Session(
