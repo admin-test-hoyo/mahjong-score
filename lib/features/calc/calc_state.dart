@@ -607,6 +607,19 @@ class CalcNotifier extends Notifier<CalcState> {
             yakumanTsumoPrize: historyConfig.yakumanTsumoPrize,
             totalFee: historyConfig.gameFee,
           );
+
+          // Ver 3.5.3: UI側のステート（configProvider）も過去の設定で強制同期する
+          final notifier = ref.read(configProvider.notifier);
+          notifier.updateRate(historyConfig.rate);
+          notifier.updateChipRate(historyConfig.chipRate);
+          notifier.updateGameFee(historyConfig.gameFee.toInt());
+          notifier.updateUmaText(historyConfig.umaText);
+          notifier.updateOka(historyConfig.oka);
+          notifier.updateStartingPoints(historyConfig.startingPoints);
+          notifier.updateTobiPrize(historyConfig.tobiPrize);
+          notifier.updateYakumanTsumoPrize(historyConfig.yakumanTsumoPrize);
+          notifier.updateYakumanRonPrize(historyConfig.yakumanRonPrize);
+          notifier.updateTargetTotalScore(historyConfig.targetTotalScore);
         }
       } catch (e) {
         print('History rule restore error: $e');

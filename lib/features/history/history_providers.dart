@@ -115,7 +115,10 @@ class HistoryNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
     await db.updateSessionGroupId(sessionId, groupId);
     
     ref.read(databaseVersionProvider.notifier).increment(); 
+    // Ver 3.5.3: 統計キャッシュの完全破棄（物理破壊）
     ref.invalidate(groupListProvider);
+    ref.invalidate(groupRankingProvider);
+    ref.invalidate(recordStatsProvider);
     ref.invalidate(allSessionsProvider);
     ref.invalidate(allGamesProvider);
     
