@@ -507,12 +507,13 @@ class DatabaseService {
       allRows = gRows.where((g) => (g['group_id'] as num?)?.toInt() == groupId).map((g) {
         final session = sRows.firstWhere((s) => s['id'] == g['session_id'], orElse: () => {});
         return { ...g, 'config_json': session['config_json'] };
-      }).where((row) => row['config_json'] != null).toList();
+      }).toList();
     } else {
       final db = await database;
+      // Ver 3.4.7: LEFT JOIN を採用し、データ欠落を完全に防止
       allRows = await db.rawQuery('''
         SELECT g.*, s.config_json FROM games g
-        INNER JOIN sessions s ON g.session_id = s.id
+        LEFT JOIN sessions s ON g.session_id = s.id
         WHERE s.group_id = ?
         ORDER BY g.date ASC
       ''', [groupId]);
@@ -525,19 +526,27 @@ class DatabaseService {
       'processedSessions': <int>{}, 
     } };
 
-    for (final row in allRows) {
-      final configJson = row['config_json'] as String?;
-      double rate = 0; int chipRate = 0; double fee = 0;
-      if (configJson != null) {
-        try {
-          final cfg = jsonDecode(configJson);
-          rate = (cfg['rate'] as num?)?.toDouble() ?? 0.0;
-          chipRate = (cfg['chipRate'] as num?)?.toInt() ?? 0;
-          fee = (cfg['gameFee'] as num?)?.toDouble() ?? 0.0;
-        } catch (_) {}
-      }
+    // --- 効率的なConfigキャッシュ管理 (Ver 3.4.7) ---
+    final Map<int, Map<String, dynamic>> configCache = {};
 
+    for (final row in allRows) {
       final sid = (row['session_id'] as num?)?.toInt() ?? 0;
+      
+      // Config取得とデコード (キャッシュ利用)
+      if (!configCache.containsKey(sid)) {
+        final configJson = row['config_json'] as String?;
+        if (configJson != null) {
+          try {
+            configCache[sid] = jsonDecode(configJson);
+          } catch (_) { configCache[sid] = {}; }
+        } else { configCache[sid] = {}; }
+      }
+      
+      final cfg = configCache[sid]!;
+      final double rate = (cfg['rate'] as num?)?.toDouble() ?? 100.0;
+      final int chipRate = (cfg['chipRate'] as num?)?.toInt() ?? 100;
+      final double fee = (cfg['gameFee'] as num?)?.toDouble() ?? 0.0;
+
       final dateStr = (row['date'] as String?) ?? '';
       String day = dateStr.length >= 10 ? dateStr.substring(0, 10).replaceAll('-', '/') : dateStr;
 
@@ -559,9 +568,11 @@ class DatabaseService {
         if (rank <= 2) s['rentaiCount'] = (s['rentaiCount'] as int) + 1;
         if (tobi == 1) s['tobiCount'] = (s['tobiCount'] as int) + 1;
 
+        // 収支計算: (Pt * rate) + (Chip * chipRate)
         double income = (pt * rate) + (chip * chipRate);
         double moneyResult = income;
         
+        // 厳守：場代をセッションごとに1回だけ引く
         final sessionSet = s['processedSessions'] as Set<int>;
         if (!sessionSet.contains(sid)) {
           moneyResult -= (fee / 4.0);
@@ -616,7 +627,7 @@ class DatabaseService {
       String groupClause = groupId != null ? 'AND s.group_id = ?' : '';
       allRows = await db.rawQuery('''
         SELECT g.*, s.config_json FROM games g
-        INNER JOIN sessions s ON g.session_id = s.id
+        LEFT JOIN sessions s ON g.session_id = s.id
         WHERE $nameClause $groupClause
         ORDER BY g.date ASC
       ''', [playerName, playerName, playerName, playerName, if (groupId != null) groupId]);
@@ -632,6 +643,7 @@ class DatabaseService {
     int tobiCount = 0;
     final Set<int> processedSessionIds = {};
     final history = <Map<String, dynamic>>[];
+    final Map<int, Map<String, dynamic>> configCache = {};
     int currentPt = 0;
 
     for (final row in allRows) {
@@ -653,21 +665,24 @@ class DatabaseService {
       if (rank <= 2) rentaiCount++;
       if (tobi == 1) tobiCount++;
 
-      final configJson = row['config_json'] as String?;
-      double rate = 0; int chipRate = 0; double fee = 0;
-      if (configJson != null) {
-        try {
-          final cfg = jsonDecode(configJson);
-          rate = (cfg['rate'] as num?)?.toDouble() ?? 0.0;
-          chipRate = (cfg['chipRate'] as num?)?.toInt() ?? 0;
-          fee = (cfg['gameFee'] as num?)?.toDouble() ?? 0.0;
-        } catch(_) {}
+      final sid = (row['session_id'] as num?)?.toInt() ?? 0;
+      if (!configCache.containsKey(sid)) {
+        final configJson = row['config_json'] as String?;
+        if (configJson != null) {
+          try {
+            configCache[sid] = jsonDecode(configJson);
+          } catch (_) { configCache[sid] = {}; }
+        } else { configCache[sid] = {}; }
       }
+      
+      final cfg = configCache[sid]!;
+      final double rate = (cfg['rate'] as num?)?.toDouble() ?? 100.0;
+      final int chipRate = (cfg['chipRate'] as num?)?.toInt() ?? 100;
+      final double fee = (cfg['gameFee'] as num?)?.toDouble() ?? 0.0;
 
       double income = (pt * rate) + (chip * chipRate);
       double moneyResult = income;
       
-      final sid = (row['session_id'] as num?)?.toInt() ?? 0;
       if (!processedSessionIds.contains(sid)) {
         moneyResult -= (fee / 4.0);
         processedSessionIds.add(sid);
