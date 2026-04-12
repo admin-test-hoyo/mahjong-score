@@ -5,6 +5,7 @@ import 'package:path/path.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 import '../models/db_models.dart';
+import '../utils/mahjong_calculator.dart';
 
 class DatabaseService {
   static final DatabaseService _instance = DatabaseService._internal();
@@ -477,7 +478,7 @@ class DatabaseService {
       final names = <String>{};
       for (var g in games) {
         for (int i=1; i<=4; i++) {
-          final n = (g['p$i\_name'] ?? '').toString().trim();
+          final n = (g['p${i}_name'] ?? '').toString().trim();
           if (n.isNotEmpty) names.add(n);
         }
       }
@@ -526,40 +527,36 @@ class DatabaseService {
     }
 
     final stats = { for (var name in memberNames) name: {
-      'name': name, 'games': 0, 'totalPt': 0, 'totalChip': 0, 'rankSum': 0, 
-      'topCount': 0, 'rentaiCount': 0, 'tobiCount': 0, 'totalMoney': 0.0, 
-      'session_dates': <String>{}, 
-      'processedSessions': <int>{}, 
+      'name': name,
+      'games': 0,
+      'totalPt': 0,
+      'totalChip': 0,
+      'rankSum': 0,
+      'topCount': 0,
+      'rentaiCount': 0,
+      'tobiCount': 0,
+      'sessionPts': <int, int>{},   // sid -> session total pt
+      'sessionChips': <int, int>{}, // sid -> player chips in that session
+      'session_dates': <String>{},
+      'processedSessions': <int>{},
     } };
 
     final Map<int, Map<String, dynamic>> configCache = {};
-    final Map<int, List<int>> chipCache = {};
 
     for (final row in allRows) {
       final sid = (row['session_id'] as num?)?.toInt() ?? 0;
-      
       if (!configCache.containsKey(sid)) {
         final configJson = row['config_json'] as String?;
         if (configJson != null) {
           try { configCache[sid] = jsonDecode(configJson); } catch (_) { configCache[sid] = {}; }
         } else { configCache[sid] = {}; }
-
+        
         final chipsJson = row['global_chips_json'] as String?;
-        if (chipsJson != null) {
-          try {
-            final decoded = jsonDecode(chipsJson);
-            if (decoded is List) {
-              chipCache[sid] = decoded.map((e) => (e as num).toInt()).toList();
-            } else { chipCache[sid] = [0,0,0,0]; }
-          } catch (_) { chipCache[sid] = [0,0,0,0]; }
-        } else { chipCache[sid] = [0,0,0,0]; }
+        final List<int> sessionChipsList = chipsJson != null 
+            ? (jsonDecode(chipsJson) as List).map((e) => (e as num).toInt()).toList()
+            : [0, 0, 0, 0];
+        configCache[sid]!['chipsList'] = sessionChipsList;
       }
-      
-      final cfg = configCache[sid]!;
-      final double rate = (cfg['rate'] as num?)?.toDouble() ?? 100.0;
-      final int chipRate = (cfg['chipRate'] as num?)?.toInt() ?? 100;
-      final double fee = (cfg['gameFee'] as num?)?.toDouble() ?? 0.0;
-      final List<int> sessionChips = chipCache[sid]!;
 
       final dateStr = (row['date'] as String?) ?? '';
       String day = dateStr.length >= 10 ? dateStr.substring(0, 10).replaceAll('-', '/') : dateStr;
@@ -580,24 +577,23 @@ class DatabaseService {
         if (rank <= 2) s['rentaiCount'] = (s['rentaiCount'] as int) + 1;
         if (tobi == 1) s['tobiCount'] = (s['tobiCount'] as int) + 1;
 
-        double gamePtIncome = pt * rate;
-        double metaResult = 0;
-        
+        final sessionPtsMap = s['sessionPts'] as Map<int, int>;
+        sessionPtsMap[sid] = (sessionPtsMap[sid] ?? 0) + pt;
+
         final sessionSet = s['processedSessions'] as Set<int>;
         if (!sessionSet.contains(sid)) {
-          // セッションチップの取得
+          final sessionChipsList = configCache[sid]!['chipsList'] as List<int>;
           int pChip = 0;
           for (int j=1; j<=4; j++) {
-            if (row['sp$j'] == name && sessionChips.length >= j) {
-              pChip = sessionChips[j-1];
+            if (row['sp$j'] == name && sessionChipsList.length >= j) {
+              pChip = sessionChipsList[j-1];
               break;
             }
           }
+          (s['sessionChips'] as Map<int, int>)[sid] = pChip;
           s['totalChip'] = (s['totalChip'] as int) + pChip;
-          metaResult = (pChip * chipRate) - (fee / 4.0);
           sessionSet.add(sid);
         }
-        s['totalMoney'] = (s['totalMoney'] as double) + gamePtIncome + metaResult;
         if (day.isNotEmpty) (s['session_dates'] as Set<String>).add(day);
       }
     }
@@ -605,7 +601,23 @@ class DatabaseService {
     final List<Map<String, dynamic>> result = [];
     for (final s in stats.values) {
       final int games = s['games'] as int;
-      final double totalMoney = s['totalMoney'] as double;
+      if (games == 0) continue;
+
+      int totalScoreValue = 0;
+      final sessionSet = s['processedSessions'] as Set<int>;
+      final sessionPtsMap = s['sessionPts'] as Map<int, int>;
+      final sessionChipsMap = s['sessionChips'] as Map<int, int>;
+
+      for (final sid in sessionSet) {
+        final cfg = configCache[sid]!;
+        totalScoreValue += MahjongCalculator.calculateMoney(
+          totalPt: sessionPtsMap[sid] ?? 0,
+          rate: (cfg['rate'] as num?)?.toDouble() ?? 100.0,
+          totalChips: sessionChipsMap[sid] ?? 0,
+          chipRate: (cfg['chipRate'] as num?)?.toInt() ?? 100,
+          totalFee: (cfg['gameFee'] as num?)?.toDouble() ?? 0.0,
+        );
+      }
       
       result.add({
         'name': s['name'],
@@ -616,7 +628,7 @@ class DatabaseService {
         'topRate': games > 0 ? (s['topCount'] as int) / games * 100 : 0.0,
         'rentaiRate': games > 0 ? (s['rentaiCount'] as int) / games * 100 : 0.0,
         'tobiRate': games > 0 ? (s['tobiCount'] as int) / games * 100 : 0.0,
-        'totalMoney': totalMoney.round(),
+        'totalScore': totalScoreValue,
         'matches': (s['session_dates'] as Set<String>).length,
       });
     }
@@ -633,10 +645,8 @@ class DatabaseService {
         bool namesMatch = false;
         for (int i=1; i<=4; i++) { if (g['p${i}_name'] == playerName) namesMatch = true; }
         if (!namesMatch) return false;
-        
         final session = sRows.firstWhere((s) => s['id'] == g['session_id'], orElse: () => {});
         if (groupId != null && (session['group_id'] as num?)?.toInt() != groupId) return false;
-        
         g['config_json'] = session['config_json'];
         g['global_chips_json'] = session['global_chips_json'];
         g['sp1'] = session['p1_name']; g['sp2'] = session['p2_name']; g['sp3'] = session['p3_name']; g['sp4'] = session['p4_name'];
@@ -656,7 +666,6 @@ class DatabaseService {
       ''', [playerName, playerName, playerName, playerName, if (groupId != null) groupId]);
     }
 
-    double totalMoney = 0.0;
     int totalPt = 0;
     int totalChip = 0;
     int gamesCount = 0;
@@ -664,11 +673,12 @@ class DatabaseService {
     int topCount = 0;
     int rentaiCount = 0;
     int tobiCount = 0;
-    final Set<int> processedSessionIds = {};
-    final history = <Map<String, dynamic>>[];
-    final Map<int, Map<String, dynamic>> configCache = {};
-    final Map<int, List<int>> chipCache = {};
     int currentPt = 0;
+    final history = <Map<String, dynamic>>[];
+    
+    final Map<int, int> sessionPtsMap = {};
+    final Map<int, int> sessionChipsMap = {};
+    final Map<int, Map<String, dynamic>> configCache = {};
 
     for (final row in allRows) {
       int pIdx = -1;
@@ -688,51 +698,41 @@ class DatabaseService {
       if (tobi == 1) tobiCount++;
 
       final sid = (row['session_id'] as num?)?.toInt() ?? 0;
+      sessionPtsMap[sid] = (sessionPtsMap[sid] ?? 0) + pt;
+
       if (!configCache.containsKey(sid)) {
         final configJson = row['config_json'] as String?;
-        if (configJson != null) {
-          try { configCache[sid] = jsonDecode(configJson); } catch (_) { configCache[sid] = {}; }
-        } else { configCache[sid] = {}; }
-
+        configCache[sid] = configJson != null ? jsonDecode(configJson) : {};
+        
         final chipsJson = row['global_chips_json'] as String?;
-        if (chipsJson != null) {
-          try {
-            final decoded = jsonDecode(chipsJson);
-            if (decoded is List) {
-              chipCache[sid] = decoded.map((e) => (e as num).toInt()).toList();
-            } else { chipCache[sid] = [0,0,0,0]; }
-          } catch (_) { chipCache[sid] = [0,0,0,0]; }
-        } else { chipCache[sid] = [0,0,0,0]; }
-      }
-      
-      final cfg = configCache[sid]!;
-      final double rate = (cfg['rate'] as num?)?.toDouble() ?? 100.0;
-      final int chipRate = (cfg['chipRate'] as num?)?.toInt() ?? 100;
-      final double fee = (cfg['gameFee'] as num?)?.toDouble() ?? 0.0;
-      final List<int> sessionChips = chipCache[sid]!;
-
-      double gamePtIncome = pt * rate;
-      double metaResult = 0;
-      
-      if (!processedSessionIds.contains(sid)) {
+        final List<int> sessionChipsList = chipsJson != null 
+            ? (jsonDecode(chipsJson) as List).map((e) => (e as num).toInt()).toList()
+            : [0, 0, 0, 0];
+        
         int pChip = 0;
         for (int j=1; j<=4; j++) {
-          if (row['sp$j'] == playerName && sessionChips.length >= j) {
-            pChip = sessionChips[j-1];
+          if (row['sp$j'] == playerName && sessionChipsList.length >= j) {
+            pChip = sessionChipsList[j-1];
             break;
           }
         }
+        sessionChipsMap[sid] = pChip;
         totalChip += pChip;
-        metaResult = (pChip * chipRate) - (fee / 4.0);
-        processedSessionIds.add(sid);
       }
-      totalMoney += gamePtIncome + metaResult;
 
-      history.add({
-        'gameNo': gamesCount,
-        'pt': pt,
-        'cumulativePt': currentPt,
-      });
+      history.add({'gameNo': gamesCount, 'pt': pt, 'cumulativePt': currentPt});
+    }
+
+    int totalScoreValue = 0;
+    for (final sid in configCache.keys) {
+      final cfg = configCache[sid]!;
+      totalScoreValue += MahjongCalculator.calculateMoney(
+        totalPt: sessionPtsMap[sid] ?? 0,
+        rate: (cfg['rate'] as num?)?.toDouble() ?? 100.0,
+        totalChips: sessionChipsMap[sid] ?? 0,
+        chipRate: (cfg['chipRate'] as num?)?.toInt() ?? 100,
+        totalFee: (cfg['gameFee'] as num?)?.toDouble() ?? 0.0,
+      );
     }
 
     return {
@@ -743,8 +743,8 @@ class DatabaseService {
       'topRate': gamesCount > 0 ? topCount / gamesCount * 100 : 0.0,
       'rentaiRate': gamesCount > 0 ? rentaiCount / gamesCount * 100 : 0.0,
       'tobiRate': gamesCount > 0 ? tobiCount / gamesCount * 100 : 0.0,
-      'totalMoney': totalMoney.round(),
-      'history': history,
+      'totalMoney': totalScoreValue, // Note: StatsScreen use totalMoney for PersonalAnalysis but totalScore for Group
+      'pointHistory': history,
     };
   }
 
