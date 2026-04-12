@@ -63,7 +63,7 @@ class CalcState {
   final String? currentDraft;
   final List<int>? snapshottedMoneys; // Ver 1.9.2: 履歴表示用の固定収支
   final List<Map<String, dynamic>>? possibleGroupMatches; // 追加: マッチ候補
-  final int? pickedGroupId; // Ver 3.4.9: 入力経路による自動判別用
+  final int? pickedGroupId; // Ver 3.5.0: 入力経路による自動判別用
 
   const CalcState({
     this.playerNames = const ['A', 'B', 'C', 'D'],
@@ -181,7 +181,7 @@ class CalcNotifier extends Notifier<CalcState> {
     if (id < 1 || id > 4) return;
     final newNames = List<String>.from(state.playerNames);
     newNames[id - 1] = name;
-    // Ver 3.4.9: 手動タイピング時は強制的にフリー対局とする
+    // Ver 3.5.0: 手動タイピング時は強制的にフリー対局とする
     state = state.copyWith(playerNames: newNames, pickedGroupId: null);
   }
 
@@ -426,10 +426,12 @@ class CalcNotifier extends Notifier<CalcState> {
       final isUpdate = state.currentId != null;
 
       // 1. セッション全体の場代込収支を計算するための準備
-      // 各対局の計算結果を一時保持する
       final List<Map<String, dynamic>> calculatedGames = [];
-      final List<int> totalMoneys = [0, 0, 0, 0];
       final configJson = jsonEncode(config.toJson());
+
+      // セッション全体のPtとチップの合計用
+      final List<int> ptTotals = [0, 0, 0, 0];
+      final List<int> chipTotals = [0, 0, 0, 0];
 
       for (int i = 0; i < state.games.length; i++) {
         final g = state.games[i];
@@ -448,14 +450,16 @@ class CalcNotifier extends Notifier<CalcState> {
         );
 
         // 各対局ごとのチップ分（DB保存用）
-        // 最初の1ゲーム目にのみ「セッション単位の追加チップ」を合算して帳尻を合わせる
         final addChips = (i == 0) ? state.globalChips : const [0, 0, 0, 0];
         final gameMoneys = <String, int>{};
         
         for (var r in result) {
           final m = r.money + (addChips[r.id - 1] * config.chipRate);
           gameMoneys[r.id.toString()] = m;
-          totalMoneys[r.id - 1] += m;
+          
+          // セッション全体の集計
+          ptTotals[r.id - 1] += r.finalPoint;
+          chipTotals[r.id - 1] += g.inputs[r.id - 1].chip + addChips[r.id - 1];
         }
 
         calculatedGames.add({
@@ -468,25 +472,17 @@ class CalcNotifier extends Notifier<CalcState> {
 
       if (calculatedGames.isEmpty) return SaveResult.failed;
 
-      // フッターUIと同一のロジックでセッション全体の収支を確定（一括計算・一回丸め）
-      final List<int> ptTotals = [0, 0, 0, 0];
-      final List<int> chipTotals = [0, 0, 0, 0];
-      for (var cg in calculatedGames) {
-        final resList = cg['result'] as List<PlayerResult>;
-        final g = cg['game'] as GameRecord;
-        final addCh = cg['addChips'] as List<int>;
-        for (var r in resList) {
-          ptTotals[r.id - 1] += r.finalPoint;
-          chipTotals[r.id - 1] += g.inputs[r.id - 1].chip + addCh[r.id - 1];
-        }
-      }
-      
-      final List<int> sessionFinalMoneys = [0, 0, 0, 0];
-      for (int i=0; i<players; i++) {
-        final double totalIncome = (ptTotals[i] * config.rate) + (chipTotals[i] * config.chipRate);
-        // 全体の場代 = config.gameFee (1回のみ)
-        sessionFinalMoneys[i] = (totalIncome - (config.gameFee / players.toDouble())).round();
-      }
+      // Ver 3.5.0: セッション全体の収支を MahjongCalculator.calculateMoney で統一計算
+      final List<int> sessionFinalMoneys = List.generate(players, (i) {
+        return MahjongCalculator.calculateMoney(
+          totalPt: ptTotals[i], 
+          rate: config.rate, 
+          totalChips: chipTotals[i], 
+          chipRate: config.chipRate, 
+          totalFee: config.gameFee,
+          playerCount: players,
+        );
+      });
 
       // 2. セッション（ヘッダー）の特定または作成
       String sessionDay = DateFormat('yyyy/MM/dd').format(date);
@@ -499,10 +495,8 @@ class CalcNotifier extends Notifier<CalcState> {
         final existing = await db.getSessionById(sessionId);
         if (existing != null) {
           sessionDay = existing.date;
-          // Ver 3.4.3: 手動修正などでPickedがnullの場合も、既存のグループIDを維持する
           effectiveGroupId ??= existing.groupId;
         }
-        // セッション情報を更新
         await db.updateSession(Session(
           id: sessionId,
           date: sessionDay,
@@ -512,7 +506,6 @@ class CalcNotifier extends Notifier<CalcState> {
           globalChipsJson: jsonEncode(state.globalChips),
           totalMoneys: sessionFinalMoneys,
         ));
-        // 明細の重複を防ぐため、既存の対局データを一度すべて削除
         await db.deleteGamesBySessionId(sessionId);
       } else {
         sessionId = await db.findOrCreateSession(
@@ -581,12 +574,9 @@ class CalcNotifier extends Notifier<CalcState> {
       }
 
       resetToNewEntry();
-      // 統計・履歴プロバイダーのリフレッシュ
-      ref.invalidate(historyProvider);
-      ref.invalidate(groupListProvider);
-      ref.invalidate(playerNamesProvider);
-      ref.invalidate(allGamesProvider);
-      ref.invalidate(allSessionsProvider);
+      // Ver 3.5.0: 統計エンジンの強制同期
+      ref.read(databaseVersionProvider.notifier).increment();
+      
       return isUpdate ? SaveResult.updated : SaveResult.registered;
     } catch (e) {
       print('Save error: $e');

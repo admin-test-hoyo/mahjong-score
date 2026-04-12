@@ -39,7 +39,7 @@ class HistoryNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
 
       final Session session = Session.fromMap(s);
 
-      // Ver 3.4.9: MahjongCalculator を使用して、各セッションの config_json に基づき収支を算出する
+      // Ver 3.5.0: MahjongCalculator を使用して、各セッションの config_json に基づき収支を算出する
       final List<int> totalPts = [0, 0, 0, 0];
       final List<int> totalChips = [0, 0, 0, 0];
       
@@ -105,7 +105,7 @@ class HistoryNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
   Future<void> deleteSession(int sessionId) async {
     final db = DatabaseService();
     await db.deleteSession(sessionId);
-    ref.invalidate(databaseVersionProvider);
+    ref.read(databaseVersionProvider.notifier).increment();
     await refresh();
   }
 
@@ -132,7 +132,7 @@ class HistoryNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
       final dateStr = DateFormat('yyyy/MM/dd').format(targetDate);
       await db.deleteHistoryBefore(dateStr);
     }
-    ref.invalidate(databaseVersionProvider);
+    ref.read(databaseVersionProvider.notifier).increment();
     await refresh();
   }
 }
