@@ -82,7 +82,6 @@ class MainScreen extends ConsumerWidget {
     String title = '麻雀スコア表';
     if (tab == MainTab.history) title = '対局履歴';
     if (tab == MainTab.stats) title = '統計・分析';
-    if (tab == MainTab.groups) title = 'グループ管理';
     if (tab == MainTab.calc && calcState.currentId != null) title = '麻雀スコア表(履歴編集)';
 
     return Column(
@@ -100,7 +99,7 @@ class MainScreen extends ConsumerWidget {
           ),
         ),
         const Text(
-          'Ver 3.9.0',
+          'Ver 3.9.1',
           style: TextStyle(color: Colors.white38, fontSize: 10),
         ),
       ],
@@ -126,15 +125,6 @@ class MainScreen extends ConsumerWidget {
         IconButton(
           icon: const Icon(Icons.refresh, color: Color(0xFFFF5252), size: 18),
           onPressed: () => CalcScreen.showReset(context, ref),
-        ),
-        const SizedBox(width: 8),
-      ];
-    }
-    if (tab == MainTab.groups) {
-      return [
-        IconButton(
-          icon: const Icon(Icons.add, color: Color(0xFF00FFC2)),
-          onPressed: () => GroupScreen.showAddGroup(context, ref),
         ),
         const SizedBox(width: 8),
       ];
@@ -253,17 +243,22 @@ class MainScreen extends ConsumerWidget {
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
+                _categoryLabel('[MANAGEMENT]'),
+                _drawerAction(context, ref, Icons.group, 'グループ管理', () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const GroupScreen()));
+                }),
+
+                const Divider(color: Colors.white10),
+                _categoryLabel('[SYSTEM & DATA]'),
+                _drawerAction(context, ref, Icons.download, 'バックアップ保存', () => CalcScreen.exportData(context, ref), iconColor: Colors.white24),
+                _drawerAction(context, ref, Icons.upload, 'データ復元', () => CalcScreen.importData(context, ref), iconColor: Colors.white24),
+                _drawerAction(context, ref, Icons.delete_sweep, '履歴クリーンアップ', () => _showHistoryCleanup(context, ref), iconColor: Colors.orangeAccent.withValues(alpha: 0.6), titleColor: Colors.orangeAccent.withValues(alpha: 0.8)),
+
+                const Divider(color: Colors.white10),
                 _categoryLabel('[SUPPORT]'),
                 _drawerAction(context, ref, Icons.help_outline, 'ヘルプ / 使い方', () {
                   Navigator.push(context, MaterialPageRoute(builder: (context) => const HelpScreen()));
                 }),
-
-                const Divider(color: Colors.white10),
-                _categoryLabel('[DATA MANAGEMENT]'),
-                _drawerItem(context, ref, Icons.group, 'グループ管理', MainTab.groups, currentTab),
-                _drawerAction(context, ref, Icons.delete_sweep, '履歴クリーンアップ', () => _showHistoryCleanup(context, ref), iconColor: Colors.white24),
-                _drawerAction(context, ref, Icons.download, 'バックアップ保存', () => CalcScreen.exportData(context, ref), iconColor: Colors.white24),
-                _drawerAction(context, ref, Icons.upload, 'データ復元', () => CalcScreen.importData(context, ref), iconColor: Colors.white24),
                 
                 const SizedBox(height: 20),
               ],
@@ -284,44 +279,13 @@ class MainScreen extends ConsumerWidget {
     );
   }
 
-  Widget _drawerItem(BuildContext context, WidgetRef ref, IconData icon, String title, MainTab tab, MainTab currentTab) {
-    final isSelected = tab == currentTab;
-    return Container(
-      decoration: BoxDecoration(
-        color: isSelected ? Colors.white.withValues(alpha: 0.08) : Colors.transparent,
-        border: Border(
-          left: BorderSide(
-            color: isSelected ? const Color(0xFF00FFC2) : Colors.transparent,
-            width: 3,
-          ),
-        ),
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-        dense: true,
-        leading: Icon(icon, color: isSelected ? const Color(0xFF00FFC2) : Colors.white38, size: 20),
-        title: Text(
-          title,
-          style: TextStyle(
-            color: isSelected ? const Color(0xFF00FFC2) : Colors.white70,
-            fontSize: 14,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-          ),
-        ),
-        onTap: () {
-          ref.read(navigationProvider.notifier).setTab(tab);
-          Navigator.pop(context);
-        },
-      ),
-    );
-  }
 
-  Widget _drawerAction(BuildContext context, WidgetRef ref, IconData icon, String title, VoidCallback onTap, {Color? iconColor}) {
+  Widget _drawerAction(BuildContext context, WidgetRef ref, IconData icon, String title, VoidCallback onTap, {Color? iconColor, Color? titleColor}) {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16),
       dense: true,
       leading: Icon(icon, color: iconColor ?? Colors.white38, size: 20),
-      title: Text(title, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+      title: Text(title, style: TextStyle(color: titleColor ?? Colors.white70, fontSize: 14)),
       onTap: () {
         Navigator.pop(context);
         onTap();
