@@ -19,22 +19,13 @@ class DatabaseService {
       final db = _database;
       if (db != null) return db;
       
-      if (!kIsWeb) {
-        final initializedDb = await _initDatabase();
-        _database = initializedDb;
-        await _migrateToHeaderDetail(initializedDb);
-        await forceSyncSessionTotals();
-      } else {
-        await forceSyncSessionTotals(); 
-      }
+      _database ??= await _initDatabase();
+      await _migrateToHeaderDetail(_database!);
+      await forceSyncSessionTotals();
       
-      final result = _database;
-      if (result == null) {
-        throw Exception("Database could not be initialized");
-      }
-      return result;
+      return _database!;
     } catch (e) {
-      print('Database initialization error: $e');
+      debugPrint('Database initialization error: $e');
       rethrow;
     }
   }
@@ -148,8 +139,6 @@ class DatabaseService {
   }
 
   Future<void> recalculateAllSessionTotals() async {
-    // 厳守：収支 = (Pt * Rate) + (Chip * ChipRate)
-    // 場代込 = 収支 - (Fee / 4)
     if (kIsWeb) {
       final sessions = await _webQuery('web_db_sessions');
       final games = await _webQuery('web_db_games');
@@ -176,7 +165,6 @@ class DatabaseService {
         }
         for (int i=0; i<4; i++) {
           final income = (ptSums[i] * rate) + (chipSums[i] * chipRate);
-          // 厳守：場代(fee / 4) はセッション合計から1回だけ引く
           s['p${i+1}_money'] = (income - (fee / 4.0)).round();
         }
         changed = true;
@@ -213,7 +201,6 @@ class DatabaseService {
       final Map<String, dynamic> updates = {};
       for (int i=0; i<4; i++) {
         final income = (ptSums[i] * rate) + (chipSums[i] * chipRate);
-        // 厳守：場代(fee / 4) はセッション合計から1回だけ引く
         updates['p${i+1}_money'] = (income - (fee / 4.0)).round();
       }
       await db.update('sessions', updates, where: 'id = ?', whereArgs: [sid]);
@@ -233,14 +220,11 @@ class DatabaseService {
         final sNames = [s['p1_name'], s['p2_name'], s['p3_name'], s['p4_name']]..sort();
         if (names.join(',') == sNames.join(',')) { sid = s['id'] as int; break; }
       }
-      if (sid == null) {
-        sid = await db.insert('sessions', {'date': dateStr, 'group_id': game['group_id'], 'p1_name': rawNames[0], 'p2_name': rawNames[1], 'p3_name': rawNames[2], 'p4_name': rawNames[3]});
-      }
+      sid ??= await db.insert('sessions', {'date': dateStr, 'group_id': game['group_id'], 'p1_name': rawNames[0], 'p2_name': rawNames[1], 'p3_name': rawNames[2], 'p4_name': rawNames[3]});
       await db.update('games', {'session_id': sid}, where: 'id = ?', whereArgs: [game['id']]);
     }
   }
 
-  // Games
   Future<int> insertGame(Map<String, dynamic> row) async {
     if (kIsWeb) return _webInsert('web_db_games', row);
     final db = await database;
@@ -293,7 +277,6 @@ class DatabaseService {
     return await db.delete('games', where: 'id = ?', whereArgs: [id]);
   }
 
-  // Sessions
   Future<int> findOrCreateSession({required String date, required List<String> playerNames, int? groupId, String? configJson, String? globalChipsJson, List<int>? totalMoneys}) async {
     if (kIsWeb) {
       final sessions = await _webQuery('web_db_sessions');
@@ -321,11 +304,29 @@ class DatabaseService {
     if (kIsWeb) {
       final sessions = await _webQuery('web_db_sessions');
       final index = sessions.indexWhere((s) => s['id'] == sessionId);
-      if (index != -1) { sessions[index]['group_id'] = groupId; await (await SharedPreferences.getInstance()).setString('web_db_sessions', jsonEncode(sessions)); }
+      if (index != -1) {
+        sessions[index]['group_id'] = groupId;
+        await (await SharedPreferences.getInstance()).setString('web_db_sessions', jsonEncode(sessions));
+        
+        final games = await _webQuery('web_db_games');
+        bool gamesChanged = false;
+        for (var g in games) {
+          if (g['session_id'] == sessionId) {
+            g['group_id'] = groupId;
+            gamesChanged = true;
+          }
+        }
+        if (gamesChanged) {
+          await (await SharedPreferences.getInstance()).setString('web_db_games', jsonEncode(games));
+        }
+      }
       return;
     }
     final db = await database;
-    await db.update('sessions', {'group_id': groupId}, where: 'id = ?', whereArgs: [sessionId]);
+    await db.transaction((txn) async {
+      await txn.update('sessions', {'group_id': groupId}, where: 'id = ?', whereArgs: [sessionId]);
+      await txn.update('games', {'group_id': groupId}, where: 'session_id = ?', whereArgs: [sessionId]);
+    });
   }
 
   Future<List<Map<String, dynamic>>> getSessions({int? groupId, bool all = false}) async {
@@ -358,7 +359,6 @@ class DatabaseService {
     return await db.query('sessions', orderBy: 'date DESC, id DESC');
   }
 
-  // Groups
   Future<Session?> getSessionById(int id) async {
     if (kIsWeb) {
       final rows = await _webQuery('web_db_sessions');
@@ -396,7 +396,6 @@ class DatabaseService {
     await db.delete('groups', where: 'id = ?', whereArgs: [id]);
   }
 
-  // Members
   Future<List<Map<String, dynamic>>> getMembers(int groupId) async {
     if (kIsWeb) {
       final all = await _webQuery('web_db_members');
@@ -420,7 +419,6 @@ class DatabaseService {
     await db.delete('group_members', where: 'group_id = ?', whereArgs: [id]);
   }
 
-  // History Cleanup
   Future<void> deleteAllHistory() async {
     if (kIsWeb) {
       final prefs = await SharedPreferences.getInstance();
@@ -471,7 +469,6 @@ class DatabaseService {
     });
   }
 
-  // Statistics
   Future<List<String>> getAllPlayerNames() async {
     if (kIsWeb) {
       final games = await _webQuery('web_db_games');
@@ -538,8 +535,8 @@ class DatabaseService {
       'topCount': 0,
       'rentaiCount': 0,
       'tobiCount': 0,
-      'sessionPts': <int, int>{},   // sid -> session total pt
-      'sessionChips': <int, int>{}, // sid -> player chips in that session
+      'sessionPts': <int, int>{},
+      'sessionChips': <int, int>{},
       'session_dates': <String>{},
       'processedSessions': <int>{},
     } };
@@ -563,16 +560,15 @@ class DatabaseService {
 
       final dateStr = (row['date'] as String?) ?? '';
       String day = dateStr.length >= 10 ? dateStr.substring(0, 10).replaceAll('-', '/') : dateStr;
-
       for (int i=1; i<=4; i++) {
-        final name = (row['p$i\_name'] ?? '').toString().trim();
+        final name = (row['p${i}_name'] ?? '').toString().trim();
         if (name.isEmpty || !memberNameSet.contains(name)) continue;
         final s = stats[name]!;
         
         s['games'] = (s['games'] as int) + 1;
-        final pt = (row['p$i\_pt'] as num?)?.toInt() ?? 0;
-        final rank = (row['p$i\_rank'] as num?)?.toInt() ?? 1;
-        final tobi = (row['p$i\_tobi'] as num?)?.toInt() ?? 0;
+        final pt = (row['p${i}_pt'] as num?)?.toInt() ?? 0;
+        final rank = (row['p${i}_rank'] as num?)?.toInt() ?? 1;
+        final tobi = (row['p${i}_tobi'] as num?)?.toInt() ?? 0;
 
         s['totalPt'] = (s['totalPt'] as int) + pt;
         s['rankSum'] = (s['rankSum'] as int) + rank;
@@ -685,7 +681,7 @@ class DatabaseService {
 
     for (final row in allRows) {
       int pIdx = -1;
-      for (int i=1; i<=4; i++) { if (row['p$i\_name'] == playerName) { pIdx = i; break; } }
+      for (int i=1; i<=4; i++) { if (row['p${i}_name'] == playerName) { pIdx = i; break; } }
       if (pIdx == -1) continue;
 
       gamesCount++;
@@ -925,9 +921,7 @@ class DatabaseService {
       // --- 【Ver 3.4.4】インポート直後に全データの収支を強制計算してDBを同期 ---
       await recalculateAllSessionTotals();
     } catch (e, stackTrace) {
-      // ユーザーの指示に従い、サイレント失敗を特定するための詳細ログを出力
-      print('--- IMPORT FAIL --- \nError: $e\nStack: $stackTrace');
-      // 再スローしてUI側でも検知可能にする
+      debugPrint('--- IMPORT FAIL --- \nError: $e\nStack: $stackTrace');
       rethrow;
     }
   }

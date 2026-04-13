@@ -32,3 +32,47 @@ final recordStatsProvider = FutureProvider.family<Map<String, dynamic>, ({String
   ref.watch(databaseVersionProvider);
   return DatabaseService().getUserStats(arg.playerName, groupId: arg.groupId);
 });
+class RankingSort {
+  final int columnIndex;
+  final bool ascending;
+  RankingSort({required this.columnIndex, required this.ascending});
+}
+
+class RankingSortNotifier extends Notifier<RankingSort> {
+  @override
+  RankingSort build() => RankingSort(columnIndex: 2, ascending: false);
+  void updateSort(int index, bool asc) => state = RankingSort(columnIndex: index, ascending: asc);
+}
+
+/// グループランキングのソート状態を管理するProvider
+final rankingSortProvider = NotifierProvider<RankingSortNotifier, RankingSort>(RankingSortNotifier.new);
+
+/// ソート済みのグループ構成ランキングを取得するProvider
+final sortedGroupRankingProvider = Provider.family<AsyncValue<List<Map<String, dynamic>>>, int>((ref, groupId) {
+  final rankingAsync = ref.watch(groupRankingProvider(groupId));
+  final sort = ref.watch(rankingSortProvider);
+
+  return rankingAsync.whenData((data) {
+    if (data.isEmpty) return [];
+    
+    final keys = [
+      'name', 'matches', 'totalPt', 'totalChip', 'totalScore',
+      'avgRank', 'games', 'topRate', 'rentaiRate', 'tobiRate',
+    ];
+    final key = sort.columnIndex < keys.length ? keys[sort.columnIndex] : 'totalPt';
+    
+    final sorted = List<Map<String, dynamic>>.from(data)
+      ..sort((a, b) {
+        final av = a[key];
+        final bv = b[key];
+        int cmp;
+        if (av is String && bv is String) {
+          cmp = av.compareTo(bv);
+        } else {
+          cmp = (av as num).compareTo(bv as num);
+        }
+        return sort.ascending ? cmp : -cmp;
+      });
+    return sorted;
+  });
+});

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/database/database_service.dart';
-import '../calc/calc_providers.dart';
 import '../../core/database/database_providers.dart';
 import '../stats/stats_providers.dart';
 
@@ -54,8 +53,6 @@ class _GroupScreenState extends ConsumerState<GroupScreen> {
   @override
   Widget build(BuildContext context) {
     final groupListAsync = ref.watch(groupListProvider);
-    final state = ref.watch(calcProvider);
-    final notifier = ref.read(calcProvider.notifier);
 
     return Column(
       children: [

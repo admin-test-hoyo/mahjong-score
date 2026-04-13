@@ -23,17 +23,10 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
   String? _selectedPlayer;
   int? _selectedGroupId;
   List<SavedGame> _allGames = [];
-  List<Session> _allSessions = [];
   List<String> _players = [];
-  List<String> _groupMembers = [];
 
   // ── グループ分析 ───────────────────────────────────────
   int? _rankingGroupId;
-  List<Map<String, dynamic>> _rankingData = [];
-  bool _rankingLoading = false;
-  // ソート状態
-  int _sortColumnIndex = 2; // デフォルト: 総Pt
-  bool _sortAscending = false; // 降順
 
   // ── 共通 ──────────────────────────────────────────────
   List<Map<String, dynamic>> _groupList = [];
@@ -74,79 +67,9 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
     // Ver 3.4.4: 初期ロード時に全データを取得し、UI側でフィルタリングする
     final rows = await db.getGames(all: true);
     _allGames = rows.map((e) => SavedGame.fromMap(e)).toList();
-
-    final sessionRows = await db.getSessions(all: true);
-    _allSessions = sessionRows.map((e) {
-      final names = <String>[e['p1_name']??'', e['p2_name']??'', e['p3_name']??'', e['p4_name']??''];
-      final moneys = <int>[(e['p1_money'] as num?)?.toInt() ?? 0, (e['p2_money'] as num?)?.toInt() ?? 0, (e['p3_money'] as num?)?.toInt() ?? 0, (e['p4_money'] as num?)?.toInt() ?? 0];
-      return Session(
-        id: e['id'] as int,
-        date: e['date'] as String,
-        groupId: e['group_id'] as int?,
-        playerNames: names,
-        totalMoneys: moneys,
-      );
-    }).toList();
-
-    if (_selectedGroupId != null) {
-      final members = await db.getMembers(_selectedGroupId!);
-      _groupMembers = members.map((e) => e['name'] as String).toList();
-    } else {
-      _groupMembers = [];
-    }
   }
 
-  List<Session> get _filteredSessions {
-    if (_selectedPlayer == null) return [];
-    var filtered = _allSessions;
-    if (_selectedGroupId != null) {
-      if (_groupMembers.isEmpty || !_groupMembers.contains(_selectedPlayer)) {
-        return [];
-      }
-      filtered = filtered.where((s) => s.groupId == _selectedGroupId).toList();
-    }
-    filtered = filtered.where((s) => s.playerNames.contains(_selectedPlayer)).toList();
-    return filtered;
-  }
 
-  Future<void> _loadGroupRanking(int groupId) async {
-    setState(() => _rankingLoading = true);
-    try {
-      final db = DatabaseService();
-      final data = await db.getGroupRanking(groupId);
-      // デフォルトソート: 総Pt (インデックス 2) 降順
-      _sortColumnIndex = 2;
-      _sortAscending = false;
-      _rankingData = _sortedData(data, 2, false);
-    } catch (e) {
-      debugPrint('Group ranking error: $e');
-      _rankingData = [];
-    } finally {
-      if (mounted) setState(() => _rankingLoading = false);
-    }
-  }
-
-  List<Map<String, dynamic>> _sortedData(
-      List<Map<String, dynamic>> data, int colIdx, bool ascending) {
-    final keys = [
-      'name', 'matches', 'totalPt', 'totalChip', 'totalScore',
-      'avgRank', 'games', 'topRate', 'rentaiRate', 'tobiRate',
-    ];
-    final key = colIdx < keys.length ? keys[colIdx] : 'totalPt';
-    final sorted = List<Map<String, dynamic>>.from(data)
-      ..sort((a, b) {
-        final av = a[key];
-        final bv = b[key];
-        int cmp;
-        if (av is String && bv is String) {
-          cmp = av.compareTo(bv);
-        } else {
-          cmp = (av as num).compareTo(bv as num);
-        }
-        return ascending ? cmp : -cmp;
-      });
-    return sorted;
-  }
 
   List<SavedGame> get _filteredGames {
     if (_selectedPlayer == null) return [];
@@ -163,17 +86,6 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
   Widget build(BuildContext context) {
     // 統計データプロバイダーの状態を監視し、変更があればデータを再ロードする
     ref.listen(databaseVersionProvider, (_, __) => _loadInitialData());
-    
-    if (_rankingGroupId != null) {
-      final rankingAsync = ref.watch(groupRankingProvider(_rankingGroupId!));
-      rankingAsync.whenData((data) {
-        if (_rankingData != data) {
-           WidgetsBinding.instance.addPostFrameCallback((_) {
-             if (mounted) setState(() => _rankingData = data);
-           });
-        }
-      });
-    }
 
     if (_loading) {
       return const Center(
@@ -341,9 +253,8 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                     value: g['id'] as int,
                     child: Text(g['name']))),
               ],
-              onChanged: (val) async {
+              onChanged: (val) {
                 setState(() => _rankingGroupId = val);
-                if (val != null) await _loadGroupRanking(val);
               },
             ),
           ),
@@ -354,23 +265,27 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
               ? const Center(
                   child: Text('グループを選択してください',
                       style: TextStyle(color: Colors.white54, fontSize: 14)))
-              : _rankingLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(
-                          color: Color(0xFF00FFC2)))
-                  : _rankingData.isEmpty
+              : ref.watch(sortedGroupRankingProvider(_rankingGroupId!)).when(
+                  data: (data) => data.isEmpty
                       ? const Center(
                           child: Text('データがありません',
                               style: TextStyle(color: Colors.white24)))
-                      : _buildLeaderboard(),
+                      : _buildLeaderboard(data),
+                  loading: () => const Center(
+                      child: CircularProgressIndicator(
+                          color: Color(0xFF00FFC2))),
+                  error: (e, s) => Center(
+                    child: Text('エラー: $e',
+                        style: const TextStyle(color: Colors.redAccent)),
+                  ),
+                ),
         ),
       ],
     );
   }
 
-  Widget _buildLeaderboard() {
-    // 順位列を追加した表示用データ
-    final rows = _rankingData;
+  Widget _buildLeaderboard(List<Map<String, dynamic>> rows) {
+    final sort = ref.watch(rankingSortProvider);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(12),
@@ -383,8 +298,8 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: DataTable(
-            sortColumnIndex: _sortColumnIndex,
-            sortAscending: _sortAscending,
+            sortColumnIndex: sort.columnIndex,
+            sortAscending: sort.ascending,
             headingRowColor: WidgetStateProperty.all(
                 const Color(0xFF00BFA5).withValues(alpha: 0.15)),
             dataRowColor: WidgetStateProperty.resolveWith((states) {
@@ -592,11 +507,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
   }
 
   void _onSort(int columnIndex, bool ascending) {
-    setState(() {
-      _sortColumnIndex = columnIndex;
-      _sortAscending = ascending;
-      _rankingData = _sortedData(_rankingData, columnIndex, ascending);
-    });
+    ref.read(rankingSortProvider.notifier).updateSort(columnIndex, ascending);
   }
 
   // ─────────────────── 個人分析ウィジェット群 ───────────────

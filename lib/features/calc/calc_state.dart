@@ -1,14 +1,12 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/material.dart';
 import 'package:collection/collection.dart';
 import '../../core/calculator.dart';
 import '../../core/models/app_config.dart';
 import '../../core/database/database_service.dart';
 import '../../core/models/db_models.dart';
-import '../history/history_providers.dart';
-import '../stats/stats_providers.dart';
 
 import '../../core/database/database_providers.dart';
 import 'calc_providers.dart';
@@ -583,7 +581,7 @@ class CalcNotifier extends Notifier<CalcState> {
       
       return isUpdate ? SaveResult.updated : SaveResult.registered;
     } catch (e) {
-      print('Save error: $e');
+      debugPrint('Save error: $e');
       return SaveResult.failed;
     }
   }
@@ -622,7 +620,7 @@ class CalcNotifier extends Notifier<CalcState> {
           notifier.updateTargetTotalScore(historyConfig.targetTotalScore);
         }
       } catch (e) {
-        print('History rule restore error: $e');
+        debugPrint('History rule restore error: $e');
       }
 
     // ロード前に状態を完全に初期化（チップ二重計上防止）
@@ -711,7 +709,7 @@ class CalcNotifier extends Notifier<CalcState> {
         state = draftData.copyWith(clearDraft: true);
         return;
       } catch (e) {
-        print('Restore error: $e');
+        debugPrint('Restore error: $e');
       }
     }
     state = state.copyWith(currentId: null, clearDraft: true);

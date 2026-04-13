@@ -82,7 +82,7 @@ class MainScreen extends ConsumerWidget {
             ),
           ),
           const Text(
-            'Ver 3.5.4',
+            'Ver 3.5.5',
             style: TextStyle(color: Colors.white38, fontSize: 10),
           ),
         ],
@@ -215,11 +215,11 @@ class MainScreen extends ConsumerWidget {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
+                      color: Colors.white.withValues(alpha: 0.05),
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF00FFC2).withOpacity(0.1),
+                          color: const Color(0xFF00FFC2).withValues(alpha: 0.1),
                           blurRadius: 20,
                           spreadRadius: 2,
                         ),

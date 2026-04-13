@@ -182,7 +182,7 @@ class Session {
       'p4_name': playerNames.length > 3 ? playerNames[3] : '',
       'config_json': configJson,
       'global_chips_json': globalChipsJson,
-      'p1_money': totalMoneys != null && totalMoneys!.length > 0 ? totalMoneys![0] : 0,
+      'p1_money': totalMoneys != null && totalMoneys!.isNotEmpty ? totalMoneys![0] : 0,
       'p2_money': totalMoneys != null && totalMoneys!.length > 1 ? totalMoneys![1] : 0,
       'p3_money': totalMoneys != null && totalMoneys!.length > 2 ? totalMoneys![2] : 0,
       'p4_money': totalMoneys != null && totalMoneys!.length > 3 ? totalMoneys![3] : 0,

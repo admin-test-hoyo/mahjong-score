@@ -12,7 +12,6 @@ import '../../core/models/app_config.dart';
 import '../../core/models/db_models.dart';
 import '../../core/database/database_service.dart';
 import 'calc_state.dart';
-import '../history/history_screen.dart';
 import '../stats/stats_providers.dart';
 import 'package:intl/intl.dart';
 
@@ -62,7 +61,7 @@ class CalcScreen extends ConsumerWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Ver 3.5.4', style: TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold)),
+              const Text('Ver 3.5.5', style: TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold)),
               Text(DateFormat('yyyy/MM/dd').format(DateTime.now()), style: const TextStyle(color: Colors.white24, fontSize: 10)),
             ],
           ),
@@ -160,7 +159,7 @@ class CalcScreen extends ConsumerWidget {
     final bytes = utf8.encode(jsonStr);
     final blob = html.Blob([bytes]);
     final url = html.Url.createObjectUrlFromBlob(blob);
-    final anchor = html.AnchorElement(href: url)
+    html.AnchorElement(href: url)
       ..setAttribute("download", filename)
       ..click();
     html.Url.revokeObjectUrl(url);
@@ -180,7 +179,7 @@ class CalcScreen extends ConsumerWidget {
         final reader = html.FileReader();
         reader.onLoadEnd.listen((_) => completer.complete(reader.result as String));
         reader.onError.listen((e) => completer.completeError('読み取り失敗'));
-        reader.readAsText(files[0]!);
+        reader.readAsText(files[0]);
         final content = await completer.future;
         
         final jsonData = jsonDecode(content);
@@ -470,7 +469,9 @@ class CalcScreen extends ConsumerWidget {
         } catch (_) {}
       }
     }
-    for (int i=0; i<4; i++) summaries[i+1]!['chip'] = (summaries[i+1]!['chip'] ?? 0) + state.globalChips[i];
+    for (int i=0; i<4; i++) {
+       summaries[i+1]!['chip'] = (summaries[i+1]!['chip'] ?? 0) + state.globalChips[i];
+    }
     return Container(padding: const EdgeInsets.symmetric(vertical: 8), decoration: BoxDecoration(color: Colors.black26, border: const Border(top: BorderSide(color: Color(0xFF00FFC2), width: 1))), child: Row(children: [
         for (int i = 1; i <= 4; i++) Expanded(child: _buildSumBlock(state.playerNames[i - 1], summaries[i]!, config, 4, completed, state.snapshottedMoneys != null && state.snapshottedMoneys!.length >= i ? state.snapshottedMoneys![i-1] : null))
     ]));
