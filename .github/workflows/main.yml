@@ -6,6 +6,7 @@ on:
       - main
       - master
       - develop
+      - feature/tab-navigation
 
 permissions:
   contents: write
