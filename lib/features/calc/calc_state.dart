@@ -497,7 +497,7 @@ class CalcNotifier extends Notifier<CalcState> {
         final existing = await db.getSessionById(sessionId);
         if (existing != null) {
           sessionDay = existing.date;
-          effectiveGroupId ??= existing.groupId;
+          // effectiveGroupId ??= existing.groupId; // Deleted in Ver 3.5.6 to allow unsetting group
         }
         await db.updateSession(Session(
           id: sessionId,
