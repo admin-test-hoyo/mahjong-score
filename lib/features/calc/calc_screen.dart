@@ -61,7 +61,7 @@ class CalcScreen extends ConsumerWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Ver 3.5.5', style: TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold)),
+              const Text('Ver 3.6.0', style: TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold)),
               Text(DateFormat('yyyy/MM/dd').format(DateTime.now()), style: const TextStyle(color: Colors.white24, fontSize: 10)),
             ],
           ),
@@ -231,7 +231,7 @@ class CalcScreen extends ConsumerWidget {
           const SizedBox(width: 12),
           _quickField(label: '場代', value: displayFee.toString(), onChanged: (v) => ref.read(calcProvider.notifier).updateRuleGameFee(int.tryParse(v) ?? 0), width: 80),
           const Spacer(),
-          const Text('Ver 3.5.4', style: TextStyle(color: Colors.white12, fontSize: 9)),
+          const Text('Ver 3.6.0', style: TextStyle(color: Colors.white12, fontSize: 9)),
         ],
       ),
     );
@@ -563,26 +563,40 @@ class _MemberPickerModalState extends State<_MemberPickerModal> {
 
   Widget _buildGroupList(AsyncValue<List<Map<String, dynamic>>> groupsAsync) {
     return groupsAsync.when(
-      data: (groups) => ListView.builder(
-        itemCount: groups.length,
-        itemBuilder: (context, i) {
-          final g = groups[i];
-          return ListTile(
-            leading: const Icon(Icons.folder_outlined, color: Color(0xFF00FFC2)),
-            title: Text(g['name'], style: const TextStyle(color: Colors.white)),
-            trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white12, size: 14),
-            onTap: () => setState(() => _selectedGroupId = g['id']),
-          );
-        },
-      ),
+      data: (groups) {
+        // ID 0 (システムグループ) を除外し、代わりに最上部に「全員から選択」を追加
+        final filteredGroups = groups.where((g) => g['id'] != 0).toList(); // Hardcoded 0 for systemGroupIdFreeMatch
+        
+        return ListView(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.people_outline, color: Color(0xFF00FFC2)),
+              title: const Text('全員から選択', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white12, size: 14),
+              onTap: () => setState(() => _selectedGroupId = 0), // systemGroupIdFreeMatch
+            ),
+            const Divider(color: Colors.white10),
+            ...filteredGroups.map((g) => ListTile(
+              leading: const Icon(Icons.folder_outlined, color: Color(0xFF00FFC2)),
+              title: Text(g['name'], style: const TextStyle(color: Colors.white)),
+              trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white12, size: 14),
+              onTap: () => setState(() => _selectedGroupId = g['id']),
+            )),
+          ],
+        );
+      },
       loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF00FFC2))),
       error: (e, _) => Center(child: Text('Error: $e', style: const TextStyle(color: Colors.redAccent))),
     );
   }
 
   Widget _buildMemberList(int groupId) {
+    final memberFuture = groupId == 0 
+      ? DatabaseService().getAllPlayerNames()
+      : DatabaseService().getGroupMembers(groupId).timeout(const Duration(seconds: 3));
+
     return FutureBuilder<List<String>>(
-      future: DatabaseService().getGroupMembers(groupId).timeout(const Duration(seconds: 3)),
+      future: memberFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: Color(0xFF00FFC2)));
         if (snapshot.hasError) return const Center(child: Text('データ取得に失敗しました', style: TextStyle(color: Colors.redAccent, fontSize: 12)));
