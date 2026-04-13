@@ -61,7 +61,7 @@ class CalcState {
   final String? currentDraft;
   final List<int>? snapshottedMoneys; // Ver 1.9.2: 履歴表示用の固定収支
   final List<Map<String, dynamic>>? possibleGroupMatches; // 追加: マッチ候補
-  final int? pickedGroupId; // Ver 3.5.0: 入力経路による自動判別用
+  final int pickedGroupId; // Ver 3.5.0: 入力経路による自動判別用
 
   const CalcState({
     this.playerNames = const ['A', 'B', 'C', 'D'],
@@ -73,7 +73,7 @@ class CalcState {
     this.currentDraft,
     this.snapshottedMoneys,
     this.possibleGroupMatches,
-    this.pickedGroupId,
+    this.pickedGroupId = systemGroupIdFreeMatch,
   });
 
   CalcState copyWith({
@@ -129,7 +129,7 @@ class CalcState {
       sessionDate: json['sessionDate'] as String?,
       currentDraft: json['currentDraft'] as String?,
       snapshottedMoneys: (json['snapshottedMoneys'] as List<dynamic>?)?.map((e) => e as int).toList(),
-      pickedGroupId: json['pickedGroupId'] as int?,
+      pickedGroupId: json['pickedGroupId'] as int? ?? systemGroupIdFreeMatch,
     );
   }
 }
@@ -490,7 +490,7 @@ class CalcNotifier extends Notifier<CalcState> {
       // 2. セッション（ヘッダー）の特定または作成
       String sessionDay = DateFormat('yyyy/MM/dd').format(date);
       final int sessionId;
-      int? effectiveGroupId = state.pickedGroupId;
+      int effectiveGroupId = state.pickedGroupId;
 
       if (isUpdate) {
         sessionId = currentId;

@@ -20,6 +20,7 @@ class DatabaseService {
       if (db != null) return db;
       
       _database ??= await _initDatabase();
+      await _ensureSystemGroupAndMigrate(_database!);
       await _migrateToHeaderDetail(_database!);
       await forceSyncSessionTotals();
       
@@ -131,7 +132,22 @@ class DatabaseService {
       )
     ''');
     await db.execute('CREATE TABLE groups (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE)');
+    await db.execute('INSERT INTO groups (id, name) VALUES (?, ?)', [systemGroupIdFreeMatch, 'フリー対局']);
     await db.execute('CREATE TABLE group_members (id INTEGER PRIMARY KEY AUTOINCREMENT, group_id INTEGER NOT NULL, name TEXT NOT NULL, FOREIGN KEY (group_id) REFERENCES groups (id) ON DELETE CASCADE)');
+  }
+
+  Future<void> _ensureSystemGroupAndMigrate(Database db) async {
+    // 1. システムグループ（ID 0: フリー対局）の存在保証
+    final List<Map<String, dynamic>> systemGroup = await db.query('groups', where: 'id = ?', whereArgs: [systemGroupIdFreeMatch]);
+    if (systemGroup.isEmpty) {
+      await db.insert('groups', {'id': systemGroupIdFreeMatch, 'name': 'フリー対局'}, conflictAlgorithm: ConflictAlgorithm.ignore);
+    }
+
+    // 2. NULL -> ID 0 への移行 (トランザクション内)
+    await db.transaction((txn) async {
+      await txn.update('sessions', {'group_id': systemGroupIdFreeMatch}, where: 'group_id IS NULL');
+      await txn.update('games', {'group_id': systemGroupIdFreeMatch}, where: 'group_id IS NULL');
+    });
   }
 
   Future<void> forceSyncSessionTotals() async {
@@ -231,22 +247,19 @@ class DatabaseService {
     return await db.insert('games', row);
   }
 
-  Future<List<Map<String, dynamic>>> getGames({int? groupId, bool all = false}) async {
+  Future<List<Map<String, dynamic>>> getGames({int groupId = systemGroupIdFreeMatch, bool all = false}) async {
     if (kIsWeb) {
       final list = await _webQuery('web_db_games');
       var filtered = all 
           ? list 
-          : (groupId != null 
-              ? list.where((e) => (e['group_id'] as num?)?.toInt() == groupId).toList() 
-              : list.where((e) => e['group_id'] == null).toList());
+          : list.where((e) => (e['group_id'] as num?)?.toInt() == groupId).toList();
       filtered.sort((a, b) => (a['date'] as String).compareTo(b['date'] as String));
       return filtered;
     }
     final db = await database;
     String? where; List<dynamic>? whereArgs;
     if (!all) {
-      if (groupId != null) { where = 'group_id = ?'; whereArgs = [groupId]; }
-      else { where = 'group_id IS NULL'; }
+      where = 'group_id = ?'; whereArgs = [groupId];
     }
     return await db.query('games', where: where, whereArgs: whereArgs, orderBy: 'date DESC');
   }
@@ -277,19 +290,19 @@ class DatabaseService {
     return await db.delete('games', where: 'id = ?', whereArgs: [id]);
   }
 
-  Future<int> findOrCreateSession({required String date, required List<String> playerNames, int? groupId, String? configJson, String? globalChipsJson, List<int>? totalMoneys}) async {
+  Future<int> findOrCreateSession({required String date, required List<String> playerNames, int groupId = systemGroupIdFreeMatch, String? configJson, String? globalChipsJson, List<int>? totalMoneys}) async {
     if (kIsWeb) {
       final sessions = await _webQuery('web_db_sessions');
       for (var s in sessions) {
-        if (s['date'] == date && s['p1_name'] == playerNames[0] && s['p2_name'] == playerNames[1] && s['p3_name'] == playerNames[2] && s['group_id'] == groupId) {
+        if (s['date'] == date && s['p1_name'] == playerNames[0] && s['p2_name'] == playerNames[1] && s['p3_name'] == playerNames[2] && (s['group_id'] as num?)?.toInt() == groupId) {
           return s['id'];
         }
       }
       return _webInsert('web_db_sessions', Session(date: date, playerNames: playerNames, groupId: groupId, configJson: configJson, globalChipsJson: globalChipsJson, totalMoneys: totalMoneys).toMap());
     }
     final db = await database;
-    final results = await db.query('sessions', where: 'date = ? AND p1_name = ? AND p2_name = ? AND p3_name = ? AND group_id ${groupId == null ? "IS NULL" : "= ?"}',
-        whereArgs: [date, playerNames[0], playerNames[1], playerNames[2], if (groupId != null) groupId]);
+    final results = await db.query('sessions', where: 'date = ? AND p1_name = ? AND p2_name = ? AND p3_name = ? AND group_id = ?',
+        whereArgs: [date, playerNames[0], playerNames[1], playerNames[2], groupId]);
     if (results.isNotEmpty) return results.first['id'] as int;
     return await db.insert('sessions', Session(date: date, playerNames: playerNames, groupId: groupId, configJson: configJson, globalChipsJson: globalChipsJson, totalMoneys: totalMoneys).toMap());
   }
@@ -300,7 +313,7 @@ class DatabaseService {
     await db.update('sessions', session.toMap(), where: 'id = ?', whereArgs: [session.id]);
   }
 
-  Future<void> updateSessionGroupId(int sessionId, int? groupId) async {
+  Future<void> updateSessionGroupId(int sessionId, int groupId) async {
     if (kIsWeb) {
       final sessions = await _webQuery('web_db_sessions');
       final index = sessions.indexWhere((s) => s['id'] == sessionId);
@@ -329,22 +342,19 @@ class DatabaseService {
     });
   }
 
-  Future<List<Map<String, dynamic>>> getSessions({int? groupId, bool all = false}) async {
+  Future<List<Map<String, dynamic>>> getSessions({int groupId = systemGroupIdFreeMatch, bool all = false}) async {
     if (kIsWeb) {
       final list = await _webQuery('web_db_sessions');
       var filtered = all 
           ? list 
-          : (groupId != null 
-              ? list.where((s) => (s['group_id'] as num?)?.toInt() == groupId).toList() 
-              : list.where((s) => s['group_id'] == null).toList());
+          : list.where((s) => (s['group_id'] as num?)?.toInt() == groupId).toList();
       filtered.sort((a,b) => (b['date'] as String).compareTo(a['date'] as String));
       return filtered;
     }
     final db = await database;
     String? where; List<dynamic>? whereArgs;
     if (!all) {
-      if (groupId != null) { where = 'group_id = ?'; whereArgs = [groupId]; }
-      else { where = 'group_id IS NULL'; }
+      where = 'group_id = ?'; whereArgs = [groupId];
     }
     return await db.query('sessions', where: where, whereArgs: whereArgs, orderBy: 'date DESC');
   }
@@ -790,10 +800,39 @@ class DatabaseService {
   Future<List<Map<String, dynamic>>> _webQuery(String key) async {
     final prefs = await SharedPreferences.getInstance();
     final data = prefs.getString(key);
-    if (data == null) return [];
+    if (data == null) {
+      if (key == 'web_db_groups') {
+        final initialGroups = [{'id': systemGroupIdFreeMatch, 'name': 'フリー対局'}];
+        await prefs.setString(key, jsonEncode(initialGroups));
+        return initialGroups;
+      }
+      return [];
+    }
     try {
       final List<dynamic> decoded = jsonDecode(data);
-      return decoded.map((e) => Map<String, dynamic>.from(e)).toList();
+      final list = decoded.map((e) => Map<String, dynamic>.from(e)).toList();
+      
+      // Webでもシステムグループの存在を保証
+      if (key == 'web_db_groups' && !list.any((g) => g['id'] == systemGroupIdFreeMatch)) {
+        list.insert(0, {'id': systemGroupIdFreeMatch, 'name': 'フリー対局'});
+        await prefs.setString(key, jsonEncode(list));
+      }
+      
+      // Webでの NULL -> 0 移行
+      if (key == 'web_db_sessions' || key == 'web_db_games') {
+        bool changed = false;
+        for (var item in list) {
+          if (item['group_id'] == null) {
+            item['group_id'] = systemGroupIdFreeMatch;
+            changed = true;
+          }
+        }
+        if (changed) {
+          await prefs.setString(key, jsonEncode(list));
+        }
+      }
+      
+      return list;
     } catch (_) { return []; }
   }
 

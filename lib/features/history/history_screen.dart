@@ -1,4 +1,3 @@
-import '../calc/calc_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -7,6 +6,7 @@ import '../../core/models/db_models.dart';
 import 'history_providers.dart';
 import '../main/main_providers.dart';
 import '../stats/stats_providers.dart';
+import '../calc/calc_providers.dart';
 
 class HistoryBottomSheet extends ConsumerStatefulWidget {
   const HistoryBottomSheet({super.key});
@@ -239,7 +239,7 @@ class _HistoryCard extends ConsumerWidget {
       children: [
         // Group Edit Menu
         groupsAsync.when(
-          data: (groups) => PopupMenuButton<int?>(
+          data: (groups) => PopupMenuButton<int>(
             icon: const Icon(Icons.folder_shared_outlined, color: Colors.white24, size: 18),
             tooltip: 'グループを変更',
             onSelected: (groupId) {
@@ -247,10 +247,12 @@ class _HistoryCard extends ConsumerWidget {
             },
             itemBuilder: (context) => [
               const PopupMenuItem(
-                value: null,
+                value: systemGroupIdFreeMatch,
                 child: Text('フリー対局', style: TextStyle(fontSize: 13)),
               ),
-              ...groups.map((g) => PopupMenuItem(
+              ...groups
+                  .where((g) => g['id'] != systemGroupIdFreeMatch)
+                  .map((g) => PopupMenuItem(
                     value: g['id'],
                     child: Text(g['name'], style: const TextStyle(fontSize: 13)),
                   )),

@@ -110,7 +110,7 @@ class HistoryNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
     await refresh();
   }
 
-  Future<void> updateSessionGroupId(int sessionId, int? groupId) async {
+  Future<void> updateSessionGroupId(int sessionId, int groupId) async {
     final db = DatabaseService();
     await db.updateSessionGroupId(sessionId, groupId);
     

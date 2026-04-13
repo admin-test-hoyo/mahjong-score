@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/database/database_service.dart';
 import '../../core/database/database_providers.dart';
 import '../stats/stats_providers.dart';
+import '../../core/models/db_models.dart';
 
 class GroupScreen extends ConsumerStatefulWidget {
   const GroupScreen({super.key});
@@ -58,7 +59,8 @@ class _GroupScreenState extends ConsumerState<GroupScreen> {
       children: [
         Expanded(
           child: groupListAsync.when(
-            data: (groups) {
+            data: (allGroups) {
+              final groups = allGroups.where((g) => g['id'] != systemGroupIdFreeMatch).toList();
               if (groups.isEmpty) {
                 return const Center(child: Text('グループが登録されていません', style: TextStyle(color: Colors.white24)));
               }

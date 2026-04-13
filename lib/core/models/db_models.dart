@@ -6,12 +6,14 @@ extension NumberFormatting on int {
   }
 }
 
+const int systemGroupIdFreeMatch = 0;
+
 class SavedGame {
   final int? id;
   final int? sessionId; // 追加: セッションID (ヘッダー)
   final String type; // '3-player' / '4-player'
   final DateTime date;
-  final int? groupId;
+  final int groupId;
   final List<String> playerNames;
   final List<int> scores;
   final List<int> points; // Final Pt
@@ -28,7 +30,7 @@ class SavedGame {
     this.sessionId,
     required this.type,
     required this.date,
-    this.groupId,
+    this.groupId = systemGroupIdFreeMatch,
     required this.playerNames,
     required this.scores,
     required this.points,
@@ -92,7 +94,7 @@ class SavedGame {
       sessionId: map['session_id'],
       type: map['type'],
       date: DateTime.parse(map['date']),
-      groupId: map['group_id'],
+      groupId: map['group_id'] ?? systemGroupIdFreeMatch,
       playerNames: [
         map['p1_name'] ?? '',
         map['p2_name'] ?? '',
@@ -155,7 +157,7 @@ class SavedGame {
 class Session {
   final int? id;
   final String date; // YYYY/MM/DD
-  final int? groupId;
+  final int groupId;
   final List<String> playerNames;
   final String? configJson; // Snapshot of AppConfig
   final String? globalChipsJson; // [p1, p2, p3, p4] Snapshot
@@ -164,7 +166,7 @@ class Session {
   Session({
     this.id,
     required this.date,
-    this.groupId,
+    this.groupId = systemGroupIdFreeMatch,
     required this.playerNames,
     this.configJson,
     this.globalChipsJson,
@@ -193,7 +195,7 @@ class Session {
     return Session(
       id: map['id'],
       date: map['date'] ?? '',
-      groupId: map['group_id'],
+      groupId: map['group_id'] ?? systemGroupIdFreeMatch,
       playerNames: [
         map['p1_name'] ?? '',
         map['p2_name'] ?? '',
