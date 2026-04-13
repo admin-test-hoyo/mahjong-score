@@ -35,8 +35,26 @@ class MainScreen extends ConsumerWidget {
         index: _getTabIndex(currentTab),
         children: const [
           CalcScreen(),
+          HistoryScreen(),
           StatsScreen(),
-          GroupScreen(),
+        ],
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _getTabIndex(currentTab),
+        onTap: (index) {
+          final tabs = [MainTab.calc, MainTab.history, MainTab.stats];
+          ref.read(navigationProvider.notifier).setTab(tabs[index]);
+        },
+        backgroundColor: Colors.black.withValues(alpha: 0.8),
+        selectedItemColor: const Color(0xFF00FFC2),
+        unselectedItemColor: Colors.white24,
+        selectedFontSize: 10,
+        unselectedFontSize: 10,
+        type: BottomNavigationBarType.fixed,
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.calculate_outlined), activeIcon: Icon(Icons.calculate), label: 'スコア計算'),
+          BottomNavigationBarItem(icon: Icon(Icons.history_outlined), activeIcon: Icon(Icons.history), label: '対局履歴'),
+          BottomNavigationBarItem(icon: Icon(Icons.bar_chart_outlined), activeIcon: Icon(Icons.bar_chart), label: '統計・分析'),
         ],
       ),
     );
@@ -45,8 +63,8 @@ class MainScreen extends ConsumerWidget {
   int _getTabIndex(MainTab tab) {
     switch (tab) {
       case MainTab.calc: return 0;
-      case MainTab.stats: return 1;
-      case MainTab.groups: return 2;
+      case MainTab.history: return 1;
+      case MainTab.stats: return 2;
       default: return 0;
     }
   }
@@ -62,32 +80,30 @@ class MainScreen extends ConsumerWidget {
 
   Widget _buildTitle(BuildContext context, WidgetRef ref, MainTab tab, CalcState calcState) {
     String title = '麻雀スコア表';
+    if (tab == MainTab.history) title = '対局履歴';
     if (tab == MainTab.stats) title = '統計・分析';
     if (tab == MainTab.groups) title = 'グループ管理';
     if (tab == MainTab.calc && calcState.currentId != null) title = '麻雀スコア表(履歴編集)';
 
-    return GestureDetector(
-      onTap: tab == MainTab.calc ? () => ref.read(calcProvider.notifier).resetGame() : null,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              title,
-              style: GoogleFonts.robotoMono(
-                color: const Color(0xFF00FFC2),
-                fontWeight: FontWeight.bold,
-                fontSize: 22.0,
-              ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            title,
+            style: GoogleFonts.robotoMono(
+              color: const Color(0xFF00FFC2),
+              fontWeight: FontWeight.bold,
+              fontSize: 22.0,
             ),
           ),
-          const Text(
-            'Ver 3.8.0',
-            style: TextStyle(color: Colors.white38, fontSize: 10),
-          ),
-        ],
-      ),
+        ),
+        const Text(
+          'Ver 3.9.0',
+          style: TextStyle(color: Colors.white38, fontSize: 10),
+        ),
+      ],
     );
   }
 
@@ -126,17 +142,6 @@ class MainScreen extends ConsumerWidget {
     return [];
   }
 
-  void _openHistoryBottomSheet(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 20),
-        child: const HistoryBottomSheet(),
-      ),
-    );
-  }
 
 
   void _showHistoryCleanup(BuildContext context, WidgetRef ref) {
@@ -248,20 +253,14 @@ class MainScreen extends ConsumerWidget {
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
-                _categoryLabel('[MAIN]'),
-                _drawerItem(context, ref, Icons.calculate, 'スコア計算', MainTab.calc, currentTab),
-                _drawerAction(context, ref, Icons.history, '対局履歴', () => _openHistoryBottomSheet(context, ref)),
-                
-                const Divider(color: Colors.white10),
-                _categoryLabel('[TOOLS & SUPPORT]'),
-                _drawerItem(context, ref, Icons.bar_chart, '統計・分析', MainTab.stats, currentTab),
-                _drawerItem(context, ref, Icons.group, 'グループ管理', MainTab.groups, currentTab),
+                _categoryLabel('[SUPPORT]'),
                 _drawerAction(context, ref, Icons.help_outline, 'ヘルプ / 使い方', () {
                   Navigator.push(context, MaterialPageRoute(builder: (context) => const HelpScreen()));
                 }),
 
                 const Divider(color: Colors.white10),
                 _categoryLabel('[DATA MANAGEMENT]'),
+                _drawerItem(context, ref, Icons.group, 'グループ管理', MainTab.groups, currentTab),
                 _drawerAction(context, ref, Icons.delete_sweep, '履歴クリーンアップ', () => _showHistoryCleanup(context, ref), iconColor: Colors.white24),
                 _drawerAction(context, ref, Icons.download, 'バックアップ保存', () => CalcScreen.exportData(context, ref), iconColor: Colors.white24),
                 _drawerAction(context, ref, Icons.upload, 'データ復元', () => CalcScreen.importData(context, ref), iconColor: Colors.white24),

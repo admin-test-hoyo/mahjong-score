@@ -60,7 +60,7 @@ class HelpScreen extends StatelessWidget {
           const SizedBox(height: 40),
           Center(
             child: Text(
-              'Ver 3.7.0',
+              'Ver 3.9.0',
               style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 12),
             ),
           ),

@@ -8,14 +8,14 @@ import '../main/main_providers.dart';
 import '../stats/stats_providers.dart';
 import '../calc/calc_providers.dart';
 
-class HistoryBottomSheet extends ConsumerStatefulWidget {
-  const HistoryBottomSheet({super.key});
+class HistoryScreen extends ConsumerStatefulWidget {
+  const HistoryScreen({super.key});
 
   @override
-  ConsumerState<HistoryBottomSheet> createState() => _HistoryBottomSheetState();
+  ConsumerState<HistoryScreen> createState() => _HistoryScreenState();
 }
 
-class _HistoryBottomSheetState extends ConsumerState<HistoryBottomSheet> {
+class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   @override
   void initState() {
     super.initState();
@@ -27,24 +27,18 @@ class _HistoryBottomSheetState extends ConsumerState<HistoryBottomSheet> {
     final history = ref.watch(historyProvider);
     final selectedDateRange = ref.watch(historyFilterProvider);
 
-    return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF001F1A),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Column(
-        children: [
-          _buildHeader(context),
-          if (selectedDateRange != null) _buildFilterBar(ref, selectedDateRange),
-          Expanded(
-            child: history.when(
-              data: (sessions) => _buildList(sessions, selectedDateRange),
-              loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF00FFC2))),
-              error: (e, s) => const Center(child: Text('読み込みエラー', style: TextStyle(color: Colors.white24))),
-            ),
+    return Column(
+      children: [
+        _buildHeader(context),
+        if (selectedDateRange != null) _buildFilterBar(ref, selectedDateRange),
+        Expanded(
+          child: history.when(
+            data: (sessions) => _buildList(sessions, selectedDateRange),
+            loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF00FFC2))),
+            error: (e, s) => const Center(child: Text('読み込みエラー', style: TextStyle(color: Colors.white24))),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -54,31 +48,15 @@ class _HistoryBottomSheetState extends ConsumerState<HistoryBottomSheet> {
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: Colors.white10)),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const SizedBox(width: 40),
-          Text(
-            '全対局履歴',
-            style: GoogleFonts.robotoMono(
-              color: const Color(0xFF00FFC2),
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+      child: Center(
+        child: Text(
+          '全対局履歴',
+          style: GoogleFonts.robotoMono(
+            color: const Color(0xFF00FFC2),
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
           ),
-          GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.05),
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white10),
-              ),
-              child: const Icon(Icons.close, color: Colors.white70, size: 20),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -250,11 +228,10 @@ class _HistoryRow extends ConsumerWidget {
               leading: const Icon(Icons.play_circle_outline, color: Color(0xFF00FFC2)),
               title: const Text('詳細を見る / 再開', style: TextStyle(color: Colors.white)),
               onTap: () {
-                Navigator.pop(context);
+                Navigator.pop(context); // Action Sheetを閉じる
                 FocusManager.instance.primaryFocus?.unfocus();
                 ref.read(calcProvider.notifier).loadSession(session, data['games']);
                 ref.read(navigationProvider.notifier).setTab(MainTab.calc);
-                Navigator.pop(context); // Close History
               },
             ),
             groupsAsync.when(
