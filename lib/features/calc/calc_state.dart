@@ -184,8 +184,10 @@ class CalcNotifier extends Notifier<CalcState> {
   }
 
   void setPlayersFromGroup(int groupId, List<String> names) {
+    // Ver 3.6.1: 4人分を生成し、選ばれなかった枠は空文字で埋める（重複・残留防止）
+    final paddedNames = List<String>.generate(4, (i) => i < names.length ? names[i] : "");
     state = state.copyWith(
-      playerNames: names,
+      playerNames: paddedNames,
       pickedGroupId: groupId,
       clearSnapshot: true,
     );

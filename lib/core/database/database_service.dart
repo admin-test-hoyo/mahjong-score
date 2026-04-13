@@ -481,24 +481,12 @@ class DatabaseService {
 
   Future<List<String>> getAllPlayerNames() async {
     if (kIsWeb) {
-      final games = await _webQuery('web_db_games');
-      final names = <String>{};
-      for (var g in games) {
-        for (int i=1; i<=4; i++) {
-          final n = (g['p${i}_name'] ?? '').toString().trim();
-          if (n.isNotEmpty) names.add(n);
-        }
-      }
-      return names.toList()..sort();
+      final members = await _webQuery('web_db_members');
+      final names = members.map((e) => (e['name'] ?? '').toString().trim()).where((n) => n.isNotEmpty).toSet().toList();
+      return names..sort();
     }
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.rawQuery('''
-      SELECT DISTINCT p1_name as name FROM games WHERE p1_name != ''
-      UNION SELECT DISTINCT p2_name as name FROM games WHERE p2_name != ''
-      UNION SELECT DISTINCT p3_name as name FROM games WHERE p3_name != ''
-      UNION SELECT DISTINCT p4_name as name FROM games WHERE p4_name != ''
-      ORDER BY name
-    ''');
+    final List<Map<String, dynamic>> maps = await db.rawQuery('SELECT DISTINCT name FROM group_members WHERE name != "" ORDER BY name');
     return maps.map((e) => e['name'] as String).toList();
   }
 
@@ -758,22 +746,20 @@ class DatabaseService {
   }
 
   Future<List<String>> getGroupMembers(int groupId) async {
+    if (kIsWeb) {
+      final members = await _webQuery('web_db_members');
+      final groupNames = members.where((m) => m['group_id'] == groupId).map((e) => (e['name'] ?? '').toString().trim()).where((n) => n.isNotEmpty).toSet().toList();
+      return groupNames..sort();
+    }
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
-      'sessions',
-      columns: ['p1_name', 'p2_name', 'p3_name', 'p4_name'],
+      'group_members',
+      columns: ['name'],
       where: 'group_id = ?',
       whereArgs: [groupId],
+      orderBy: 'name',
     );
-
-    final Set<String> members = {};
-    for (var m in maps) {
-      if (m['p1_name'] != null && (m['p1_name'] as String).isNotEmpty) members.add(m['p1_name'] as String);
-      if (m['p2_name'] != null && (m['p2_name'] as String).isNotEmpty) members.add(m['p2_name'] as String);
-      if (m['p3_name'] != null && (m['p3_name'] as String).isNotEmpty) members.add(m['p3_name'] as String);
-      if (m['p4_name'] != null && (m['p4_name'] as String).isNotEmpty) members.add(m['p4_name'] as String);
-    }
-    return members.toList()..sort();
+    return maps.map((e) => e['name'] as String).toList();
   }
 
   // Web Helpers
