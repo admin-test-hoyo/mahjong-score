@@ -83,7 +83,7 @@ class MainScreen extends ConsumerWidget {
             ),
           ),
           const Text(
-            'Ver 3.7.0',
+            'Ver 3.7.1',
             style: TextStyle(color: Colors.white38, fontSize: 10),
           ),
         ],
@@ -206,6 +206,7 @@ class MainScreen extends ConsumerWidget {
     return Drawer(
       backgroundColor: const Color(0xFF001F1A),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           DrawerHeader(
             decoration: const BoxDecoration(color: Color(0xFF002E26)),
@@ -242,55 +243,85 @@ class MainScreen extends ConsumerWidget {
               ),
             ),
           ),
-          _drawerItem(context, ref, Icons.calculate, 'スコア計算', MainTab.calc, currentTab),
-          ListTile(
-            leading: const Icon(Icons.history, color: Colors.white38, size: 20),
-            title: const Text('対局履歴', style: TextStyle(color: Colors.white70, fontSize: 14)),
-            onTap: () {
-              Navigator.pop(context);
-              _openHistoryBottomSheet(context, ref);
-            },
+          
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                _categoryLabel('[MAIN]'),
+                _drawerItem(context, ref, Icons.calculate, 'スコア計算', MainTab.calc, currentTab),
+                _drawerAction(context, ref, Icons.history, '対局履歴', () => _openHistoryBottomSheet(context, ref)),
+                
+                const Divider(color: Colors.white10),
+                _categoryLabel('[TOOLS & SUPPORT]'),
+                _drawerItem(context, ref, Icons.bar_chart, '統計・分析', MainTab.stats, currentTab),
+                _drawerItem(context, ref, Icons.group, 'グループ管理', MainTab.groups, currentTab),
+                _drawerAction(context, ref, Icons.help_outline, 'ヘルプ / 使い方', () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const HelpScreen()));
+                }),
+
+                const Divider(color: Colors.white10),
+                _categoryLabel('[DATA MANAGEMENT]'),
+                _drawerAction(context, ref, Icons.delete_sweep, '履歴クリーンアップ', () => _showHistoryCleanup(context, ref), iconColor: Colors.white24),
+                _drawerAction(context, ref, Icons.download, 'バックアップ保存', () => CalcScreen.exportData(context, ref), iconColor: Colors.white24),
+                _drawerAction(context, ref, Icons.upload, 'データ復元', () => CalcScreen.importData(context, ref), iconColor: Colors.white24),
+                
+                const SizedBox(height: 20),
+              ],
+            ),
           ),
-          _drawerItem(context, ref, Icons.bar_chart, '統計・分析', MainTab.stats, currentTab),
-          _drawerItem(context, ref, Icons.group, 'グループ管理', MainTab.groups, currentTab),
-          const Divider(color: Colors.white10),
-          _drawerAction(context, ref, Icons.help_outline, 'ヘルプ / 使い方', () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => const HelpScreen()));
-          }),
-          const Spacer(),
-          const Divider(color: Colors.white10),
-          _drawerAction(context, ref, Icons.delete_sweep, '履歴クリーンアップ', () => _showHistoryCleanup(context, ref)),
-          const Divider(color: Colors.white10),
-          _drawerAction(context, ref, Icons.download, 'バックアップ保存', () => CalcScreen.exportData(context, ref)),
-          _drawerAction(context, ref, Icons.upload, 'データ復元', () => CalcScreen.importData(context, ref)),
-          const SizedBox(height: 20),
         ],
+      ),
+    );
+  }
+
+  Widget _categoryLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 16, top: 12, bottom: 4),
+      child: Text(
+        text,
+        style: const TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5),
       ),
     );
   }
 
   Widget _drawerItem(BuildContext context, WidgetRef ref, IconData icon, String title, MainTab tab, MainTab currentTab) {
     final isSelected = tab == currentTab;
-    return ListTile(
-      leading: Icon(icon, color: isSelected ? const Color(0xFF00FFC2) : Colors.white38, size: 20),
-      title: Text(
-        title,
-        style: TextStyle(
-          color: isSelected ? const Color(0xFF00FFC2) : Colors.white70,
-          fontSize: 14,
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+    return Container(
+      decoration: BoxDecoration(
+        color: isSelected ? Colors.white.withValues(alpha: 0.08) : Colors.transparent,
+        border: Border(
+          left: BorderSide(
+            color: isSelected ? const Color(0xFF00FFC2) : Colors.transparent,
+            width: 3,
+          ),
         ),
       ),
-      onTap: () {
-        ref.read(navigationProvider.notifier).setTab(tab);
-        Navigator.pop(context);
-      },
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+        dense: true,
+        leading: Icon(icon, color: isSelected ? const Color(0xFF00FFC2) : Colors.white38, size: 20),
+        title: Text(
+          title,
+          style: TextStyle(
+            color: isSelected ? const Color(0xFF00FFC2) : Colors.white70,
+            fontSize: 14,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+        onTap: () {
+          ref.read(navigationProvider.notifier).setTab(tab);
+          Navigator.pop(context);
+        },
+      ),
     );
   }
 
-  Widget _drawerAction(BuildContext context, WidgetRef ref, IconData icon, String title, VoidCallback onTap) {
+  Widget _drawerAction(BuildContext context, WidgetRef ref, IconData icon, String title, VoidCallback onTap, {Color? iconColor}) {
     return ListTile(
-      leading: Icon(icon, color: Colors.white38, size: 20),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+      dense: true,
+      leading: Icon(icon, color: iconColor ?? Colors.white38, size: 20),
       title: Text(title, style: const TextStyle(color: Colors.white70, fontSize: 14)),
       onTap: () {
         Navigator.pop(context);
