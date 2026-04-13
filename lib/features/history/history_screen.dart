@@ -121,36 +121,41 @@ class _HistoryBottomSheetState extends ConsumerState<HistoryBottomSheet> {
       return const Center(child: Text('履歴がありません', style: TextStyle(color: Colors.white24)));
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.only(bottom: 40),
-      itemCount: filteredSessions.length,
-      itemBuilder: (context, index) {
-        final data = filteredSessions[index];
-        final Session session = data['session'];
-        
-        return Dismissible(
-          key: Key('session_${session.id}'),
-          direction: DismissDirection.endToStart,
-          background: Container(
-            alignment: Alignment.centerRight,
-            padding: const EdgeInsets.only(right: 20),
-            color: Colors.white.withValues(alpha: 0.03),
-            child: const Icon(Icons.delete, color: Colors.redAccent),
+    return Column(
+      children: [
+        _buildTableHeader(),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.only(bottom: 40),
+            itemCount: filteredSessions.length,
+            itemBuilder: (context, index) {
+              return _HistoryRow(data: filteredSessions[index]);
+            },
           ),
-          onDismissed: (_) {
-            ref.read(historyProvider.notifier).deleteSession(session.id!);
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('履歴を削除しました')));
-          },
-          child: _HistoryCard(data: data),
-        );
-      },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTableHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: Colors.white.withValues(alpha: 0.02),
+      child: const Row(
+        children: [
+          Expanded(flex: 2, child: Text('日付 / 回数', style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold))),
+          Expanded(flex: 3, child: Text('グループ', style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold))),
+          Expanded(flex: 3, child: Text('トップ / スコア', style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold))),
+          Icon(Icons.more_vert, color: Colors.transparent, size: 16),
+        ],
+      ),
     );
   }
 }
 
-class _HistoryCard extends ConsumerWidget {
+class _HistoryRow extends ConsumerWidget {
   final Map<String, dynamic> data;
-  const _HistoryCard({required this.data});
+  const _HistoryRow({required this.data});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -158,118 +163,160 @@ class _HistoryCard extends ConsumerWidget {
     final String groupName = data['groupName'];
     final int gameCount = data['gameCount'];
     final List<int> totalPts = data['totalPt'];
-    final List<int> totalMoneys = data['totalMoney'];
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white10.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white10),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () {
-          FocusManager.instance.primaryFocus?.unfocus();
-          ref.read(calcProvider.notifier).loadSession(session, data['games']);
-          ref.read(navigationProvider.notifier).setTab(MainTab.calc);
-          Navigator.pop(context);
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              Row(
+    // Find the winner (index of max score)
+    int winnerIndex = 0;
+    int maxPt = totalPts[0];
+    for (int i = 1; i < totalPts.length; i++) {
+      if (totalPts[i] > maxPt) {
+        maxPt = totalPts[i];
+        winnerIndex = i;
+      }
+    }
+    final winnerName = session.playerNames[winnerIndex];
+
+    return InkWell(
+      onTap: () => _showActionSheet(context, ref, data),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: Colors.white10, width: 0.5)),
+        ),
+        child: Row(
+          children: [
+            // Date / Rounds
+            Expanded(
+              flex: 2,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('${session.date} - $gameCount局', style: const TextStyle(color: Colors.white38, fontSize: 10)),
-                      Text(
-                        groupName,
-                        style: TextStyle(
-                          color: groupName == 'フリー対局' ? Colors.orangeAccent : const Color(0xFF00FFC2),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-                  _buildHistoryActions(context, ref, session),
+                  Text(session.date, style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold)),
+                  Text('$gameCount局', style: const TextStyle(color: Colors.white24, fontSize: 10)),
                 ],
               ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: List.generate(session.playerNames.length, (i) {
-                  final pt = totalPts[i];
-                  final money = totalMoneys[i];
-                  return Expanded(
-                    child: Column(
-                      children: [
-                        Text(session.playerNames[i], style: const TextStyle(color: Colors.white54, fontSize: 10), overflow: TextOverflow.ellipsis),
-                        const SizedBox(height: 4),
-                        Text(
-                          pt > 0 ? '+$pt' : pt.toString(),
-                          style: TextStyle(
-                            color: pt >= 0 ? const Color(0xFF00FFC2) : Colors.redAccent,
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text('¥${money.toCommaString()}', style: const TextStyle(color: Colors.white24, fontSize: 9)),
-                      ],
-                    ),
-                  );
-                }),
+            ),
+            // Group
+            Expanded(
+              flex: 3,
+              child: Text(
+                groupName,
+                style: TextStyle(
+                  color: groupName == 'フリー対局' ? Colors.orangeAccent.withValues(alpha: 0.7) : const Color(0xFF00FFC2).withValues(alpha: 0.7),
+                  fontSize: 13,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
-            ],
-          ),
+            ),
+            // Winner
+            Expanded(
+              flex: 3,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(winnerName, style: const TextStyle(color: Colors.white70, fontSize: 13), overflow: TextOverflow.ellipsis),
+                  Text(
+                    maxPt > 0 ? '+$maxPt pt' : '$maxPt pt',
+                    style: const TextStyle(color: Color(0xFF00FFC2), fontSize: 11, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: Colors.white10, size: 16),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildHistoryActions(BuildContext context, WidgetRef ref, Session session) {
+  void _showActionSheet(BuildContext context, WidgetRef ref, Map<String, dynamic> data) {
+    final Session session = data['session'];
     final groupsAsync = ref.watch(groupListProvider);
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Group Edit Menu
-        groupsAsync.when(
-          data: (groups) => PopupMenuButton<int>(
-            icon: const Icon(Icons.folder_shared_outlined, color: Colors.white24, size: 18),
-            tooltip: 'グループを変更',
-            onSelected: (groupId) {
-              ref.read(historyProvider.notifier).updateSessionGroupId(session.id!, groupId);
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: systemGroupIdFreeMatch,
-                child: Text('フリー対局', style: TextStyle(fontSize: 13)),
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF001F1A),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '${session.date} の対局',
+              style: const TextStyle(color: Colors.white54, fontSize: 12),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.play_circle_outline, color: Color(0xFF00FFC2)),
+              title: const Text('詳細を見る / 再開', style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context);
+                FocusManager.instance.primaryFocus?.unfocus();
+                ref.read(calcProvider.notifier).loadSession(session, data['games']);
+                ref.read(navigationProvider.notifier).setTab(MainTab.calc);
+                Navigator.pop(context); // Close History
+              },
+            ),
+            groupsAsync.when(
+              data: (groups) => ListTile(
+                leading: const Icon(Icons.folder_shared_outlined, color: Colors.blueAccent),
+                title: const Text('グループを変更', style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showGroupSelector(context, ref, session);
+                },
               ),
-              ...groups
-                  .where((g) => g['id'] != systemGroupIdFreeMatch)
-                  .map((g) => PopupMenuItem(
-                    value: g['id'],
-                    child: Text(g['name'], style: const TextStyle(fontSize: 13)),
-                  )),
-            ],
-          ),
-          loading: () => const SizedBox.shrink(),
-          error: (_, __) => const SizedBox.shrink(),
+              loading: () => const SizedBox.shrink(),
+              error: (_, __) => const SizedBox.shrink(),
+            ),
+            const Divider(color: Colors.white10),
+            ListTile(
+              leading: const Icon(Icons.delete_outline, color: Colors.redAccent),
+              title: const Text('履歴を削除', style: TextStyle(color: Colors.redAccent)),
+              onTap: () {
+                Navigator.pop(context);
+                _confirmDelete(context, ref, session.id!);
+              },
+            ),
+            const SizedBox(height: 20),
+          ],
         ),
-        const SizedBox(width: 4),
-        // Delete Button
-        IconButton(
-          icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 18),
-          onPressed: () => _confirmDelete(context, ref, session.id!),
+      ),
+    );
+  }
+
+  void _showGroupSelector(BuildContext context, WidgetRef ref, Session session) {
+    final groupsAsync = ref.watch(groupListProvider);
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF001F1A),
+      builder: (context) => groupsAsync.when(
+        data: (groups) => ListView(
+          shrinkWrap: true,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('グループを選択', style: TextStyle(color: Colors.white54)),
+            ),
+            ListTile(
+              title: const Text('フリー対局', style: TextStyle(color: Colors.white)),
+              onTap: () {
+                ref.read(historyProvider.notifier).updateSessionGroupId(session.id!, systemGroupIdFreeMatch);
+                Navigator.pop(context);
+              },
+            ),
+            ...groups.where((g) => g['id'] != systemGroupIdFreeMatch).map((g) => ListTile(
+              title: Text(g['name'], style: const TextStyle(color: Colors.white)),
+              onTap: () {
+                ref.read(historyProvider.notifier).updateSessionGroupId(session.id!, g['id']);
+                Navigator.pop(context);
+              },
+            )),
+          ],
         ),
-        const SizedBox(width: 4),
-        const Icon(Icons.arrow_forward_ios, color: Colors.white12, size: 14),
-      ],
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (_, __) => const SizedBox.shrink(),
+      ),
     );
   }
 
