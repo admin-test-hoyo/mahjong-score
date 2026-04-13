@@ -99,7 +99,7 @@ class MainScreen extends ConsumerWidget {
           ),
         ),
         const Text(
-          'Ver 2.0.0',
+          'Ver 2.1.0',
           style: TextStyle(color: Colors.white38, fontSize: 10),
         ),
       ],
