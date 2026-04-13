@@ -144,9 +144,11 @@ class DatabaseService {
     }
 
     // 2. NULL -> ID 0 への移行 (トランザクション内)
+    // 3. 亡霊レコード（孤児メンバー）の一掃
     await db.transaction((txn) async {
       await txn.update('sessions', {'group_id': systemGroupIdFreeMatch}, where: 'group_id IS NULL');
       await txn.update('games', {'group_id': systemGroupIdFreeMatch}, where: 'group_id IS NULL');
+      await txn.rawDelete('DELETE FROM group_members WHERE group_id NOT IN (SELECT id FROM groups)');
     });
   }
 
@@ -401,9 +403,21 @@ class DatabaseService {
   }
 
   Future<void> deleteGroup(int id) async {
-    if (kIsWeb) { await _webDelete('web_db_groups', id); return; }
+    if (kIsWeb) {
+      await _webDelete('web_db_groups', id);
+      // Webでのメンバー道連れ削除 (cascade)
+      final prefs = await SharedPreferences.getInstance();
+      final allMembers = await _webQuery('web_db_members');
+      final remainingMembers = allMembers.where((m) => m['group_id'] != id).toList();
+      await prefs.setString('web_db_members', jsonEncode(remainingMembers));
+      return;
+    }
     final db = await database;
-    await db.delete('groups', where: 'id = ?', whereArgs: [id]);
+    await db.transaction((txn) async {
+      // メンバーを先に削除 (孤児化防止)
+      await txn.delete('group_members', where: 'group_id = ?', whereArgs: [id]);
+      await txn.delete('groups', where: 'id = ?', whereArgs: [id]);
+    });
   }
 
   Future<List<Map<String, dynamic>>> getMembers(int groupId) async {
@@ -814,6 +828,17 @@ class DatabaseService {
           }
         }
         if (changed) {
+          await prefs.setString(key, jsonEncode(list));
+        }
+      }
+
+      // Webでの亡霊レコード（孤児メンバー）の一掃
+      if (key == 'web_db_members') {
+        final groups = await _webQuery('web_db_groups');
+        final validGroupIds = groups.map((g) => g['id']).toSet();
+        final originalCount = list.length;
+        list.retainWhere((m) => validGroupIds.contains(m['group_id']));
+        if (list.length != originalCount) {
           await prefs.setString(key, jsonEncode(list));
         }
       }
