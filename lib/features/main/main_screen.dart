@@ -9,6 +9,7 @@ import '../group/group_screen.dart';
 import '../calc/calc_state.dart';
 import 'main_providers.dart';
 import '../history/history_providers.dart';
+import '../help/help_screen.dart';
 
 // Navigation definitions moved to main_providers.dart
 
@@ -82,7 +83,7 @@ class MainScreen extends ConsumerWidget {
             ),
           ),
           const Text(
-            'Ver 3.6.2',
+            'Ver 3.7.0',
             style: TextStyle(color: Colors.white38, fontSize: 10),
           ),
         ],
@@ -252,6 +253,10 @@ class MainScreen extends ConsumerWidget {
           ),
           _drawerItem(context, ref, Icons.bar_chart, '統計・分析', MainTab.stats, currentTab),
           _drawerItem(context, ref, Icons.group, 'グループ管理', MainTab.groups, currentTab),
+          const Divider(color: Colors.white10),
+          _drawerAction(context, ref, Icons.help_outline, 'ヘルプ / 使い方', () {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const HelpScreen()));
+          }),
           const Spacer(),
           const Divider(color: Colors.white10),
           _drawerAction(context, ref, Icons.delete_sweep, '履歴クリーンアップ', () => _showHistoryCleanup(context, ref)),
