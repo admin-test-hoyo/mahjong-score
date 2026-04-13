@@ -64,7 +64,7 @@ class CalcScreen extends ConsumerWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Ver 2.1.0', style: TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold)),
+              const Text('Ver 2.1.1', style: TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold)),
               Text(DateFormat('yyyy/MM/dd').format(DateTime.now()), style: const TextStyle(color: Colors.white24, fontSize: 10)),
             ],
           ),
@@ -223,7 +223,7 @@ class CalcScreen extends ConsumerWidget {
           const SizedBox(width: 12),
           _quickField(label: '場代', value: displayFee.toString(), onChanged: (v) => ref.read(calcProvider.notifier).updateRuleGameFee(int.tryParse(v) ?? 0), width: 80),
           const Spacer(),
-          const Text('Ver 2.1.0', style: TextStyle(color: Colors.white12, fontSize: 9)),
+          const Text('Ver 2.1.1', style: TextStyle(color: Colors.white12, fontSize: 9)),
         ],
       ),
     );
@@ -721,7 +721,7 @@ class SettingsModal extends ConsumerWidget {
             const SizedBox(height: 48),
             Center(
               child: Text(
-                'Ver 2.1.0',
+                'Ver 2.1.1',
                 style: TextStyle(color: Colors.white.withValues(alpha: 0.1), fontSize: 11),
               ),
             ),

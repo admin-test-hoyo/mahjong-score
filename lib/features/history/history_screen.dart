@@ -124,9 +124,11 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       color: Colors.white.withValues(alpha: 0.02),
       child: const Row(
         children: [
-          Expanded(flex: 2, child: Text('日付 / 局数', style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold))),
-          Expanded(flex: 4, child: Text('グループ / 参加者', style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold))),
-          Expanded(flex: 2, child: Text('成績 / 収支', textAlign: TextAlign.end, style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold))),
+          Expanded(flex: 3, child: Text('日付 / グループ', style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold))),
+          Expanded(flex: 2, child: Text('1位', textAlign: TextAlign.center, style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold))),
+          Expanded(flex: 2, child: Text('2位', textAlign: TextAlign.center, style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold))),
+          Expanded(flex: 2, child: Text('3位', textAlign: TextAlign.center, style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold))),
+          Expanded(flex: 2, child: Text('4位', textAlign: TextAlign.center, style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold))),
           SizedBox(width: 8),
         ],
       ),
@@ -147,11 +149,15 @@ class _HistoryRow extends ConsumerWidget {
     final List<int> totalPts = data['totalPt'];
     final List<int> totalMoney = data['totalMoney'];
 
-    // 自分 (Player 1) の成績
-    final myPt = totalPts[0];
-    final myMoney = totalMoney[0];
-
-    final membersText = session.playerNames.join(', ');
+    // プレイヤー情報をまとめてPt順にソート
+    final List<Map<String, dynamic>> players = List.generate(totalPts.length, (i) {
+      return {
+        'name': session.playerNames[i],
+        'pt': totalPts[i],
+        'money': totalMoney[i],
+      };
+    });
+    players.sort((a, b) => (b['pt'] as int).compareTo(a['pt'] as int));
 
     Color performanceColor(num value) {
       return value >= 0 ? const Color(0xFF00FFC2) : const Color(0xFFFF5252);
@@ -160,79 +166,93 @@ class _HistoryRow extends ConsumerWidget {
     return InkWell(
       onTap: () => _showActionSheet(context, ref, data),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
           color: isOdd ? Colors.white.withValues(alpha: 0.01) : Colors.transparent,
           border: const Border(bottom: BorderSide(color: Colors.white10, width: 0.5)),
         ),
         child: Row(
           children: [
-            // Column 1: Date / Game Count
+            // Column 1: Info (flex 3)
             Expanded(
-              flex: 2,
+              flex: 3,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(session.date, style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
+                  Text(session.date, style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 2),
-                  Text('$gameCount局', style: const TextStyle(color: Colors.white24, fontSize: 10)),
-                ],
-              ),
-            ),
-            // Column 2: Group / Members
-            Expanded(
-              flex: 4,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
                   Text(
                     groupName,
                     style: TextStyle(
-                      color: groupName == 'フリー対局' ? Colors.orangeAccent.withValues(alpha: 0.7) : const Color(0xFF00FFC2).withValues(alpha: 0.5),
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
+                      color: groupName == 'フリー対局' ? Colors.orangeAccent.withValues(alpha: 0.5) : const Color(0xFF00FFC2).withValues(alpha: 0.3),
+                      fontSize: 9,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    membersText,
-                    style: const TextStyle(color: Colors.white24, fontSize: 10),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  const SizedBox(height: 1),
+                  Text('$gameCount局', style: const TextStyle(color: Colors.white12, fontSize: 9)),
                 ],
               ),
             ),
-            // Column 3: My Performance
-            Expanded(
-              flex: 2,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    myPt > 0 ? '+$myPt pt' : '$myPt pt',
-                    style: TextStyle(
-                      color: performanceColor(myPt),
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.2,
+            // Columns 2-5: Players (flex 2 each)
+            ...players.asMap().entries.map((entry) {
+              final int rank = entry.key; // 0-based index (0 is 1st place)
+              final player = entry.value;
+              final isWinner = rank == 0;
+
+              return Expanded(
+                flex: 2,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Row 1: Name + Crown
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (isWinner)
+                          const Padding(
+                            padding: EdgeInsets.only(right: 2),
+                            child: Icon(Icons.emoji_events, color: Colors.amber, size: 10),
+                          ),
+                        Flexible(
+                          child: Text(
+                            player['name'],
+                            style: TextStyle(
+                              color: isWinner ? Colors.white : Colors.white60,
+                              fontSize: 10,
+                              fontWeight: isWinner ? FontWeight.bold : FontWeight.normal,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '¥${myMoney.toCommaString()}',
-                    style: TextStyle(
-                      color: performanceColor(myMoney),
-                      fontSize: 10,
+                    const SizedBox(height: 2),
+                    // Row 2: Pt
+                    Text(
+                      player['pt'] > 0 ? '+${player['pt']}' : '${player['pt']}',
+                      style: TextStyle(
+                        color: performanceColor(player['pt']),
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Icon(Icons.chevron_right, color: Colors.white10, size: 14),
+                    const SizedBox(height: 1),
+                    // Row 3: Money
+                    Text(
+                      '¥${(player['money'] as int).toCommaString()}',
+                      style: TextStyle(
+                        color: performanceColor(player['money']).withValues(alpha: 0.7),
+                        fontSize: 9,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+            const Icon(Icons.chevron_right, color: Colors.white10, size: 12),
           ],
         ),
       ),
