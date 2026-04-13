@@ -1,5 +1,1 @@
-<<<<<<< HEAD
-{"app_name":"mahjong_calc","version":"3.6.0","build_number":"44","package_name":"mahjong_calc"}
-=======
-{"app_name":"mahjong_calc","version":"3.6.1","build_number":"361","package_name":"mahjong_calc"}
->>>>>>> 8e6eb70 (Materialize Ver 3.6.1: Overhaul member logic and implement selection padding)
+{"app_name":"mahjong_calc","version":"3.6.1","build_number":"45","package_name":"mahjong_calc"}
