@@ -107,7 +107,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
             padding: const EdgeInsets.only(bottom: 40),
             itemCount: filteredSessions.length,
             itemBuilder: (context, index) {
-              return _HistoryRow(data: filteredSessions[index]);
+              return _HistoryRow(
+                data: filteredSessions[index],
+                isOdd: index.isOdd,
+              );
             },
           ),
         ),
@@ -121,10 +124,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       color: Colors.white.withValues(alpha: 0.02),
       child: const Row(
         children: [
-          Expanded(flex: 2, child: Text('日付 / 回数', style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold))),
-          Expanded(flex: 3, child: Text('グループ', style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold))),
-          Expanded(flex: 3, child: Text('トップ / スコア', style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold))),
-          Icon(Icons.more_vert, color: Colors.transparent, size: 16),
+          Expanded(flex: 2, child: Text('日付 / 局数', style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold))),
+          Expanded(flex: 4, child: Text('グループ / 参加者', style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold))),
+          Expanded(flex: 2, child: Text('成績 / 収支', textAlign: TextAlign.end, style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold))),
+          SizedBox(width: 8),
         ],
       ),
     );
@@ -133,7 +136,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
 
 class _HistoryRow extends ConsumerWidget {
   final Map<String, dynamic> data;
-  const _HistoryRow({required this.data});
+  final bool isOdd;
+  const _HistoryRow({required this.data, required this.isOdd});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -141,65 +145,94 @@ class _HistoryRow extends ConsumerWidget {
     final String groupName = data['groupName'];
     final int gameCount = data['gameCount'];
     final List<int> totalPts = data['totalPt'];
+    final List<int> totalMoney = data['totalMoney'];
 
-    // Find the winner (index of max score)
-    int winnerIndex = 0;
-    int maxPt = totalPts[0];
-    for (int i = 1; i < totalPts.length; i++) {
-      if (totalPts[i] > maxPt) {
-        maxPt = totalPts[i];
-        winnerIndex = i;
-      }
+    // 自分 (Player 1) の成績
+    final myPt = totalPts[0];
+    final myMoney = totalMoney[0];
+
+    final membersText = session.playerNames.join(', ');
+
+    Color performanceColor(num value) {
+      return value >= 0 ? const Color(0xFF00FFC2) : const Color(0xFFFF5252);
     }
-    final winnerName = session.playerNames[winnerIndex];
 
     return InkWell(
       onTap: () => _showActionSheet(context, ref, data),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: Colors.white10, width: 0.5)),
+        decoration: BoxDecoration(
+          color: isOdd ? Colors.white.withValues(alpha: 0.01) : Colors.transparent,
+          border: const Border(bottom: BorderSide(color: Colors.white10, width: 0.5)),
         ),
         child: Row(
           children: [
-            // Date / Rounds
+            // Column 1: Date / Game Count
             Expanded(
               flex: 2,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(session.date, style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold)),
+                  Text(session.date, style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 2),
                   Text('$gameCount局', style: const TextStyle(color: Colors.white24, fontSize: 10)),
                 ],
               ),
             ),
-            // Group
+            // Column 2: Group / Members
             Expanded(
-              flex: 3,
-              child: Text(
-                groupName,
-                style: TextStyle(
-                  color: groupName == 'フリー対局' ? Colors.orangeAccent.withValues(alpha: 0.7) : const Color(0xFF00FFC2).withValues(alpha: 0.7),
-                  fontSize: 13,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            // Winner
-            Expanded(
-              flex: 3,
+              flex: 4,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(winnerName, style: const TextStyle(color: Colors.white70, fontSize: 13), overflow: TextOverflow.ellipsis),
                   Text(
-                    maxPt > 0 ? '+$maxPt pt' : '$maxPt pt',
-                    style: const TextStyle(color: Color(0xFF00FFC2), fontSize: 11, fontWeight: FontWeight.bold),
+                    groupName,
+                    style: TextStyle(
+                      color: groupName == 'フリー対局' ? Colors.orangeAccent.withValues(alpha: 0.7) : const Color(0xFF00FFC2).withValues(alpha: 0.5),
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    membersText,
+                    style: const TextStyle(color: Colors.white24, fontSize: 10),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: Colors.white10, size: 16),
+            // Column 3: My Performance
+            Expanded(
+              flex: 2,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    myPt > 0 ? '+$myPt pt' : '$myPt pt',
+                    style: TextStyle(
+                      color: performanceColor(myPt),
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '¥${myMoney.toCommaString()}',
+                    style: TextStyle(
+                      color: performanceColor(myMoney),
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(Icons.chevron_right, color: Colors.white10, size: 14),
           ],
         ),
       ),
