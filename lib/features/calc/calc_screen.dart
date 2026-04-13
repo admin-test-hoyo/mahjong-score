@@ -31,7 +31,10 @@ class CalcScreen extends ConsumerWidget {
   }
 
   static void showSettings(BuildContext context, WidgetRef ref) {
-    _showSettingsModal(context, ref);
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const SettingsModal()),
+    );
   }
 
   static void showSave(BuildContext context, WidgetRef ref) {
@@ -61,7 +64,7 @@ class CalcScreen extends ConsumerWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Ver 3.9.1', style: TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold)),
+              const Text('Ver 3.9.2', style: TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold)),
               Text(DateFormat('yyyy/MM/dd').format(DateTime.now()), style: const TextStyle(color: Colors.white24, fontSize: 10)),
             ],
           ),
@@ -84,17 +87,6 @@ class CalcScreen extends ConsumerWidget {
     );
   }
 
-  static void _showSettingsModal(BuildContext context, WidgetRef ref) {
-
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: const Color(0xFF001F1A),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (context) => const SettingsModal(),
-    );
-  }
 
   static void _showSaveLogic(BuildContext context, WidgetRef ref) async {
     final state = ref.read(calcProvider);
@@ -231,7 +223,7 @@ class CalcScreen extends ConsumerWidget {
           const SizedBox(width: 12),
           _quickField(label: '場代', value: displayFee.toString(), onChanged: (v) => ref.read(calcProvider.notifier).updateRuleGameFee(int.tryParse(v) ?? 0), width: 80),
           const Spacer(),
-          const Text('Ver 3.9.1', style: TextStyle(color: Colors.white12, fontSize: 9)),
+          const Text('Ver 3.9.2', style: TextStyle(color: Colors.white12, fontSize: 9)),
         ],
       ),
     );
@@ -681,28 +673,62 @@ class SettingsModal extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(configProvider);
-    return Padding(padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 20, right: 20, top: 24), child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('アプリ設定', style: TextStyle(color: Color(0xFF00FFC2), fontSize: 18, fontWeight: FontWeight.bold)), IconButton(icon: const Icon(Icons.close, color: Colors.white38), onPressed: () => Navigator.pop(context))]),
-        const SizedBox(height: 16),
-        Row(children: [
-            Expanded(child: _field(ref, 'Uma (例: 10-30)', config.umaText, (v) => ref.read(configProvider.notifier).updateUmaText(v))),
-            const SizedBox(width: 8),
-            Expanded(child: _field(ref, '配給原点', config.startingPoints.toString(), (v) => ref.read(configProvider.notifier).updateStartingPoints(int.tryParse(v) ?? 25000))),
-        ]),
-        const SizedBox(height: 12),
-        Row(children: [
-            Expanded(child: _field(ref, 'Oka', config.oka.toString(), (v) => ref.read(configProvider.notifier).updateOka(int.tryParse(v) ?? 0))),
-            const SizedBox(width: 8),
-            Expanded(child: _field(ref, 'トビ賞', config.tobiPrize.toString(), (v) => ref.read(configProvider.notifier).updateTobiPrize(int.tryParse(v) ?? 10), suffixText: 'Pt')),
-        ]),
-        const SizedBox(height: 12),
-        Row(children: [
-            Expanded(child: _field(ref, '役満賞(ツモ)', config.yakumanTsumoPrize.toString(), (v) => ref.read(configProvider.notifier).updateYakumanTsumoPrize(int.tryParse(v) ?? 5), suffixText: 'Pt')),
-            const SizedBox(width: 8),
-            Expanded(child: _field(ref, '役満賞(ロン)', config.yakumanRonPrize.toString(), (v) => ref.read(configProvider.notifier).updateYakumanRonPrize(int.tryParse(v) ?? 10), suffixText: 'Pt')),
-        ]),
-        const SizedBox(height: 32),
-    ]));
+    return Scaffold(
+      backgroundColor: const Color(0xFF001F1A),
+      appBar: AppBar(
+        title: Text(
+          'アプリ設定',
+          style: GoogleFonts.notoSansJp(
+            color: const Color(0xFF00FFC2),
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
+        ),
+        backgroundColor: Colors.black.withValues(alpha: 0.3),
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, color: Color(0xFF00FFC2), size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'ルール設定',
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+            ),
+            const SizedBox(height: 16),
+            Row(children: [
+                Expanded(child: _field(ref, 'Uma (例: 10-30)', config.umaText, (v) => ref.read(configProvider.notifier).updateUmaText(v))),
+                const SizedBox(width: 8),
+                Expanded(child: _field(ref, '配給原点', config.startingPoints.toString(), (v) => ref.read(configProvider.notifier).updateStartingPoints(int.tryParse(v) ?? 25000))),
+            ]),
+            const SizedBox(height: 12),
+            Row(children: [
+                Expanded(child: _field(ref, 'Oka', config.oka.toString(), (v) => ref.read(configProvider.notifier).updateOka(int.tryParse(v) ?? 0))),
+                const SizedBox(width: 8),
+                Expanded(child: _field(ref, 'トビ賞', config.tobiPrize.toString(), (v) => ref.read(configProvider.notifier).updateTobiPrize(int.tryParse(v) ?? 10), suffixText: 'Pt')),
+            ]),
+            const SizedBox(height: 12),
+            Row(children: [
+                Expanded(child: _field(ref, '役満賞(ツモ)', config.yakumanTsumoPrize.toString(), (v) => ref.read(configProvider.notifier).updateYakumanTsumoPrize(int.tryParse(v) ?? 5), suffixText: 'Pt')),
+                const SizedBox(width: 8),
+                Expanded(child: _field(ref, '役満賞(ロン)', config.yakumanRonPrize.toString(), (v) => ref.read(configProvider.notifier).updateYakumanRonPrize(int.tryParse(v) ?? 10), suffixText: 'Pt')),
+            ]),
+            const SizedBox(height: 48),
+            Center(
+              child: Text(
+                'Ver 3.9.2',
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.1), fontSize: 11),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _field(WidgetRef ref, String l, String i, Function(String) o, {String? suffixText}) => TextFormField(initialValue: i, keyboardType: TextInputType.number, style: const TextStyle(color: Colors.white, fontSize: 14), decoration: InputDecoration(labelText: l, labelStyle: const TextStyle(color: Colors.white38, fontSize: 11), filled: true, fillColor: Colors.white.withValues(alpha: 0.04), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none), suffixText: suffixText), onChanged: o);

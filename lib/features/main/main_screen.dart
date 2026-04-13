@@ -99,7 +99,7 @@ class MainScreen extends ConsumerWidget {
           ),
         ),
         const Text(
-          'Ver 3.9.1',
+          'Ver 3.9.2',
           style: TextStyle(color: Colors.white38, fontSize: 10),
         ),
       ],
@@ -113,10 +113,6 @@ class MainScreen extends ConsumerWidget {
           icon: const Icon(Icons.group_add, color: Color(0xFF00FFC2), size: 18),
           tooltip: 'グループからメンバーを呼び出す',
           onPressed: () => CalcScreen.showMemberPicker(context, ref),
-        ),
-        IconButton(
-          icon: const Icon(Icons.settings, color: Color(0xFF00FFC2), size: 18),
-          onPressed: () => CalcScreen.showSettings(context, ref),
         ),
         IconButton(
           icon: const Icon(Icons.save, color: Color(0xFF00FFC2), size: 18),
@@ -249,7 +245,13 @@ class MainScreen extends ConsumerWidget {
                 }),
 
                 const Divider(color: Colors.white10),
-                _categoryLabel('[SYSTEM & DATA]'),
+                _categoryLabel('[SYSTEM]'),
+                _drawerAction(context, ref, Icons.settings_outlined, 'アプリ設定', () {
+                  CalcScreen.showSettings(context, ref);
+                }),
+
+                const Divider(color: Colors.white10),
+                _categoryLabel('[DATA]'),
                 _drawerAction(context, ref, Icons.download, 'バックアップ保存', () => CalcScreen.exportData(context, ref), iconColor: Colors.white24),
                 _drawerAction(context, ref, Icons.upload, 'データ復元', () => CalcScreen.importData(context, ref), iconColor: Colors.white24),
                 _drawerAction(context, ref, Icons.delete_sweep, '履歴クリーンアップ', () => _showHistoryCleanup(context, ref), iconColor: Colors.orangeAccent.withValues(alpha: 0.6), titleColor: Colors.orangeAccent.withValues(alpha: 0.8)),
