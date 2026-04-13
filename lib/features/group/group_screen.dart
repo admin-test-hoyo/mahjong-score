@@ -55,66 +55,86 @@ class _GroupScreenState extends ConsumerState<GroupScreen> {
   Widget build(BuildContext context) {
     final groupListAsync = ref.watch(groupListProvider);
 
-    return Column(
-      children: [
-        Expanded(
-          child: groupListAsync.when(
-            data: (allGroups) {
-              final groups = allGroups.where((g) => g['id'] != systemGroupIdFreeMatch).toList();
-              if (groups.isEmpty) {
-                return const Center(child: Text('グループが登録されていません', style: TextStyle(color: Colors.white24)));
-              }
-              return ListView.builder(
-                padding: const EdgeInsets.only(top: 8, bottom: 80),
-                itemCount: groups.length,
-                itemBuilder: (context, index) {
-                  final group = groups[index];
-                  final groupId = group['id'] as int;
-
-                  return Card(
-                    color: Colors.black26,
-                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: const BorderSide(color: Colors.white10),
-                    ),
-                    child: ExpansionTile(
-                      tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      leading: const Icon(Icons.group, color: Colors.white54),
-                      title: Text(group['name'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                      subtitle: const Text('タップしてメニューを表示', style: TextStyle(color: Colors.white38, fontSize: 10)),
-                      trailing: const Icon(Icons.expand_more, color: Colors.white24),
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          decoration: const BoxDecoration(color: Colors.black12, borderRadius: BorderRadius.only(bottomLeft: Radius.circular(12), bottomRight: Radius.circular(12))),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceAround,
-                            children: [
-                              _actionIcon(Icons.person_outline, 'メンバー編集', () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => MemberEditScreen(groupId: groupId, groupName: group['name']),
-                                  ),
-                                );
-                              }),
-                              _actionIcon(Icons.edit_outlined, '名前変更', () => _showEditGroupDialog(groupId, group['name'])),
-                              _actionIcon(Icons.delete_outline, '削除', () => _confirmDeleteGroup(groupId, group['name']), color: Colors.redAccent.withValues(alpha: 0.8)),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              );
-            },
-            loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF00FFC2))),
-            error: (e, s) => Center(child: Text('エラー: $e', style: const TextStyle(color: Colors.redAccent))),
+    return Scaffold(
+      backgroundColor: const Color(0xFF001F1A),
+      appBar: AppBar(
+        title: Text(
+          'グループ管理',
+          style: GoogleFonts.notoSansJp(
+            color: const Color(0xFF00FFC2),
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
           ),
         ),
-      ],
+        backgroundColor: Colors.black.withValues(alpha: 0.3),
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, color: Color(0xFF00FFC2), size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add, color: Color(0xFF00FFC2)),
+            onPressed: () => GroupScreen.showAddGroup(context, ref),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: groupListAsync.when(
+        data: (allGroups) {
+          final groups = allGroups.where((g) => g['id'] != systemGroupIdFreeMatch).toList();
+          if (groups.isEmpty) {
+            return const Center(child: Text('グループが登録されていません', style: TextStyle(color: Colors.white24)));
+          }
+          return ListView.builder(
+            padding: const EdgeInsets.only(top: 8, bottom: 40),
+            itemCount: groups.length,
+            itemBuilder: (context, index) {
+              final group = groups[index];
+              final groupId = group['id'] as int;
+
+              return Card(
+                color: Colors.black26,
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: const BorderSide(color: Colors.white10),
+                ),
+                child: ExpansionTile(
+                  tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  leading: const Icon(Icons.group, color: Colors.white54),
+                  title: Text(group['name'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                  subtitle: const Text('タップしてメニューを表示', style: TextStyle(color: Colors.white38, fontSize: 10)),
+                  trailing: const Icon(Icons.expand_more, color: Colors.white24),
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: const BoxDecoration(color: Colors.black12, borderRadius: BorderRadius.only(bottomLeft: Radius.circular(12), bottomRight: Radius.circular(12))),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _actionIcon(Icons.person_outline, 'メンバー編集', () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => MemberEditScreen(groupId: groupId, groupName: group['name']),
+                              ),
+                            );
+                          }),
+                          _actionIcon(Icons.edit_outlined, '名前変更', () => _showEditGroupDialog(groupId, group['name'])),
+                          _actionIcon(Icons.delete_outline, '削除', () => _confirmDeleteGroup(groupId, group['name']), color: Colors.redAccent.withValues(alpha: 0.8)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF00FFC2))),
+        error: (e, s) => Center(child: Text('エラー: $e', style: const TextStyle(color: Colors.redAccent))),
+      ),
     );
   }
 
