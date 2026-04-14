@@ -344,6 +344,47 @@ class DatabaseService {
     });
   }
 
+  Future<void> updateSessionDate(int sessionId, String newDate) async {
+    if (kIsWeb) {
+      final sessions = await _webQuery('web_db_sessions');
+      final index = sessions.indexWhere((s) => s['id'] == sessionId);
+      if (index != -1) {
+        sessions[index]['date'] = newDate;
+        await (await SharedPreferences.getInstance()).setString('web_db_sessions', jsonEncode(sessions));
+        
+        final games = await _webQuery('web_db_games');
+        bool gamesChanged = false;
+        // YYYY/MM/DD -> YYYY-MM-DD
+        final isoDatePrefix = newDate.replaceAll('/', '-');
+        for (var g in games) {
+          if (g['session_id'] == sessionId) {
+            final oldTime = (g['date'] as String).length > 10 ? (g['date'] as String).substring(10) : 'T00:00:00.000';
+            g['date'] = isoDatePrefix + oldTime;
+            gamesChanged = true;
+          }
+        }
+        if (gamesChanged) {
+          await (await SharedPreferences.getInstance()).setString('web_db_games', jsonEncode(games));
+        }
+      }
+      return;
+    }
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.update('sessions', {'date': newDate}, where: 'id = ?', whereArgs: [sessionId]);
+      
+      // games.date も更新（ISO8601形式で既存の時間を考慮しつつ日付部分のみ置換）
+      final games = await txn.query('games', columns: ['id', 'date'], where: 'session_id = ?', whereArgs: [sessionId]);
+      final isoDatePrefix = newDate.replaceAll('/', '-');
+      for (var g in games) {
+        final oldDateStr = g['date'] as String;
+        final oldTime = oldDateStr.length > 10 ? oldDateStr.substring(10) : 'T00:00:00.000';
+        final newIsoDate = isoDatePrefix + oldTime;
+        await txn.update('games', {'date': newIsoDate}, where: 'id = ?', whereArgs: [g['id']]);
+      }
+    });
+  }
+
   Future<List<Map<String, dynamic>>> getSessions({int groupId = systemGroupIdFreeMatch, bool all = false}) async {
     if (kIsWeb) {
       final list = await _webQuery('web_db_sessions');

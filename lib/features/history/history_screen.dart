@@ -299,6 +299,42 @@ class _HistoryRow extends ConsumerWidget {
               loading: () => const SizedBox.shrink(),
               error: (_, __) => const SizedBox.shrink(),
             ),
+            ListTile(
+              leading: const Icon(Icons.calendar_month, color: Color(0xFF00FFC2)),
+              title: const Text('日付を変更', style: TextStyle(color: Colors.white)),
+              onTap: () async {
+                Navigator.pop(context);
+                final currentDate = DateFormat('yyyy/MM/dd').parse(session.date);
+                final newDate = await showDatePicker(
+                  context: context,
+                  initialDate: currentDate,
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime(2100),
+                  builder: (context, child) {
+                    return Theme(
+                      data: Theme.of(context).copyWith(
+                        colorScheme: const ColorScheme.dark(
+                          primary: Color(0xFF00FFC2),
+                          onPrimary: Colors.black,
+                          surface: Color(0xFF001F1A),
+                          onSurface: Colors.white,
+                        ),
+                        dialogBackgroundColor: const Color(0xFF001F1A),
+                      ),
+                      child: child!,
+                    );
+                  },
+                );
+                if (newDate != null && newDate != currentDate) {
+                  await ref.read(historyProvider.notifier).updateSessionDate(session.id!, newDate);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('対局日を ${DateFormat('yyyy/MM/dd').format(newDate)} へ変更しました')),
+                    );
+                  }
+                }
+              },
+            ),
             const Divider(color: Colors.white10),
             ListTile(
               leading: const Icon(Icons.delete_outline, color: Colors.redAccent),

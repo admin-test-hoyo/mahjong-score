@@ -125,6 +125,21 @@ class HistoryNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
     await refresh();
   }
 
+  Future<void> updateSessionDate(int sessionId, DateTime newDate) async {
+    final db = DatabaseService();
+    final dateStr = DateFormat('yyyy/MM/dd').format(newDate);
+    await db.updateSessionDate(sessionId, dateStr);
+    
+    ref.read(databaseVersionProvider.notifier).increment();
+    // Ver 3.5.3: 統計キャッシュの完全破棄（物理破壊）
+    ref.invalidate(groupRankingProvider);
+    ref.invalidate(recordStatsProvider);
+    ref.invalidate(allSessionsProvider);
+    ref.invalidate(allGamesProvider);
+    
+    await refresh();
+  }
+
   Future<void> clearHistory({bool all = false, int months = 0}) async {
     final db = DatabaseService();
     if (all) {
