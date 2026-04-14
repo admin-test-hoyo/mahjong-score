@@ -51,10 +51,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       child: Center(
         child: Text(
           '全対局履歴',
-          style: GoogleFonts.robotoMono(
+          style: GoogleFonts.notoSansJp(
             color: const Color(0xFF00FFC2),
-            fontSize: 18,
             fontWeight: FontWeight.bold,
+            fontSize: 22.0,
           ),
         ),
       ),

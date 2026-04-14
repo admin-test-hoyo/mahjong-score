@@ -64,7 +64,7 @@ class CalcScreen extends ConsumerWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Ver 2.1.4', style: TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold)),
+              const Text('Ver 2.1.5', style: TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold)),
               Text(DateFormat('yyyy/MM/dd').format(DateTime.now()), style: const TextStyle(color: Colors.white24, fontSize: 10)),
             ],
           ),
@@ -224,7 +224,7 @@ class CalcScreen extends ConsumerWidget {
           const SizedBox(width: 12),
           _quickField(label: '場代', value: displayFee.toString(), onChanged: (v) => ref.read(calcProvider.notifier).updateRuleGameFee(int.tryParse(v) ?? 0), width: 80),
           const Spacer(),
-          const Text('Ver 2.1.4', style: TextStyle(color: Colors.white12, fontSize: 9)),
+          const Text('Ver 2.1.5', style: TextStyle(color: Colors.white12, fontSize: 9)),
         ],
       ),
     );
@@ -494,7 +494,7 @@ class CalcScreen extends ConsumerWidget {
   }
 }
 
-// Ver 2.1.4: _MemberPickerModal was removed in favor of MemberSelectionScreen
+// Ver 2.1.5: _MemberPickerModal was removed in favor of MemberSelectionScreen
 
 class SettingsModal extends ConsumerWidget {
   const SettingsModal({super.key});
@@ -504,16 +504,7 @@ class SettingsModal extends ConsumerWidget {
     return Scaffold(
       backgroundColor: const Color(0xFF001F1A),
       appBar: AppBar(
-        title: Text(
-          'アプリ設定',
-          style: GoogleFonts.notoSansJp(
-            color: const Color(0xFF00FFC2),
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
-        ),
-        backgroundColor: Colors.black.withValues(alpha: 0.3),
-        elevation: 0,
+        title: const Text('アプリ設定'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, color: Color(0xFF00FFC2), size: 20),
           onPressed: () => Navigator.pop(context),
@@ -549,7 +540,7 @@ class SettingsModal extends ConsumerWidget {
             const SizedBox(height: 48),
             Center(
               child: Text(
-                'Ver 2.1.4',
+                'Ver 2.1.5',
                 style: TextStyle(color: Colors.white.withValues(alpha: 0.1), fontSize: 11),
               ),
             ),

@@ -71,6 +71,16 @@ class MahjongApp extends StatelessWidget {
         textTheme: GoogleFonts.notoSansJpTextTheme(
           Theme.of(context).textTheme.apply(bodyColor: Colors.white, displayColor: Colors.white),
         ),
+        appBarTheme: AppBarTheme(
+          backgroundColor: Colors.black.withValues(alpha: 0.3),
+          elevation: 0,
+          centerTitle: true,
+          titleTextStyle: GoogleFonts.notoSansJp(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: const Color(0xFF00FFC2),
+          ),
+        ),
         useMaterial3: true,
       ),
       home: const MainScreen(),

@@ -91,15 +91,10 @@ class MainScreen extends ConsumerWidget {
           fit: BoxFit.scaleDown,
           child: Text(
             title,
-            style: GoogleFonts.robotoMono(
-              color: const Color(0xFF00FFC2),
-              fontWeight: FontWeight.bold,
-              fontSize: 22.0,
-            ),
           ),
         ),
         const Text(
-          'Ver 2.1.4',
+          'Ver 2.1.5',
           style: TextStyle(color: Colors.white38, fontSize: 10),
         ),
       ],

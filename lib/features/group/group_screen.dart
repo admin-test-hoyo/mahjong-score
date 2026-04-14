@@ -58,16 +58,7 @@ class _GroupScreenState extends ConsumerState<GroupScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF001F1A),
       appBar: AppBar(
-        title: Text(
-          'グループ管理',
-          style: GoogleFonts.notoSansJp(
-            color: const Color(0xFF00FFC2),
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
-        ),
-        backgroundColor: Colors.black.withValues(alpha: 0.3),
-        elevation: 0,
+        title: const Text('グループ管理'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, color: Color(0xFF00FFC2), size: 20),
           onPressed: () => Navigator.pop(context),
@@ -273,9 +264,7 @@ class _MemberEditScreenState extends State<MemberEditScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF004D40),
       appBar: AppBar(
-        title: Text('${widget.groupName} のメンバー', style: GoogleFonts.robotoMono(color: const Color(0xFF00FFC2), fontWeight: FontWeight.bold, fontSize: 22)),
-        backgroundColor: Colors.black.withValues(alpha: 0.3),
-        elevation: 0,
+        title: Text('${widget.groupName} のメンバー'),
         iconTheme: const IconThemeData(color: Colors.white70),
       ),
       body: Column(

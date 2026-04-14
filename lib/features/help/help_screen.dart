@@ -9,16 +9,7 @@ class HelpScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFF001F1A),
       appBar: AppBar(
-        backgroundColor: Colors.black.withValues(alpha: 0.3),
-        elevation: 0,
-        title: Text(
-          'ヘルプ / 使い方',
-          style: GoogleFonts.notoSansJp(
-            color: const Color(0xFF00FFC2),
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
-        ),
+        title: const Text('ヘルプ / 使い方'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, color: Color(0xFF00FFC2), size: 20),
           onPressed: () => Navigator.pop(context),
@@ -60,7 +51,7 @@ class HelpScreen extends StatelessWidget {
           const SizedBox(height: 40),
           Center(
             child: Text(
-              'Ver 2.1.4',
+              'Ver 2.1.5',
               style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 12),
             ),
           ),
