@@ -37,10 +37,6 @@ _flutter.buildConfig = {"engineRevision":"425cfb54d01a9472b3e81d9e76fd63a4a44cfb
 
 _flutter.loader.load({
   serviceWorkerSettings: {
-<<<<<<< HEAD
-    serviceWorkerVersion: "1957104257" /* Flutter's service worker is deprecated and will be removed in a future Flutter release. */
-=======
-    serviceWorkerVersion: "661288664" /* Flutter's service worker is deprecated and will be removed in a future Flutter release. */
->>>>>>> ce3efca (Ver 2.1.4: 履歴メニューへの「日付を変更」機能の統合)
+    serviceWorkerVersion: "2217040954" /* Flutter's service worker is deprecated and will be removed in a future Flutter release. */
   }
 });
