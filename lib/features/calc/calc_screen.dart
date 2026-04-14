@@ -321,8 +321,8 @@ class CalcScreen extends ConsumerWidget {
             rows: [
               ...state.games.asMap().entries.map((e) {
                 final idx = e.key; final game = e.value;
-                final sum = game.inputs.fold(0, (s, p) => s + p.score);
-                final isValid = sum == config.targetTotalScore;
+                final sum = game.inputs.fold(0, (s, p) => s + (p.score ?? 0));
+                final isValid = game.inputs.every((p) => p.score != null) && sum == config.targetTotalScore;
                 List<PlayerResult>? results;
                 if (isValid) {
                   try { results = MahjongCalculator.calculate(inputs: game.inputs, rule: state.rule.copyWith(oka: config.oka, uma: _buildUmaList(config.umaText)), config: config, startingOyaIndex: game.startingOyaIndex); } catch (_) {}
@@ -330,8 +330,8 @@ class CalcScreen extends ConsumerWidget {
                 return DataRow(onSelectChanged: (_) => _showEditModal(context, ref, game), cells: [
                   DataCell(SizedBox(width: ctrlWidth, child: Center(child: Text('${idx + 1}', style: const TextStyle(fontSize: 10, color: Colors.white24))))),
                   ...List.generate(4, (pIdx) {
-                    final p = game.inputs.firstWhere((p) => p.id == pIdx + 1, orElse: () => const PlayerInput(id: 0, score: 0));
-                    String val = p.score.toCommaString(); Color col = Colors.white70;
+                    final p = game.inputs.firstWhere((p) => p.id == pIdx + 1, orElse: () => const PlayerInput(id: 0, score: null));
+                    String val = p.score?.toCommaString() ?? '-'; Color col = Colors.white70;
                     if (results != null) {
                       final r = results.firstWhere((r) => r.id == pIdx + 1).finalPoint;
                       val = r > 0 ? '+${r.toCommaString()}' : r.toCommaString();
@@ -451,7 +451,8 @@ class CalcScreen extends ConsumerWidget {
     final summaries = { for (int i = 1; i <= 4; i++) i: {'pt': 0, 'chip': 0} };
     int completed = 0;
     for (var g in state.games) {
-      if (g.inputs.fold(0, (s, ip) => s + ip.score) == config.targetTotalScore) {
+      final isAllEntered = g.inputs.every((ip) => ip.score != null);
+      if (isAllEntered && g.inputs.fold(0, (s, ip) => s + (ip.score ?? 0)) == config.targetTotalScore) {
         completed++;
         try {
           final res = MahjongCalculator.calculate(inputs: g.inputs, rule: state.rule.copyWith(oka: config.oka, uma: _buildUmaList(config.umaText)), config: config, startingOyaIndex: g.startingOyaIndex);
@@ -587,7 +588,7 @@ class _PlayerInputCardState extends ConsumerState<PlayerInputCard> {
 
   @override void initState() { 
     super.initState(); 
-    _s = TextEditingController(text: widget.player.score == 0 ? '' : widget.player.score.toString()); 
+    _s = TextEditingController(text: widget.player.score == null ? '' : widget.player.score.toString()); 
     _f = FocusNode();
     _f.addListener(_onFocusChange);
   }
@@ -602,8 +603,8 @@ class _PlayerInputCardState extends ConsumerState<PlayerInputCard> {
   @override void didUpdateWidget(PlayerInputCard old) { 
     super.didUpdateWidget(old); 
     if (old.player.score != widget.player.score) { 
-      if (widget.player.score != (int.tryParse(_s.text) ?? 0)) {
-        _s.text = widget.player.score == 0 ? '' : widget.player.score.toString(); 
+      if (widget.player.score != int.tryParse(_s.text)) {
+        _s.text = widget.player.score == null ? '' : widget.player.score.toString(); 
       }
     } 
   }
@@ -637,7 +638,7 @@ class _PlayerInputCardState extends ConsumerState<PlayerInputCard> {
           maxLength: 6, 
           style: const TextStyle(color: Color(0xFF00FFC2), fontSize: 16, fontWeight: FontWeight.bold), 
           decoration: const InputDecoration(isDense: true, counterText: '', hintText: '0', hintStyle: TextStyle(color: Colors.white12), filled: true, fillColor: Colors.black12, border: InputBorder.none), 
-          onChanged: (v) => ref.read(calcProvider.notifier).updateScore(widget.gameId, widget.player.id, int.tryParse(v) ?? 0),
+          onChanged: (v) => ref.read(calcProvider.notifier).updateScore(widget.gameId, widget.player.id, int.tryParse(v)),
           onEditingComplete: () => _f.unfocus(),
         )),
         const SizedBox(width: 12),

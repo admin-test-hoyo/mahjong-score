@@ -90,7 +90,7 @@ enum SpecialPrizeType {
 
 class PlayerInput {
   final int id;
-  final int score;
+  final int? score;
   final int chip;
   final int tobiPt;
   final int yakumanPt;
@@ -98,7 +98,7 @@ class PlayerInput {
 
   const PlayerInput({
     required this.id,
-    this.score = 0,
+    this.score,
     this.chip = 0,
     this.tobiPt = 0,
     this.yakumanPt = 0,
@@ -108,6 +108,7 @@ class PlayerInput {
   PlayerInput copyWith({
     int? id,
     int? score,
+    bool clearScore = false,
     int? chip,
     int? tobiPt,
     int? yakumanPt,
@@ -116,7 +117,7 @@ class PlayerInput {
   }) {
     return PlayerInput(
       id: id ?? this.id,
-      score: score ?? this.score,
+      score: clearScore ? null : (score ?? this.score),
       chip: chip ?? this.chip,
       tobiPt: tobiPt ?? this.tobiPt,
       yakumanPt: yakumanPt ?? this.yakumanPt,
@@ -136,7 +137,7 @@ class PlayerInput {
   factory PlayerInput.fromJson(Map<String, dynamic> json) {
     return PlayerInput(
       id: json['id'] as int,
-      score: json['score'] as int? ?? 0,
+      score: json['score'] as int?,
       chip: json['chip'] as int? ?? 0,
       tobiPt: json['tobiPt'] as int? ?? 0,
       yakumanPt: json['yakumanPt'] as int? ?? 0,
@@ -220,7 +221,7 @@ class MahjongCalculator {
     // 順位付け (スコアの降順でソート。同点の場合は起家からの順番(priority)でソート)
     final sortedInputs = List<PlayerInput>.from(inputs)
       ..sort((a, b) {
-        final cmp = b.score.compareTo(a.score);
+        final cmp = (b.score ?? 0).compareTo(a.score ?? 0);
         if (cmp != 0) return cmp;
         
         // 同点時のTie-break: 優先度が低い（数値が小さい）方が上位。
@@ -234,7 +235,7 @@ class MahjongCalculator {
     final results = <PlayerResult>[];
     
     // スコア合計チェック
-    final totalScore = inputs.fold(0, (sum, p) => sum + p.score);
+    final totalScore = inputs.fold(0, (sum, p) => sum + (p.score ?? 0));
     if (totalScore != config.targetTotalScore) {
       throw ArgumentError('Total score must be exactly ${config.targetTotalScore}.');
     }
@@ -256,7 +257,7 @@ class MahjongCalculator {
       final rank = i; // 0=トップ, 1=2着, 2=3着, (3=ラス)
       
       // 1. ベースポイントの算出（(素点 - 返し点) / 1000）
-      final basePoint = (player.score - rule.returnScore) / 1000.0;
+      final basePoint = ((player.score ?? 0) - rule.returnScore) / 1000.0;
       
       // 2. 五捨六入による端数処理
       int roundedPoint = _roundGoshaRokunyu(basePoint);

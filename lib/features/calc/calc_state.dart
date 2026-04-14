@@ -167,10 +167,10 @@ class CalcNotifier extends Notifier<CalcState> {
     return GameRecord(
       id: id,
       inputs: const [
-        PlayerInput(id: 1, score: 0),
-        PlayerInput(id: 2, score: 0),
-        PlayerInput(id: 3, score: 0),
-        PlayerInput(id: 4, score: 0),
+        PlayerInput(id: 1, score: null),
+        PlayerInput(id: 2, score: null),
+        PlayerInput(id: 3, score: null),
+        PlayerInput(id: 4, score: null),
       ]
     );
   }
@@ -239,17 +239,17 @@ class CalcNotifier extends Notifier<CalcState> {
     state = state.copyWith(games: newGames, clearSnapshot: true);
   }
 
-  void updateScore(String gameId, int playerId, int score) {
+  void updateScore(String gameId, int playerId, int? score) {
     final newGames = state.games.map((game) {
       if (game.id != gameId) return game;
       
       var tempInputs = game.inputs.map((p) {
         if (p.id == playerId) {
           int? nextBlownBy = p.blownByPlayerId;
-          if (score >= 0) {
+          if (score != null && score >= 0) {
             nextBlownBy = null;
           }
-          return p.copyWith(score: score, blownByPlayerId: nextBlownBy, clearBlownBy: nextBlownBy == null);
+          return p.copyWith(score: score, clearScore: score == null, blownByPlayerId: nextBlownBy, clearBlownBy: nextBlownBy == null);
         }
         return p;
       }).toList();
@@ -269,12 +269,12 @@ class CalcNotifier extends Notifier<CalcState> {
       final config = ref.read(configProvider);
       var tempInputs = List<PlayerInput>.from(game.inputs);
       
-      final enteredInputs = tempInputs.where((p) => p.score != 0).toList();
-      final remainingInputs = tempInputs.where((p) => p.score == 0).toList();
+      final enteredInputs = tempInputs.where((p) => p.score != null).toList();
+      final remainingInputs = tempInputs.where((p) => p.score == null).toList();
 
       if (enteredInputs.length == 3 && remainingInputs.length == 1) {
         final target = config.targetTotalScore;
-        final currentSum = enteredInputs.fold(0, (s, p) => s + p.score);
+        final currentSum = enteredInputs.fold(0, (s, p) => s + (p.score ?? 0));
         final remainder = target - currentSum;
         
         final targetId = remainingInputs.first.id;
@@ -394,7 +394,8 @@ class CalcNotifier extends Notifier<CalcState> {
     final newGames = state.games.map((game) {
       if (game.id != gameId) return game;
       final newInputs = game.inputs.map((p) => p.copyWith(
-        score: 0,
+        score: null,
+        clearScore: true,
         chip: 0,
         tobiPt: 0,
         yakumanPt: 0,
@@ -440,7 +441,8 @@ class CalcNotifier extends Notifier<CalcState> {
 
       for (int i = 0; i < state.games.length; i++) {
         final g = state.games[i];
-        if (g.inputs.where((p) => p.id <= players).fold(0, (s, p) => s + p.score) != calcConfig.targetTotalScore) {
+        final isAllEntered = g.inputs.every((p) => p.score != null);
+        if (!isAllEntered || g.inputs.where((p) => p.id <= players).fold(0, (s, p) => s + (p.score ?? 0)) != calcConfig.targetTotalScore) {
           continue;
         }
 
@@ -549,10 +551,10 @@ class CalcNotifier extends Notifier<CalcState> {
           'p2_ch': g.inputs[1].chip,
           'p3_ch': g.inputs[2].chip,
           'p4_ch': g.inputs[3].chip,
-          'p1_tobi': g.inputs[0].score < 0 ? 1 : 0,
-          'p2_tobi': g.inputs[1].score < 0 ? 1 : 0,
-          'p3_tobi': g.inputs[2].score < 0 ? 1 : 0,
-          'p4_tobi': g.inputs[3].score < 0 ? 1 : 0,
+          'p1_tobi': (g.inputs[0].score ?? 0) < 0 ? 1 : 0,
+          'p2_tobi': (g.inputs[1].score ?? 0) < 0 ? 1 : 0,
+          'p3_tobi': (g.inputs[2].score ?? 0) < 0 ? 1 : 0,
+          'p4_tobi': (g.inputs[3].score ?? 0) < 0 ? 1 : 0,
           'p1_blown_by': g.inputs[0].blownByPlayerId,
           'p2_blown_by': g.inputs[1].blownByPlayerId,
           'p3_blown_by': g.inputs[2].blownByPlayerId,

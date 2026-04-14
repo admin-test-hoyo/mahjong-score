@@ -37,6 +37,10 @@ _flutter.buildConfig = {"engineRevision":"425cfb54d01a9472b3e81d9e76fd63a4a44cfb
 
 _flutter.loader.load({
   serviceWorkerSettings: {
+<<<<<<< HEAD
     serviceWorkerVersion: "2238691523" /* Flutter's service worker is deprecated and will be removed in a future Flutter release. */
+=======
+    serviceWorkerVersion: "3384249159" /* Flutter's service worker is deprecated and will be removed in a future Flutter release. */
+>>>>>>> baf2f98 (Ver 2.1.3: スコア入力の Nullable 化 (0点と未入力の区別) 及び Noto Sans JP フォント適用)
   }
 });
