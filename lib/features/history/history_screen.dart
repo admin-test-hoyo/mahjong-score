@@ -1,8 +1,11 @@
+import 'dart:convert';
+import 'package:universal_html/html.dart' as html;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../core/models/db_models.dart';
+import '../../core/database/database_providers.dart';
 import 'history_providers.dart';
 import '../main/main_providers.dart';
 import '../stats/stats_providers.dart';
@@ -10,6 +13,82 @@ import '../calc/calc_providers.dart';
 
 class HistoryScreen extends ConsumerStatefulWidget {
   const HistoryScreen({super.key});
+
+  static Future<void> exportCsv(BuildContext context, WidgetRef ref) async {
+    final sessionsAsync = ref.read(historyProvider);
+    final historySessions = sessionsAsync.asData?.value;
+    if (historySessions == null || historySessions.isEmpty) {
+       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('エクスポートするデータがありません')));
+       return;
+    }
+
+    final selectedDateRange = ref.read(historyFilterProvider);
+    final selectedGroup = ref.read(historyGroupFilterProvider);
+    
+    var filteredSessions = historySessions;
+    if (selectedGroup != null) {
+      filteredSessions = filteredSessions.where((s) {
+        final session = s['session'] as Session;
+        return session.groupId == selectedGroup || (session.groupId == null && selectedGroup == systemGroupIdFreeMatch);
+      }).toList();
+    }
+    if (selectedDateRange != null) {
+      filteredSessions = filteredSessions.where((s) {
+        final dt = (s['session'] as Session).date;
+        final date = DateFormat('yyyy/MM/dd').parse(dt);
+        return !date.isBefore(selectedDateRange.start) && date.isBefore(selectedDateRange.end.add(const Duration(days: 1)));
+      }).toList();
+    }
+
+    if (filteredSessions.isEmpty) {
+       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('エクスポートするデータがありません')));
+       return;
+    }
+
+    // CSV構築
+    final sb = StringBuffer();
+    sb.writeln('対局ID,日付,グループ名,P1名前,P1_Pt,P1_収支,P2名前,P2_Pt,P2_収支,P3名前,P3_Pt,P3_収支,P4名前,P4_Pt,P4_収支');
+    
+    for (var data in filteredSessions) {
+      final Session session = data['session'];
+      final String groupName = data['groupName'] ?? '';
+      final List<int> totalPts = data['totalPt'] ?? [];
+      final List<int> totalMoney = data['totalMoney'] ?? [];
+      
+      final row = [
+        session.id.toString(),
+        session.date,
+        groupName.replaceAll(',', '，'), // カンマのエスケープ
+      ];
+      
+      for (int i = 0; i < 4; i++) {
+        if (i < session.playerNames.length && i < totalPts.length && i < totalMoney.length) {
+          row.add(session.playerNames[i].replaceAll(',', '，'));
+          row.add(totalPts[i].toString());
+          row.add(totalMoney[i].toString());
+        } else {
+          row.addAll(['', '', '']);
+        }
+      }
+      sb.writeln(row.join(','));
+    }
+
+    final bom = utf8.encode('\uFEFF');
+    final bytes = bom + utf8.encode(sb.toString());
+    final blob = html.Blob([bytes]);
+    final url = html.Url.createObjectUrlFromBlob(blob);
+    final dateStr = DateTime.now().toString().substring(0, 10).replaceAll('-', '');
+    final filename = 'mahjong_history_$dateStr.csv';
+
+    html.AnchorElement(href: url)
+      ..setAttribute("download", filename)
+      ..click();
+    html.Url.revokeObjectUrl(url);
+
+    if (context.mounted) {
+       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('CSVファイルをエクスポートしました')));
+    }
+  }
 
   @override
   ConsumerState<HistoryScreen> createState() => _HistoryScreenState();
@@ -26,19 +105,67 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   Widget build(BuildContext context) {
     final history = ref.watch(historyProvider);
     final selectedDateRange = ref.watch(historyFilterProvider);
+    final selectedGroup = ref.watch(historyGroupFilterProvider);
 
     return Column(
       children: [
         _buildHeader(context),
+        _buildGroupFilter(ref, selectedGroup),
         if (selectedDateRange != null) _buildFilterBar(ref, selectedDateRange),
         Expanded(
           child: history.when(
-            data: (sessions) => _buildList(sessions, selectedDateRange),
+            data: (sessions) => _buildList(sessions, selectedDateRange, selectedGroup),
             loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF00FFC2))),
             error: (e, s) => const Center(child: Text('読み込みエラー', style: TextStyle(color: Colors.white24))),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildGroupFilter(WidgetRef ref, int? selectedGroup) {
+    final groupsAsync = ref.watch(groupListProvider);
+    return Container(
+      width: double.infinity,
+      height: 48,
+      decoration: const BoxDecoration(
+        color: Colors.black12,
+        border: Border(bottom: BorderSide(color: Colors.white10)),
+      ),
+      child: groupsAsync.when(
+        data: (groups) {
+          final allGroups = [
+            {'id': null, 'name': 'すべて'},
+            {'id': systemGroupIdFreeMatch, 'name': 'フリー対局'},
+            ...groups.where((g) => g['id'] != systemGroupIdFreeMatch),
+          ];
+          return ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            itemCount: allGroups.length,
+            itemBuilder: (context, index) {
+              final group = allGroups[index];
+              final isSelected = selectedGroup == group['id'];
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: FilterChip(
+                  label: Text(group['name'] as String, style: TextStyle(fontSize: 11, color: isSelected ? Colors.black : Colors.white70, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                  selected: isSelected,
+                  selectedColor: const Color(0xFF00FFC2),
+                  backgroundColor: Colors.white.withValues(alpha: 0.05),
+                  side: BorderSide.none,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  onSelected: (selected) {
+                    ref.read(historyGroupFilterProvider.notifier).setFilter(selected ? (group['id'] as int?) : null);
+                  },
+                ),
+              );
+            },
+          );
+        },
+        loading: () => const Center(child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))),
+        error: (_, __) => const SizedBox.shrink(),
+      ),
     );
   }
 
@@ -84,10 +211,16 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     );
   }
 
-  Widget _buildList(List<Map<String, dynamic>> sessions, DateTimeRange? selectedDateRange) {
+  Widget _buildList(List<Map<String, dynamic>> sessions, DateTimeRange? selectedDateRange, int? selectedGroup) {
     var filteredSessions = sessions;
+    if (selectedGroup != null) {
+      filteredSessions = filteredSessions.where((s) {
+        final session = s['session'] as Session;
+        return session.groupId == selectedGroup || (session.groupId == null && selectedGroup == systemGroupIdFreeMatch);
+      }).toList();
+    }
     if (selectedDateRange != null) {
-      filteredSessions = sessions.where((s) {
+      filteredSessions = filteredSessions.where((s) {
         final dt = (s['session'] as Session).date;
         final date = DateFormat('yyyy/MM/dd').parse(dt);
         return !date.isBefore(selectedDateRange.start) && 

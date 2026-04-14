@@ -94,7 +94,7 @@ class MainScreen extends ConsumerWidget {
           ),
         ),
         const Text(
-          'Ver 2.1.5',
+          'Ver 2.2.0',
           style: TextStyle(color: Colors.white38, fontSize: 10),
         ),
       ],
@@ -116,6 +116,16 @@ class MainScreen extends ConsumerWidget {
         IconButton(
           icon: const Icon(Icons.refresh, color: Color(0xFFFF5252), size: 18),
           onPressed: () => CalcScreen.showReset(context, ref),
+        ),
+        const SizedBox(width: 8),
+      ];
+    }
+    if (tab == MainTab.history) {
+      return [
+        IconButton(
+          icon: const Icon(Icons.download, color: Color(0xFF00FFC2), size: 18),
+          tooltip: 'CSVエクスポート',
+          onPressed: () => HistoryScreen.exportCsv(context, ref),
         ),
         const SizedBox(width: 8),
       ];

@@ -165,3 +165,11 @@ class HistoryFilterNotifier extends Notifier<DateTimeRange?> {
 }
 
 final historyFilterProvider = NotifierProvider<HistoryFilterNotifier, DateTimeRange?>(HistoryFilterNotifier.new);
+
+class HistoryGroupFilterNotifier extends Notifier<int?> {
+  @override
+  int? build() => null;
+  void setFilter(int? groupId) => state = groupId;
+}
+
+final historyGroupFilterProvider = NotifierProvider<HistoryGroupFilterNotifier, int?>(HistoryGroupFilterNotifier.new);
