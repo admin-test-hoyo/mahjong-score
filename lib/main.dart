@@ -53,21 +53,22 @@ class MahjongApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: '麻雀スコア表',
+      locale: const Locale('ja', 'JP'),
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
       supportedLocales: const [
-        Locale('ja'), // Japanese
+        Locale('ja'),
       ],
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF00E676), // Neon green
+          seedColor: const Color(0xFF00E676),
           brightness: Brightness.dark,
         ),
         scaffoldBackgroundColor: const Color(0xFF001F1A),
-        textTheme: GoogleFonts.robotoMonoTextTheme(
+        textTheme: GoogleFonts.notoSansJpTextTheme(
           Theme.of(context).textTheme.apply(bodyColor: Colors.white, displayColor: Colors.white),
         ),
         useMaterial3: true,
