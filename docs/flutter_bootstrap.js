@@ -37,10 +37,6 @@ _flutter.buildConfig = {"engineRevision":"425cfb54d01a9472b3e81d9e76fd63a4a44cfb
 
 _flutter.loader.load({
   serviceWorkerSettings: {
-<<<<<<< HEAD
-    serviceWorkerVersion: "2217040954" /* Flutter's service worker is deprecated and will be removed in a future Flutter release. */
-=======
-    serviceWorkerVersion: "560100413" /* Flutter's service worker is deprecated and will be removed in a future Flutter release. */
->>>>>>> 05d6e3c (Ver 2.1.5: AppBarタイトルへの完全なフォント（Noto Sans JP）適用)
+    serviceWorkerVersion: "3993523946" /* Flutter's service worker is deprecated and will be removed in a future Flutter release. */
   }
 });
