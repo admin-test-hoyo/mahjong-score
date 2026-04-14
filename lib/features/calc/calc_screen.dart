@@ -4,15 +4,15 @@ import 'calc_providers.dart';
 import '../history/history_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:universal_html/html.dart' as html;
 import '../../core/database/database_providers.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../core/calculator.dart';
 import '../../core/models/app_config.dart';
 import '../../core/models/db_models.dart';
 import '../../core/database/database_service.dart';
 import 'calc_state.dart';
-import '../stats/stats_providers.dart';
+import '../member/member_selection_screen.dart';
 import 'package:intl/intl.dart';
 
 class CalcScreen extends ConsumerWidget {
@@ -64,7 +64,7 @@ class CalcScreen extends ConsumerWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Ver 2.1.1', style: TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold)),
+              const Text('Ver 2.1.2', style: TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold)),
               Text(DateFormat('yyyy/MM/dd').format(DateTime.now()), style: const TextStyle(color: Colors.white24, fontSize: 10)),
             ],
           ),
@@ -79,11 +79,12 @@ class CalcScreen extends ConsumerWidget {
   // --- 内部ロジック (static) ---
 
   static void _showMemberPicker(BuildContext context, WidgetRef ref) {
+    final state = ref.read(calcProvider);
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => _MemberPickerModal(ref: ref),
+      builder: (context) => MemberSelectionScreen(initialGroupId: state.pickedGroupId),
     );
   }
 
@@ -223,7 +224,7 @@ class CalcScreen extends ConsumerWidget {
           const SizedBox(width: 12),
           _quickField(label: '場代', value: displayFee.toString(), onChanged: (v) => ref.read(calcProvider.notifier).updateRuleGameFee(int.tryParse(v) ?? 0), width: 80),
           const Spacer(),
-          const Text('Ver 2.1.1', style: TextStyle(color: Colors.white12, fontSize: 9)),
+          const Text('Ver 2.1.2', style: TextStyle(color: Colors.white12, fontSize: 9)),
         ],
       ),
     );
@@ -492,181 +493,7 @@ class CalcScreen extends ConsumerWidget {
   }
 }
 
-class _MemberPickerModal extends StatefulWidget {
-  final WidgetRef ref;
-  const _MemberPickerModal({required this.ref});
-
-  @override
-  State<_MemberPickerModal> createState() => _MemberPickerModalState();
-}
-
-class _MemberPickerModalState extends State<_MemberPickerModal> {
-  int? _selectedGroupId;
-  final List<String> _selectedMembers = [];
-
-  @override
-  Widget build(BuildContext context) {
-    final groupsAsync = widget.ref.watch(groupListProvider);
-
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.7,
-      decoration: const BoxDecoration(
-        color: Color(0xFF001F1A),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Column(
-        children: [
-          _buildHeader(),
-          Expanded(
-            child: _selectedGroupId == null
-                ? _buildGroupList(groupsAsync)
-                : _buildMemberList(_selectedGroupId!),
-          ),
-          _buildFooter(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
-          Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(2))),
-          const SizedBox(height: 20),
-          Text(
-            _selectedGroupId == null ? 'グループを選択' : 'メンバーを選択',
-            style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          if (_selectedGroupId != null) ...[
-            const SizedBox(height: 8),
-            Text('選択済み：${_selectedMembers.length} / 4人', 
-              style: TextStyle(
-                color: _selectedMembers.length > 4 ? Colors.redAccent : const Color(0xFF00FFC2),
-                fontSize: 14,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGroupList(AsyncValue<List<Map<String, dynamic>>> groupsAsync) {
-    return groupsAsync.when(
-      data: (groups) {
-        // ID 0 (システムグループ) を除外し、代わりに最上部に「全員から選択」を追加
-        final filteredGroups = groups.where((g) => g['id'] != 0).toList(); // Hardcoded 0 for systemGroupIdFreeMatch
-        
-        return ListView(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.people_outline, color: Color(0xFF00FFC2)),
-              title: const Text('全員から選択', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white12, size: 14),
-              onTap: () => setState(() => _selectedGroupId = 0), // systemGroupIdFreeMatch
-            ),
-            const Divider(color: Colors.white10),
-            ...filteredGroups.map((g) => ListTile(
-              leading: const Icon(Icons.folder_outlined, color: Color(0xFF00FFC2)),
-              title: Text(g['name'], style: const TextStyle(color: Colors.white)),
-              trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white12, size: 14),
-              onTap: () => setState(() => _selectedGroupId = g['id']),
-            )),
-          ],
-        );
-      },
-      loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF00FFC2))),
-      error: (e, _) => Center(child: Text('Error: $e', style: const TextStyle(color: Colors.redAccent))),
-    );
-  }
-
-  Widget _buildMemberList(int groupId) {
-    // Ver 3.6.1: DB側の戻り値が一致したため単純化
-    final memberFuture = groupId == 0 
-      ? DatabaseService().getAllPlayerNames()
-      : DatabaseService().getGroupMembers(groupId).timeout(const Duration(seconds: 3));
-
-    return FutureBuilder<List<String>>(
-      future: memberFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: Color(0xFF00FFC2)));
-        if (snapshot.hasError) return const Center(child: Text('データ取得に失敗しました', style: TextStyle(color: Colors.redAccent, fontSize: 12)));
-        final members = snapshot.data ?? [];
-        return SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextButton.icon(
-                icon: const Icon(Icons.arrow_back, size: 16),
-                label: const Text('グループ選択に戻る'),
-                onPressed: () => setState(() => _selectedGroupId = null),
-                style: TextButton.styleFrom(foregroundColor: Colors.white54),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: members.map((name) {
-                  final isSelected = _selectedMembers.contains(name);
-                  return FilterChip(
-                    label: Text(name),
-                    selected: isSelected,
-                    onSelected: (val) {
-                      setState(() {
-                        if (val) {
-                          if (_selectedMembers.length < 4) _selectedMembers.add(name);
-                        } else {
-                          _selectedMembers.remove(name);
-                        }
-                      });
-                    },
-                    backgroundColor: Colors.white10,
-                    selectedColor: const Color(0xFF00FFC2).withValues(alpha: 0.2),
-                    labelStyle: TextStyle(color: isSelected ? const Color(0xFF00FFC2) : Colors.white70),
-                    checkmarkColor: const Color(0xFF00FFC2),
-                    shape: StadiumBorder(side: BorderSide(color: isSelected ? const Color(0xFF00FFC2) : Colors.white10)),
-                  );
-                }).toList(),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildFooter() {
-    final canConfirm = _selectedMembers.isNotEmpty && _selectedMembers.length <= 4;
-    return Container(
-      padding: EdgeInsets.only(left: 20, right: 20, bottom: MediaQuery.of(context).padding.bottom + 20, top: 10),
-      child: SizedBox(
-        width: double.infinity,
-        height: 50,
-        child: ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF00FFC2),
-            foregroundColor: Colors.black,
-            disabledBackgroundColor: Colors.white10,
-            disabledForegroundColor: Colors.white24,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-          onPressed: canConfirm ? () {
-            // Ver 3.5.0: メンバー読み出し時にグループIDと名前を一括セット
-            widget.ref.read(calcProvider.notifier).setPlayersFromGroup(_selectedGroupId!, _selectedMembers);
-            Navigator.pop(context);
-          } : null,
-          child: Text(
-            _selectedMembers.isEmpty ? 'メンバーを選択してください' : '確定して反映 (${_selectedMembers.length}名)',
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-        ),
-      ),
-    );
-  }
-}
+// Ver 2.1.2: _MemberPickerModal was removed in favor of MemberSelectionScreen
 
 class SettingsModal extends ConsumerWidget {
   const SettingsModal({super.key});
@@ -721,7 +548,7 @@ class SettingsModal extends ConsumerWidget {
             const SizedBox(height: 48),
             Center(
               child: Text(
-                'Ver 2.1.1',
+                'Ver 2.1.2',
                 style: TextStyle(color: Colors.white.withValues(alpha: 0.1), fontSize: 11),
               ),
             ),
