@@ -37,10 +37,6 @@ _flutter.buildConfig = {"engineRevision":"425cfb54d01a9472b3e81d9e76fd63a4a44cfb
 
 _flutter.loader.load({
   serviceWorkerSettings: {
-<<<<<<< HEAD
-    serviceWorkerVersion: "42241633" /* Flutter's service worker is deprecated and will be removed in a future Flutter release. */
-=======
-    serviceWorkerVersion: "409207750" /* Flutter's service worker is deprecated and will be removed in a future Flutter release. */
->>>>>>> 266b07f (Ver 2.2.3: CSV出力とUI見切れの完全強制修正 (ホットフィックス))
+    serviceWorkerVersion: "4128635296" /* Flutter's service worker is deprecated and will be removed in a future Flutter release. */
   }
 });
