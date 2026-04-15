@@ -93,9 +93,9 @@ class MainScreen extends ConsumerWidget {
             title,
           ),
         ),
-        const Text(
-          'Ver 2.2.6',
-          style: TextStyle(color: Colors.white38, fontSize: 10),
+        Text(
+          'Ver 2.2.8',
+          style: GoogleFonts.notoSansJp(color: Colors.white38, fontSize: 10),
         ),
       ],
     );
@@ -244,7 +244,6 @@ class MainScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _categoryLabel('[MAIN]'),
                 _drawerAction(
                   context, 
                   ref, 
@@ -272,15 +271,9 @@ class MainScreen extends ConsumerWidget {
                   titleColor: currentTab == MainTab.stats ? const Color(0xFF00FFC2) : null,
                   iconColor: currentTab == MainTab.stats ? const Color(0xFF00FFC2) : null,
                 ),
-
-                const Divider(color: Colors.white10, indent: 16, endIndent: 16),
-                _categoryLabel('[MANAGEMENT]'),
                 _drawerAction(context, ref, Icons.group, 'グループ管理', () {
                   Navigator.push(context, MaterialPageRoute(builder: (context) => const GroupScreen()));
                 }),
-
-                const Divider(color: Colors.white10, indent: 16, endIndent: 16),
-                _categoryLabel('[SYSTEM]'),
                 _drawerAction(context, ref, Icons.settings_outlined, 'アプリ設定', () {
                   CalcScreen.showSettings(context, ref);
                 }),

@@ -114,7 +114,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           child: history.when(
             data: (sessions) => _buildList(sessions, selectedDateRange, selectedGroup),
             loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF00FFC2))),
-            error: (e, s) => const Center(child: Text('読み込みエラー', style: TextStyle(color: Colors.white24))),
+            error: (e, s) => Center(child: Text('読み込みエラー', style: GoogleFonts.notoSansJp(color: Colors.white24))),
           ),
         ),
       ],
@@ -415,14 +415,14 @@ class _HistoryRow extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              '${session.date} の対局',
-              style: const TextStyle(color: Colors.white54, fontSize: 12),
-            ),
+              Text(
+                '${session.date} の対局',
+                style: GoogleFonts.notoSansJp(color: Colors.white54, fontSize: 12),
+              ),
             const SizedBox(height: 16),
             ListTile(
               leading: const Icon(Icons.play_circle_outline, color: Color(0xFF00FFC2)),
-              title: const Text('詳細を見る / 再開', style: TextStyle(color: Colors.white)),
+              title: Text('詳細を見る / 再開', style: GoogleFonts.notoSansJp(color: Colors.white)),
               onTap: () {
                 Navigator.pop(context); // Action Sheetを閉じる
                 FocusManager.instance.primaryFocus?.unfocus();
@@ -433,7 +433,7 @@ class _HistoryRow extends ConsumerWidget {
             groupsAsync.when(
               data: (groups) => ListTile(
                 leading: const Icon(Icons.folder_shared_outlined, color: Colors.blueAccent),
-                title: const Text('グループを変更', style: TextStyle(color: Colors.white)),
+                title: Text('グループを変更', style: GoogleFonts.notoSansJp(color: Colors.white)),
                 onTap: () {
                   Navigator.pop(context);
                   _showGroupSelector(context, ref, session);
@@ -444,7 +444,7 @@ class _HistoryRow extends ConsumerWidget {
             ),
             ListTile(
               leading: const Icon(Icons.calendar_month, color: Color(0xFF00FFC2)),
-              title: const Text('日付を変更', style: TextStyle(color: Colors.white)),
+              title: Text('日付を変更', style: GoogleFonts.notoSansJp(color: Colors.white)),
               onTap: () async {
                 Navigator.pop(context);
                 final currentDate = DateFormat('yyyy/MM/dd').parse(session.date);
@@ -481,7 +481,7 @@ class _HistoryRow extends ConsumerWidget {
             const Divider(color: Colors.white10),
             ListTile(
               leading: const Icon(Icons.delete_outline, color: Colors.redAccent),
-              title: const Text('履歴を削除', style: TextStyle(color: Colors.redAccent)),
+              title: Text('履歴を削除', style: GoogleFonts.notoSansJp(color: Colors.redAccent)),
               onTap: () {
                 Navigator.pop(context);
                 _confirmDelete(context, ref, session.id!);
@@ -515,7 +515,7 @@ class _HistoryRow extends ConsumerWidget {
               },
             ),
             ...groups.where((g) => g['id'] != systemGroupIdFreeMatch).map((g) => ListTile(
-              title: Text(g['name'], style: const TextStyle(color: Colors.white)),
+              title: Text(g['name'], style: GoogleFonts.notoSansJp(color: Colors.white)),
               onTap: () {
                 ref.read(historyProvider.notifier).updateSessionGroupId(session.id!, g['id']);
                 Navigator.pop(context);
@@ -534,12 +534,12 @@ class _HistoryRow extends ConsumerWidget {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF001F1A),
-        title: const Text('履歴削除', style: TextStyle(color: Colors.white, fontSize: 16)),
-        content: const Text('この対局履歴を削除してもよろしいですか？', style: TextStyle(color: Colors.white70)),
+        title: Text('履歴削除', style: GoogleFonts.notoSansJp(color: Colors.white, fontSize: 16)),
+        content: Text('この対局履歴を削除してもよろしいですか？', style: GoogleFonts.notoSansJp(color: Colors.white70)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('キャンセル', style: TextStyle(color: Colors.white54)),
+            child: Text('キャンセル', style: GoogleFonts.notoSansJp(color: Colors.white54)),
           ),
           TextButton(
             onPressed: () {
@@ -547,7 +547,7 @@ class _HistoryRow extends ConsumerWidget {
               ref.read(historyProvider.notifier).deleteSession(sessionId);
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('履歴を削除しました')));
             },
-            child: const Text('削除', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+            child: Text('削除', style: GoogleFonts.notoSansJp(color: Colors.redAccent, fontWeight: FontWeight.bold)),
           ),
         ],
       ),

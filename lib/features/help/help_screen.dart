@@ -42,7 +42,10 @@ class HelpScreen extends StatelessWidget {
             content: '座順と風の決定: メンバーを選択した順番が、そのまま座順（東・南・西・北）として割り当てられます。\n\n'
                 'スコアの自動補完: 3名分の点数を入力すると、100,000点から逆算して4名目の点数が自動入力されます。\n\n'
                 'チップの入力: 現場での現物確認と検算を確実にするため、チップ（祝儀）は4名全員分の手入力を推奨しています。\n\n'
-                '箱下計算: 点数がマイナス（トビ）の場合でも、そのまま数値を入力することで正確なPt計算が行われます。',
+                '箱下計算: 点数がマイナス（トビ）の場合でも、そのまま数値を入力することで正確なPt計算が行われます。\n\n'
+                'トビマーク (箱下): 点数がマイナス（0点未満）になったプレイヤーに適用します。設定画面で「トビ賞」が有効な場合、該当者からPtが減算され、トップ者に加算されます。\n\n'
+                '役満賞マーク: 役満を和了したプレイヤーに適用します。設定された「役満祝儀」に基づき、Ptおよび収支に直接反映されます。\n\n'
+                'クリーンアイコン (リセット): 入力中のスコアやチップの数値を一括で消去し、初期状態に戻します。誤入力を最初からやり直す際にご活用ください。',
           ),
           _buildHelpSection(
             context,
@@ -57,8 +60,8 @@ class HelpScreen extends StatelessWidget {
           const SizedBox(height: 40),
           Center(
             child: Text(
-              'Ver 2.2.7',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 12),
+              'Ver 2.2.8',
+              style: GoogleFonts.notoSansJp(color: Colors.white.withValues(alpha: 0.2), fontSize: 12),
             ),
           ),
           const SizedBox(height: 20),

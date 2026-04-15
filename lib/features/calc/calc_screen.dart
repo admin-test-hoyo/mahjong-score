@@ -64,8 +64,8 @@ class CalcScreen extends ConsumerWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Ver 2.2.7', style: TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold)),
-              Text(DateFormat('yyyy/MM/dd').format(DateTime.now()), style: const TextStyle(color: Colors.white24, fontSize: 10)),
+              Text('Ver 2.2.8', style: GoogleFonts.notoSansJp(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold)),
+              Text(DateFormat('yyyy/MM/dd').format(DateTime.now()), style: GoogleFonts.notoSansJp(color: Colors.white24, fontSize: 10)),
             ],
           ),
         ),
@@ -100,8 +100,8 @@ class CalcScreen extends ConsumerWidget {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF001F1A),
-        title: const Text('対局記録の保存', style: TextStyle(color: Colors.white, fontSize: 16)),
-        content: const Text('現在の対局を保存しますか？', style: TextStyle(color: Colors.white70)),
+        title: Text('対局記録の保存', style: GoogleFonts.notoSansJp(color: Colors.white, fontSize: 16)),
+        content: Text('現在の対局を保存しますか？', style: GoogleFonts.notoSansJp(color: Colors.white70)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('キャンセル', style: TextStyle(color: Colors.white54))),
           TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('保存', style: TextStyle(color: Color(0xFF00FFC2)))),
@@ -128,8 +128,8 @@ class CalcScreen extends ConsumerWidget {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1B0000),
-        title: const Text('リセットの確認', style: TextStyle(color: Color(0xFFFF5252), fontSize: 16)),
-        content: const Text('現在の入力をすべてリセットしますか？\n(保存済みの履歴は削除されません)', style: TextStyle(color: Colors.white70)),
+        title: Text('リセットの確認', style: GoogleFonts.notoSansJp(color: Color(0xFFFF5252), fontSize: 16)),
+        content: Text('現在の入力をすべてリセットしますか？\n(保存済みの履歴は削除されません)', style: GoogleFonts.notoSansJp(color: Colors.white70)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('キャンセル', style: TextStyle(color: Colors.white54))),
           TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('リセット', style: TextStyle(color: Color(0xFFFF5252)))),
@@ -224,7 +224,7 @@ class CalcScreen extends ConsumerWidget {
           const SizedBox(width: 12),
           _quickField(label: '場代', value: displayFee.toString(), onChanged: (v) => ref.read(calcProvider.notifier).updateRuleGameFee(int.tryParse(v) ?? 0), width: 80),
           const Spacer(),
-          const Text('Ver 2.2.7', style: TextStyle(color: Colors.white12, fontSize: 9)),
+          Text('Ver 2.2.8', style: GoogleFonts.notoSansJp(color: Colors.white12, fontSize: 9)),
         ],
       ),
     );
@@ -540,7 +540,7 @@ class SettingsModal extends ConsumerWidget {
             const SizedBox(height: 48),
             Center(
               child: Text(
-                'Ver 2.2.7',
+                'Ver 2.2.8',
                 style: GoogleFonts.notoSansJp(color: Colors.white.withValues(alpha: 0.1), fontSize: 11),
               ),
             ),
@@ -563,7 +563,7 @@ class _PlayerNameFieldState extends ConsumerState<PlayerNameField> {
   @override void initState() { super.initState(); _c = TextEditingController(text: widget.initialName); }
   @override void didUpdateWidget(PlayerNameField old) { super.didUpdateWidget(old); if (old.initialName != widget.initialName && _c.text != widget.initialName) _c.text = widget.initialName; }
   @override void dispose() { _c.dispose(); super.dispose(); }
-  @override Widget build(BuildContext context) => TextField(controller: _c, textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFF00FFC2), fontSize: 11, fontWeight: FontWeight.bold), decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.zero, border: InputBorder.none), onChanged: (v) => ref.read(calcProvider.notifier).updatePlayerName(widget.index + 1, v));
+  @override Widget build(BuildContext context) => TextField(controller: _c, textAlign: TextAlign.center, style: GoogleFonts.notoSansJp(color: Color(0xFF00FFC2), fontSize: 11, fontWeight: FontWeight.bold), decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.zero, border: InputBorder.none), onChanged: (v) => ref.read(calcProvider.notifier).updatePlayerName(widget.index + 1, v));
 }
 
 class PlayerInputCard extends ConsumerStatefulWidget {

@@ -130,13 +130,13 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
         _buildPersonalFilters(),
         Expanded(
           child: _selectedPlayer == null
-              ? const Center(
+              ? Center(
                   child: Text('プレイヤーを選択してください',
-                      style: TextStyle(color: Colors.white54, fontSize: 14)))
+                      style: GoogleFonts.notoSansJp(color: Colors.white54, fontSize: 14)))
               : games.isEmpty
-                  ? const Center(
+                  ? Center(
                       child: Text('データがありません',
-                          style: TextStyle(color: Colors.white24)))
+                          style: GoogleFonts.notoSansJp(color: Colors.white24)))
                   : SingleChildScrollView(
                       padding: const EdgeInsets.all(16),
                       child: Column(
@@ -156,7 +156,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                                   ],
                                 ),
                                 loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF00FFC2))),
-                                error: (e, s) => Text('エラー: $e', style: const TextStyle(color: Colors.redAccent)),
+                                error: (e, s) => Text('エラー: $e', style: GoogleFonts.notoSansJp(color: Colors.redAccent)),
                               );
                             },
                           ),
@@ -183,11 +183,11 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
                 value: _selectedPlayer,
-                hint: const Text('プレイヤー選択',
-                    style: TextStyle(color: Colors.white24, fontSize: 12)),
+                hint: Text('プレイヤー選択',
+                    style: GoogleFonts.notoSansJp(color: Colors.white24, fontSize: 12)),
                 dropdownColor: const Color(0xFF001F1A),
                 isExpanded: true,
-                style: const TextStyle(color: Color(0xFF00FFC2), fontSize: 13),
+                style: GoogleFonts.notoSansJp(color: Color(0xFF00FFC2), fontSize: 13),
                 items: [
                   ..._players.map((p) => DropdownMenuItem(
                       value: p,
@@ -202,11 +202,11 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
             child: DropdownButtonHideUnderline(
               child: DropdownButton<int>(
                 value: _selectedGroupId,
-                hint: const Text('グループ選択',
-                    style: TextStyle(color: Colors.white24, fontSize: 12)),
+                hint: Text('グループ選択',
+                    style: GoogleFonts.notoSansJp(color: Colors.white24, fontSize: 12)),
                 dropdownColor: const Color(0xFF001F1A),
                 isExpanded: true,
-                style: const TextStyle(color: Color(0xFF00FFC2), fontSize: 13),
+                style: GoogleFonts.notoSansJp(color: Color(0xFF00FFC2), fontSize: 13),
                 items: [
                   const DropdownMenuItem<int>(
                       value: null,
@@ -243,11 +243,11 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
           child: DropdownButtonHideUnderline(
             child: DropdownButton<int>(
               value: _rankingGroupId,
-              hint: const Text('グループを選択してください',
-                  style: TextStyle(color: Colors.white24, fontSize: 12)),
+              hint: Text('グループを選択してください',
+                  style: GoogleFonts.notoSansJp(color: Colors.white24, fontSize: 12)),
               dropdownColor: const Color(0xFF001F1A),
               isExpanded: true,
-              style: const TextStyle(color: Color(0xFF00FFC2), fontSize: 13),
+              style: GoogleFonts.notoSansJp(color: Color(0xFF00FFC2), fontSize: 13),
               items: [
                 ..._groupList.map((g) => DropdownMenuItem(
                     value: g['id'] as int,
@@ -262,21 +262,21 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
         // リーダーボード本体
         Expanded(
           child: _rankingGroupId == null
-              ? const Center(
+              ? Center(
                   child: Text('グループを選択してください',
-                      style: TextStyle(color: Colors.white54, fontSize: 14)))
+                      style: GoogleFonts.notoSansJp(color: Colors.white54, fontSize: 14)))
               : ref.watch(sortedGroupRankingProvider(_rankingGroupId!)).when(
                   data: (data) => data.isEmpty
-                      ? const Center(
+                      ? Center(
                           child: Text('データがありません',
-                              style: TextStyle(color: Colors.white24)))
+                              style: GoogleFonts.notoSansJp(color: Colors.white24)))
                       : _buildLeaderboard(data),
                   loading: () => const Center(
                       child: CircularProgressIndicator(
                           color: Color(0xFF00FFC2))),
                   error: (e, s) => Center(
                     child: Text('エラー: $e',
-                        style: const TextStyle(color: Colors.redAccent)),
+                        style: GoogleFonts.notoSansJp(color: Colors.redAccent)),
                   ),
                 ),
         ),
@@ -313,7 +313,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                 fontSize: 11,
                 fontWeight: FontWeight.bold),
             dataTextStyle:
-                const TextStyle(color: Colors.white70, fontSize: 11),
+                GoogleFonts.notoSansJp(color: Colors.white70, fontSize: 11),
             columnSpacing: 16,
             columns: [
               // 列0: 名前
@@ -405,7 +405,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                       _rankBadge(i + 1),
                       const SizedBox(width: 6),
                       Text(r['name'] as String,
-                          style: const TextStyle(
+                          style: GoogleFonts.notoSansJp(
                               color: Colors.white,
                               fontSize: 12,
                               fontWeight: FontWeight.w600)),
@@ -413,7 +413,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                   )),
                   // 対戦回数
                   DataCell(Text('$matches',
-                      style: const TextStyle(fontSize: 11))),
+                      style: GoogleFonts.notoSansJp(fontSize: 11))),
                   // 総Pt
                   DataCell(Text(
                     totalPt >= 0 ? '+$totalPt' : '$totalPt',
@@ -448,23 +448,23 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                   )),
                   // 平均順位
                   DataCell(Text(avgRank.toStringAsFixed(2),
-                      style: const TextStyle(fontSize: 11))),
+                      style: GoogleFonts.notoSansJp(fontSize: 11))),
                   // 対局数
                   DataCell(Text('$games',
-                      style: const TextStyle(fontSize: 11))),
+                      style: GoogleFonts.notoSansJp(fontSize: 11))),
                   // トップ率
                   DataCell(Text('${topRate.toStringAsFixed(1)}%',
-                      style: TextStyle(
+                      style: GoogleFonts.notoSansJp(
                           color: topRate >= 25
                               ? const Color(0xFF00FFC2)
                               : Colors.white54,
                           fontSize: 11))),
                   // 連対率
                   DataCell(Text('${rentaiRate.toStringAsFixed(1)}%',
-                      style: const TextStyle(fontSize: 11))),
+                      style: GoogleFonts.notoSansJp(fontSize: 11))),
                   // トビ率
                   DataCell(Text('${tobiRate.toStringAsFixed(1)}%',
-                      style: TextStyle(
+                      style: GoogleFonts.notoSansJp(
                           color: tobiRate > 10
                               ? Colors.redAccent
                               : Colors.white54,
@@ -496,7 +496,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
       child: Center(
         child: Text(
           '$rank',
-          style: TextStyle(
+          style: GoogleFonts.notoSansJp(
               color: color, fontSize: 10, fontWeight: FontWeight.bold),
         ),
       ),
@@ -579,7 +579,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
     return Column(
       children: [
         Text(label,
-            style: const TextStyle(color: Colors.white24, fontSize: 10)),
+            style: GoogleFonts.notoSansJp(color: Colors.white24, fontSize: 10)),
         const SizedBox(height: 4),
         Text(value,
             style: GoogleFonts.notoSansJp(
@@ -607,7 +607,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
           title: '1',
           color: const Color(0xFF00FFC2),
           radius: 40,
-          titleStyle: const TextStyle(
+          titleStyle: GoogleFonts.notoSansJp(
               fontSize: 12,
               fontWeight: FontWeight.bold,
               color: Colors.black)),
@@ -616,7 +616,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
           title: '2',
           color: Colors.lightGreenAccent,
           radius: 40,
-          titleStyle: const TextStyle(
+          titleStyle: GoogleFonts.notoSansJp(
               fontSize: 12,
               fontWeight: FontWeight.bold,
               color: Colors.black)),
@@ -625,7 +625,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
           title: '3',
           color: Colors.orangeAccent,
           radius: 40,
-          titleStyle: const TextStyle(
+          titleStyle: GoogleFonts.notoSansJp(
               fontSize: 12,
               fontWeight: FontWeight.bold,
               color: Colors.black)),
@@ -634,7 +634,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
           title: '4',
           color: Colors.redAccent,
           radius: 40,
-          titleStyle: const TextStyle(
+          titleStyle: GoogleFonts.notoSansJp(
               fontSize: 12,
               fontWeight: FontWeight.bold,
               color: Colors.black)),
@@ -646,8 +646,8 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
           color: Colors.black26, borderRadius: BorderRadius.circular(16)),
       child: Column(
         children: [
-          const Text('順位分布',
-              style: TextStyle(color: Colors.white70, fontSize: 12)),
+          Text('順位分布',
+              style: GoogleFonts.notoSansJp(color: Colors.white70, fontSize: 12)),
           const SizedBox(height: 16),
           SizedBox(
             height: 140,
@@ -699,20 +699,20 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                 rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                 topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                 bottomTitles: AxisTitles(
-                  axisNameWidget: const Text('対局数 (No.)', style: TextStyle(color: Colors.white38, fontSize: 10)),
+                  axisNameWidget: Text('対局数 (No.)', style: GoogleFonts.notoSansJp(color: Colors.white38, fontSize: 10)),
                   sideTitles: SideTitles(
                     showTitles: true,
                     reservedSize: 30,
                     interval: 5,
-                    getTitlesWidget: (value, meta) => Text(value.toInt().toString(), style: const TextStyle(color: Colors.white38, fontSize: 10)),
+                    getTitlesWidget: (value, meta) => Text(value.toInt().toString(), style: GoogleFonts.notoSansJp(color: Colors.white38, fontSize: 10)),
                   ),
                 ),
                 leftTitles: AxisTitles(
-                  axisNameWidget: const Text('累計Pt', style: TextStyle(color: Colors.white38, fontSize: 10)),
+                  axisNameWidget: Text('累計Pt', style: GoogleFonts.notoSansJp(color: Colors.white38, fontSize: 10)),
                   sideTitles: SideTitles(
                     showTitles: true,
                     reservedSize: 45,
-                    getTitlesWidget: (value, meta) => Text(value.toInt().toString(), style: const TextStyle(color: Colors.white38, fontSize: 10)),
+                    getTitlesWidget: (value, meta) => Text(value.toInt().toString(), style: GoogleFonts.notoSansJp(color: Colors.white38, fontSize: 10)),
                   ),
                 ),
               ),
@@ -733,7 +733,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
               ],
               extraLinesData: ExtraLinesData(
                 horizontalLines: [
-                  HorizontalLine(y: 0, color: const Color(0xFFFF4D4D).withValues(alpha: 0.5), strokeWidth: 2, dashArray: [5, 5], label: HorizontalLineLabel(show: true, alignment: Alignment.topRight, style: const TextStyle(color: Color(0xFFFF4D4D), fontSize: 10), labelResolver: (_) => '基準(0pt)')),
+                  HorizontalLine(y: 0, color: const Color(0xFFFF4D4D).withValues(alpha: 0.5), strokeWidth: 2, dashArray: [5, 5], label: HorizontalLineLabel(show: true, alignment: Alignment.topRight, style: GoogleFonts.notoSansJp(color: Color(0xFFFF4D4D), fontSize: 10), labelResolver: (_) => '基準(0pt)')),
                 ],
               ),
               lineTouchData: LineTouchData(
@@ -744,7 +744,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                       final h = history.firstWhere((element) => element['gameNo'] == spot.x.toInt(), orElse: () => {'pt': 0});
                       return LineTooltipItem(
                         'No.${spot.x.toInt()}\nPt: ${h['pt']}\n累計: ${spot.y.toInt()}',
-                        const TextStyle(color: Color(0xFF00FFC2), fontWeight: FontWeight.bold, fontSize: 12),
+                        GoogleFonts.notoSansJp(color: Color(0xFF00FFC2), fontWeight: FontWeight.bold, fontSize: 12),
                       );
                     }).toList();
                   },

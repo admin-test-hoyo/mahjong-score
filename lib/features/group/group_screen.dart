@@ -124,7 +124,7 @@ class _GroupScreenState extends ConsumerState<GroupScreen> {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF00FFC2))),
-        error: (e, s) => Center(child: Text('エラー: $e', style: const TextStyle(color: Colors.redAccent))),
+        error: (e, s) => Center(child: Text('エラー: $e', style: GoogleFonts.notoSansJp(color: Colors.redAccent))),
       ),
     );
   }
@@ -280,7 +280,7 @@ class _MemberEditScreenState extends State<MemberEditScreen> {
                     style: const TextStyle(color: Colors.white, fontSize: 14),
                     decoration: InputDecoration(
                       hintText: '新しいメンバーを入力',
-                      hintStyle: const TextStyle(color: Colors.white24, fontSize: 13),
+                      hintStyle: GoogleFonts.notoSansJp(color: Colors.white24, fontSize: 13),
                       filled: true,
                       fillColor: Colors.black26,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
@@ -308,7 +308,7 @@ class _MemberEditScreenState extends State<MemberEditScreen> {
             child: _loading
               ? const Center(child: CircularProgressIndicator(color: Color(0xFF00FFC2)))
               : _members.isEmpty
-                ? const Center(child: Text('メンバーが登録されていません', style: TextStyle(color: Colors.white24)))
+                ? Center(child: Text('メンバーが登録されていません', style: GoogleFonts.notoSansJp(color: Colors.white24)))
                 : ListView.builder(
                     itemCount: _members.length,
                     itemBuilder: (context, index) {
