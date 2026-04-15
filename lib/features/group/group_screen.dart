@@ -58,7 +58,7 @@ class _GroupScreenState extends ConsumerState<GroupScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF001F1A),
       appBar: AppBar(
-        title: const Text('グループ管理'),
+        title: Text('グループ管理', style: GoogleFonts.notoSansJp()),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, color: Color(0xFF00FFC2), size: 20),
           onPressed: () => Navigator.pop(context),
@@ -264,7 +264,7 @@ class _MemberEditScreenState extends State<MemberEditScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF004D40),
       appBar: AppBar(
-        title: Text('${widget.groupName} のメンバー'),
+        title: Text('${widget.groupName} のメンバー', style: GoogleFonts.notoSansJp()),
         iconTheme: const IconThemeData(color: Colors.white70),
       ),
       body: Column(
@@ -277,7 +277,7 @@ class _MemberEditScreenState extends State<MemberEditScreen> {
                 Expanded(
                   child: TextField(
                     controller: _controller,
-                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    style: GoogleFonts.notoSansJp(color: Colors.white, fontSize: 14),
                     decoration: InputDecoration(
                       hintText: '新しいメンバーを入力',
                       hintStyle: GoogleFonts.notoSansJp(color: Colors.white24, fontSize: 13),

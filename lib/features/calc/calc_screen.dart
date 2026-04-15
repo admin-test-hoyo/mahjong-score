@@ -64,7 +64,7 @@ class CalcScreen extends ConsumerWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Ver 2.2.8', style: GoogleFonts.notoSansJp(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold)),
+              Text('Ver 2.2.9', style: GoogleFonts.notoSansJp(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold)),
               Text(DateFormat('yyyy/MM/dd').format(DateTime.now()), style: GoogleFonts.notoSansJp(color: Colors.white24, fontSize: 10)),
             ],
           ),
@@ -103,8 +103,8 @@ class CalcScreen extends ConsumerWidget {
         title: Text('対局記録の保存', style: GoogleFonts.notoSansJp(color: Colors.white, fontSize: 16)),
         content: Text('現在の対局を保存しますか？', style: GoogleFonts.notoSansJp(color: Colors.white70)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('キャンセル', style: TextStyle(color: Colors.white54))),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('保存', style: TextStyle(color: Color(0xFF00FFC2)))),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text('キャンセル', style: GoogleFonts.notoSansJp(color: Colors.white54))),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: Text('保存', style: GoogleFonts.notoSansJp(color: const Color(0xFF00FFC2)))),
         ],
       ),
     );
@@ -131,8 +131,8 @@ class CalcScreen extends ConsumerWidget {
         title: Text('リセットの確認', style: GoogleFonts.notoSansJp(color: Color(0xFFFF5252), fontSize: 16)),
         content: Text('現在の入力をすべてリセットしますか？\n(保存済みの履歴は削除されません)', style: GoogleFonts.notoSansJp(color: Colors.white70)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('キャンセル', style: TextStyle(color: Colors.white54))),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('リセット', style: TextStyle(color: Color(0xFFFF5252)))),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text('キャンセル', style: GoogleFonts.notoSansJp(color: Colors.white54))),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: Text('リセット', style: GoogleFonts.notoSansJp(color: const Color(0xFFFF5252)))),
         ],
       ),
     );
@@ -224,7 +224,7 @@ class CalcScreen extends ConsumerWidget {
           const SizedBox(width: 12),
           _quickField(label: '場代', value: displayFee.toString(), onChanged: (v) => ref.read(calcProvider.notifier).updateRuleGameFee(int.tryParse(v) ?? 0), width: 80),
           const Spacer(),
-          Text('Ver 2.2.8', style: GoogleFonts.notoSansJp(color: Colors.white12, fontSize: 9)),
+          Text('Ver 2.2.9', style: GoogleFonts.notoSansJp(color: Colors.white12, fontSize: 9)),
         ],
       ),
     );
@@ -250,7 +250,7 @@ class CalcScreen extends ConsumerWidget {
               const SizedBox(width: 8),
               Text(
                 '履歴編集モード中: ${state.sessionDate ?? "不明な日付"}',
-                style: const TextStyle(
+                style: GoogleFonts.notoSansJp(
                   color: Colors.white,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
@@ -272,12 +272,12 @@ class CalcScreen extends ConsumerWidget {
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
-                  children: const [
+                  children: [
                     Icon(Icons.close, color: Colors.white, size: 14),
                     SizedBox(width: 4),
                     Text(
                       '編集を終了',
-                      style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                      style: GoogleFonts.notoSansJp(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
@@ -293,7 +293,7 @@ class CalcScreen extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(color: Colors.white38, fontSize: 9)),
+        Text(label, style: GoogleFonts.notoSansJp(color: Colors.white38, fontSize: 9)),
         SizedBox(width: width, height: 24, child: TextField(controller: TextEditingController(text: value)..selection = TextSelection.fromPosition(TextPosition(offset: value.length)), keyboardType: TextInputType.number, style: GoogleFonts.notoSansJp(color: const Color(0xFF00FFC2), fontSize: 13, fontWeight: FontWeight.bold), decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.zero, border: InputBorder.none), onChanged: onChanged)),
       ],
     );
@@ -328,7 +328,7 @@ class CalcScreen extends ConsumerWidget {
                   try { results = MahjongCalculator.calculate(inputs: game.inputs, rule: state.rule.copyWith(oka: config.oka, uma: _buildUmaList(config.umaText)), config: config, startingOyaIndex: game.startingOyaIndex); } catch (_) {}
                 }
                 return DataRow(onSelectChanged: (_) => _showEditModal(context, ref, game), cells: [
-                  DataCell(SizedBox(width: ctrlWidth, child: Center(child: Text('${idx + 1}', style: const TextStyle(fontSize: 10, color: Colors.white24))))),
+                  DataCell(SizedBox(width: ctrlWidth, child: Center(child: Text('${idx + 1}', style: GoogleFonts.notoSansJp(fontSize: 10, color: Colors.white24))))),
                   ...List.generate(4, (pIdx) {
                     final p = game.inputs.firstWhere((p) => p.id == pIdx + 1, orElse: () => const PlayerInput(id: 0, score: null));
                     String val = p.score?.toCommaString() ?? '-'; Color col = Colors.white70;
@@ -358,7 +358,7 @@ class CalcScreen extends ConsumerWidget {
                     )
                   )
                 ))),
-                DataCell(Center(child: Text(state.globalChips.fold(0, (s, c) => s + c) == 0 ? '' : 'ERR', style: const TextStyle(color: Colors.redAccent, fontSize: 8, fontWeight: FontWeight.bold)))),
+                DataCell(Center(child: Text(state.globalChips.fold(0, (s, c) => s + c) == 0 ? '' : 'ERR', style: GoogleFonts.notoSansJp(color: Colors.redAccent, fontSize: 8, fontWeight: FontWeight.bold)))),
                 const DataCell(SizedBox()),
               ]),
               DataRow(cells: [DataCell(Center(child: IconButton(icon: const Icon(Icons.add_circle_outline, color: Color(0xFF00FFC2), size: 20), onPressed: () => ref.read(calcProvider.notifier).addGame()))), ...List.generate(4, (_) => const DataCell(SizedBox())), const DataCell(SizedBox()), const DataCell(SizedBox())]),
@@ -425,11 +425,11 @@ class CalcScreen extends ConsumerWidget {
     final names = ref.read(calcProvider).playerNames;
     showDialog(context: context, builder: (ctx) => AlertDialog(
       backgroundColor: const Color(0xFF001F1A),
-      title: Text('${names[winnerId-1]} の役満設定', style: const TextStyle(color: Colors.white, fontSize: 16)),
+      title: Text('${names[winnerId-1]} の役満設定', style: GoogleFonts.notoSansJp(color: Colors.white, fontSize: 16)),
       content: Column(mainAxisSize: MainAxisSize.min, children: [
-        ElevatedButton(child: const Text('ツモ和了'), onPressed: () { ref.read(calcProvider.notifier).setYakumanTsumo(game.id, winnerId); Navigator.pop(ctx); }),
+        ElevatedButton(child: Text('ツモ和了', style: GoogleFonts.notoSansJp()), onPressed: () { ref.read(calcProvider.notifier).setYakumanTsumo(game.id, winnerId); Navigator.pop(ctx); }),
         const SizedBox(height: 16),
-        ...List.generate(4, (i) => i + 1).where((id) => id != winnerId).map((loserId) => ListTile(title: Text('${names[loserId - 1]} が放銃'), onTap: () { ref.read(calcProvider.notifier).setYakumanRon(game.id, winnerId, loserId); Navigator.pop(ctx); })),
+        ...List.generate(4, (i) => i + 1).where((id) => id != winnerId).map((loserId) => ListTile(title: Text('${names[loserId - 1]} が放銃', style: GoogleFonts.notoSansJp(color: Colors.white70)), onTap: () { ref.read(calcProvider.notifier).setYakumanRon(game.id, winnerId, loserId); Navigator.pop(ctx); })),
       ]),
     ));
   }
@@ -438,9 +438,9 @@ class CalcScreen extends ConsumerWidget {
     final names = ref.read(calcProvider).playerNames;
     showDialog(context: context, builder: (ctx) => AlertDialog(
       backgroundColor: const Color(0xFF001F1A),
-      title: Text('${names[blownId-1]} を飛ばした人', style: const TextStyle(color: Colors.white, fontSize: 15)),
+      title: Text('${names[blownId-1]} を飛ばした人', style: GoogleFonts.notoSansJp(color: Colors.white, fontSize: 15)),
       content: Column(mainAxisSize: MainAxisSize.min, children: [
-        ...List.generate(4, (i) => i + 1).where((id) => id != blownId).map((id) => ListTile(title: Text(names[id - 1]), onTap: () { ref.read(calcProvider.notifier).setBlownBy(game.id, blownId, id); Navigator.pop(ctx); })),
+        ...List.generate(4, (i) => i + 1).where((id) => id != blownId).map((id) => ListTile(title: Text(names[id - 1], style: GoogleFonts.notoSansJp(color: Colors.white70)), onTap: () { ref.read(calcProvider.notifier).setBlownBy(game.id, blownId, id); Navigator.pop(ctx); })),
       ]),
     ));
   }
@@ -476,10 +476,10 @@ class CalcScreen extends ConsumerWidget {
     final income = (pt * conf.rate) + (ch * conf.chipRate);
     final balance = snap ?? (income - (conf.gameFee / players)).round();
     return Column(mainAxisSize: MainAxisSize.min, children: [
-      Text(name, style: const TextStyle(color: Color(0xFF00FFC2), fontSize: 13), overflow: TextOverflow.ellipsis),
-      Text('Pt:${pt.toCommaString()}|Ch:${ch.toCommaString()}', style: const TextStyle(color: Colors.white54, fontSize: 11)),
-      Text('¥${income.toInt().toCommaString()}', style: TextStyle(color: income < 0 ? Colors.redAccent : Colors.white60, fontSize: 10)),
-      Text('¥${balance.toInt().toCommaString()}', style: TextStyle(color: balance < 0 ? Colors.redAccent : const Color(0xFF00FFC2), fontSize: 11, fontWeight: FontWeight.bold)),
+      Text(name, style: GoogleFonts.notoSansJp(color: const Color(0xFF00FFC2), fontSize: 13), overflow: TextOverflow.ellipsis),
+      Text('Pt:${pt.toCommaString()}|Ch:${ch.toCommaString()}', style: GoogleFonts.notoSansJp(color: Colors.white54, fontSize: 11)),
+      Text('¥${income.toInt().toCommaString()}', style: GoogleFonts.notoSansJp(color: income < 0 ? Colors.redAccent : Colors.white60, fontSize: 10)),
+      Text('¥${balance.toInt().toCommaString()}', style: GoogleFonts.notoSansJp(color: balance < 0 ? Colors.redAccent : const Color(0xFF00FFC2), fontSize: 11, fontWeight: FontWeight.bold)),
     ]);
   }
 
@@ -504,7 +504,7 @@ class SettingsModal extends ConsumerWidget {
     return Scaffold(
       backgroundColor: const Color(0xFF001F1A),
       appBar: AppBar(
-        title: const Text('アプリ設定'),
+        title: Text('アプリ設定', style: GoogleFonts.notoSansJp()),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, color: Color(0xFF00FFC2), size: 20),
           onPressed: () => Navigator.pop(context),
@@ -517,7 +517,7 @@ class SettingsModal extends ConsumerWidget {
           children: [
             Text(
               'ルール設定',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+              style: GoogleFonts.notoSansJp(color: Colors.white.withValues(alpha: 0.4), fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2),
             ),
             const SizedBox(height: 16),
             Row(children: [
@@ -540,7 +540,7 @@ class SettingsModal extends ConsumerWidget {
             const SizedBox(height: 48),
             Center(
               child: Text(
-                'Ver 2.2.8',
+                'Ver 2.2.9',
                 style: GoogleFonts.notoSansJp(color: Colors.white.withValues(alpha: 0.1), fontSize: 11),
               ),
             ),
@@ -615,9 +615,9 @@ class _PlayerInputCardState extends ConsumerState<PlayerInputCard> {
         border: Border.all(color: Colors.white10),
       ), 
       child: Row(children: [
-        GestureDetector(onTap: () => ref.read(calcProvider.notifier).setStartingOya(widget.gameId, widget.player.id - 1), child: Container(width: 28, height: 28, decoration: BoxDecoration(shape: BoxShape.circle, color: oya ? const Color(0xFF00FFC2) : Colors.transparent, border: Border.all(color: oya ? const Color(0xFF00FFC2) : Colors.white24)), child: Center(child: Text(wind, style: TextStyle(color: oya ? const Color(0xFF004D40) : Colors.white, fontSize: 11, fontWeight: FontWeight.bold))))),
+        GestureDetector(onTap: () => ref.read(calcProvider.notifier).setStartingOya(widget.gameId, widget.player.id - 1), child: Container(width: 28, height: 28, decoration: BoxDecoration(shape: BoxShape.circle, color: oya ? const Color(0xFF00FFC2) : Colors.transparent, border: Border.all(color: oya ? const Color(0xFF00FFC2) : Colors.white24)), child: Center(child: Text(wind, style: GoogleFonts.notoSansJp(color: oya ? const Color(0xFF004D40) : Colors.white, fontSize: 11, fontWeight: FontWeight.bold))))),
         const SizedBox(width: 12),
-        Expanded(flex: 3, child: Text(state.playerNames[widget.player.id - 1], style: const TextStyle(color: Colors.white70, fontSize: 13), overflow: TextOverflow.ellipsis)),
+        Expanded(flex: 3, child: Text(state.playerNames[widget.player.id - 1], style: GoogleFonts.notoSansJp(color: Colors.white70, fontSize: 13), overflow: TextOverflow.ellipsis)),
         const SizedBox(width: 8),
         Expanded(flex: 4, child: TextField(
           controller: _s, 
@@ -627,8 +627,8 @@ class _PlayerInputCardState extends ConsumerState<PlayerInputCard> {
           textInputAction: TextInputAction.done,
           onTapOutside: (_) => _f.unfocus(),
           maxLength: 6, 
-          style: const TextStyle(color: Color(0xFF00FFC2), fontSize: 16, fontWeight: FontWeight.bold), 
-          decoration: const InputDecoration(isDense: true, counterText: '', hintText: '0', hintStyle: TextStyle(color: Colors.white12), filled: true, fillColor: Colors.black12, border: InputBorder.none), 
+          style: GoogleFonts.notoSansJp(color: const Color(0xFF00FFC2), fontSize: 16, fontWeight: FontWeight.bold), 
+          decoration: InputDecoration(isDense: true, counterText: '', hintText: '0', hintStyle: GoogleFonts.notoSansJp(color: Colors.white12), filled: true, fillColor: Colors.black12, border: InputBorder.none), 
           onChanged: (v) => ref.read(calcProvider.notifier).updateScore(widget.gameId, widget.player.id, int.tryParse(v)),
           onEditingComplete: () => _f.unfocus(),
         )),

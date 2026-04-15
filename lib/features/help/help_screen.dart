@@ -38,14 +38,11 @@ class HelpScreen extends StatelessWidget {
           _buildHelpSection(
             context,
             icon: Icons.edit_note_outlined,
-            title: '3. 対局記録の操作仕様',
-            content: '座順と風の決定: メンバーを選択した順番が、そのまま座順（東・南・西・北）として割り当てられます。\n\n'
-                'スコアの自動補完: 3名分の点数を入力すると、100,000点から逆算して4名目の点数が自動入力されます。\n\n'
-                'チップの入力: 現場での現物確認と検算を確実にするため、チップ（祝儀）は4名全員分の手入力を推奨しています。\n\n'
-                '箱下計算: 点数がマイナス（トビ）の場合でも、そのまま数値を入力することで正確なPt計算が行われます。\n\n'
-                'トビマーク (箱下): 点数がマイナス（0点未満）になったプレイヤーに適用します。設定画面で「トビ賞」が有効な場合、該当者からPtが減算され、トップ者に加算されます。\n\n'
-                '役満賞マーク: 役満を和了したプレイヤーに適用します。設定された「役満祝儀」に基づき、Ptおよび収支に直接反映されます。\n\n'
-                'クリーンアイコン (リセット): 入力中のスコアやチップの数値を一括で消去し、初期状態に戻します。誤入力を最初からやり直す際にご活用ください。',
+            title: '3. 対局記録の操作手順',
+            content: 'トビ賞の入力: 飛ばされたプレイヤーのアイコンを選択し、続けて「誰に飛ばされたか」を選択します。これにより設定されたトビ賞がPtに反映されます。\n\n'
+                '役満賞の入力: 役満を和了したプレイヤーのアイコンを選択し、「ツモあがり」か「放銃者」を選択します。\n\n'
+                '計算の仕組み: アプリ設定で指定した「ウマ・オカ・各種祝儀」のPtは、スコア入力時にリアルタイムで計算され、最終的なPt・収支に自動で反映されます。\n\n'
+                'クリーンアイコン (リセット): 入力中のスコアイメージを一括消去し、初期状態に戻します。',
           ),
           _buildHelpSection(
             context,
@@ -60,7 +57,7 @@ class HelpScreen extends StatelessWidget {
           const SizedBox(height: 40),
           Center(
             child: Text(
-              'Ver 2.2.8',
+              'Ver 2.2.9',
               style: GoogleFonts.notoSansJp(color: Colors.white.withValues(alpha: 0.2), fontSize: 12),
             ),
           ),
@@ -101,7 +98,7 @@ class HelpScreen extends StatelessWidget {
           ),
           title: Text(
             title,
-            style: TextStyle(
+            style: GoogleFonts.notoSansJp(
               color: isImportant ? Colors.orangeAccent : Colors.white,
               fontWeight: FontWeight.bold,
               fontSize: 15,
@@ -112,7 +109,7 @@ class HelpScreen extends StatelessWidget {
               padding: const EdgeInsets.only(left: 16, right: 16, bottom: 20, top: 4),
               child: Text(
                 content,
-                style: const TextStyle(
+                style: GoogleFonts.notoSansJp(
                   color: Colors.white70,
                   fontSize: 14,
                   height: 1.6,

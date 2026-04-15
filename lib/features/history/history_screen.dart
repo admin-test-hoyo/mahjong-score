@@ -503,12 +503,12 @@ class _HistoryRow extends ConsumerWidget {
         data: (groups) => ListView(
           shrinkWrap: true,
           children: [
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text('グループを選択', style: TextStyle(color: Colors.white54)),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text('グループを選択', style: GoogleFonts.notoSansJp(color: Colors.white54)),
             ),
             ListTile(
-              title: const Text('フリー対局', style: TextStyle(color: Colors.white)),
+              title: Text('フリー対局', style: GoogleFonts.notoSansJp(color: Colors.white)),
               onTap: () {
                 ref.read(historyProvider.notifier).updateSessionGroupId(session.id!, systemGroupIdFreeMatch);
                 Navigator.pop(context);

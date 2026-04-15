@@ -94,7 +94,7 @@ class MainScreen extends ConsumerWidget {
           ),
         ),
         Text(
-          'Ver 2.2.8',
+          'Ver 2.2.9',
           style: GoogleFonts.notoSansJp(color: Colors.white38, fontSize: 10),
         ),
       ],
@@ -244,33 +244,7 @@ class MainScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _drawerAction(
-                  context, 
-                  ref, 
-                  Icons.calculate_outlined, 
-                  'スコア計算', 
-                  () => ref.read(navigationProvider.notifier).setTab(MainTab.calc),
-                  titleColor: currentTab == MainTab.calc ? const Color(0xFF00FFC2) : null,
-                  iconColor: currentTab == MainTab.calc ? const Color(0xFF00FFC2) : null,
-                ),
-                _drawerAction(
-                  context, 
-                  ref, 
-                  Icons.history_outlined, 
-                  '対局履歴', 
-                  () => ref.read(navigationProvider.notifier).setTab(MainTab.history),
-                  titleColor: currentTab == MainTab.history ? const Color(0xFF00FFC2) : null,
-                  iconColor: currentTab == MainTab.history ? const Color(0xFF00FFC2) : null,
-                ),
-                _drawerAction(
-                  context, 
-                  ref, 
-                  Icons.bar_chart_outlined, 
-                  '統計・分析', 
-                  () => ref.read(navigationProvider.notifier).setTab(MainTab.stats),
-                  titleColor: currentTab == MainTab.stats ? const Color(0xFF00FFC2) : null,
-                  iconColor: currentTab == MainTab.stats ? const Color(0xFF00FFC2) : null,
-                ),
+                _categoryLabel('[SYSTEM]'),
                 _drawerAction(context, ref, Icons.group, 'グループ管理', () {
                   Navigator.push(context, MaterialPageRoute(builder: (context) => const GroupScreen()));
                 }),
@@ -282,8 +256,7 @@ class MainScreen extends ConsumerWidget {
                 
                 const Divider(color: Colors.white10),
                 _categoryLabel('[DATA]'),
-                _drawerAction(context, ref, Icons.download, 'バックアップ保存', () => CalcScreen.exportData(context, ref), iconColor: Colors.white24),
-                _drawerAction(context, ref, Icons.upload, 'データ復元', () => CalcScreen.importData(context, ref), iconColor: Colors.white24),
+                _drawerAction(context, ref, Icons.storage_outlined, 'バックアップ', () => _showBackupMenu(context, ref), iconColor: Colors.white24),
                 _drawerAction(context, ref, Icons.delete_sweep, '履歴クリーンアップ', () => _showHistoryCleanup(context, ref), iconColor: Colors.orangeAccent.withValues(alpha: 0.6), titleColor: Colors.orangeAccent.withValues(alpha: 0.8)),
 
                 const Divider(color: Colors.white10),
@@ -291,6 +264,7 @@ class MainScreen extends ConsumerWidget {
                 _drawerAction(context, ref, Icons.help_outline, 'ヘルプ / 使い方', () {
                   Navigator.push(context, MaterialPageRoute(builder: (context) => const HelpScreen()));
                 }),
+                _drawerAction(context, ref, Icons.info_outline, 'バージョン情報', () => _showVersionInfo(context), iconColor: Colors.white24),
                 
                 const SizedBox(height: 12),
               ],
@@ -301,12 +275,75 @@ class MainScreen extends ConsumerWidget {
     );
   }
 
+  void _showVersionInfo(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF001F1A),
+        title: Text('バージョン情報', style: GoogleFonts.notoSansJp(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('麻雀スコア表', style: GoogleFonts.notoSansJp(color: const Color(0xFF00FFC2), fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text('Version: 2.2.9', style: GoogleFonts.notoSansJp(color: Colors.white70, fontSize: 13)),
+            Text('Build: 72', style: GoogleFonts.notoSansJp(color: Colors.white38, fontSize: 11)),
+            const SizedBox(height: 16),
+            Text('© 2026 Admin Test Hoyo', style: GoogleFonts.notoSansJp(color: Colors.white24, fontSize: 10)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('閉じる', style: GoogleFonts.notoSansJp(color: const Color(0xFF00FFC2))),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showBackupMenu(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF001F1A),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('バックアップ設定', style: GoogleFonts.notoSansJp(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: const Icon(Icons.download, color: Color(0xFF00FFC2)),
+              title: Text('データを外部保存 (エクスポート)', style: GoogleFonts.notoSansJp(color: Colors.white70)),
+              onTap: () {
+                Navigator.pop(context);
+                CalcScreen.exportData(context, ref);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.upload, color: Color(0xFF00FFC2)),
+              title: Text('データを復元 (インポート)', style: GoogleFonts.notoSansJp(color: Colors.white70)),
+              onTap: () {
+                Navigator.pop(context);
+                CalcScreen.importData(context, ref);
+              },
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _categoryLabel(String text) {
     return Padding(
       padding: const EdgeInsets.only(left: 16, top: 12, bottom: 4),
       child: Text(
         text,
-        style: const TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+        style: GoogleFonts.notoSansJp(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5),
       ),
     );
   }
@@ -317,7 +354,7 @@ class MainScreen extends ConsumerWidget {
       contentPadding: const EdgeInsets.symmetric(horizontal: 16),
       dense: true,
       leading: Icon(icon, color: iconColor ?? Colors.white38, size: 20),
-      title: Text(title, style: TextStyle(color: titleColor ?? Colors.white70, fontSize: 14)),
+      title: Text(title, style: GoogleFonts.notoSansJp(color: titleColor ?? Colors.white70, fontSize: 14)),
       onTap: () {
         Navigator.pop(context);
         onTap();
