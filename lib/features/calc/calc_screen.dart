@@ -64,7 +64,7 @@ class CalcScreen extends ConsumerWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Ver 2.2.9', style: GoogleFonts.notoSansJp(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold)),
+              Text('Ver 2.3.0', style: GoogleFonts.notoSansJp(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold)),
               Text(DateFormat('yyyy/MM/dd').format(DateTime.now()), style: GoogleFonts.notoSansJp(color: Colors.white24, fontSize: 10)),
             ],
           ),
@@ -224,7 +224,7 @@ class CalcScreen extends ConsumerWidget {
           const SizedBox(width: 12),
           _quickField(label: '場代', value: displayFee.toString(), onChanged: (v) => ref.read(calcProvider.notifier).updateRuleGameFee(int.tryParse(v) ?? 0), width: 80),
           const Spacer(),
-          Text('Ver 2.2.9', style: GoogleFonts.notoSansJp(color: Colors.white12, fontSize: 9)),
+          Text('Ver 2.3.0', style: GoogleFonts.notoSansJp(color: Colors.white12, fontSize: 9)),
         ],
       ),
     );
@@ -540,7 +540,7 @@ class SettingsModal extends ConsumerWidget {
             const SizedBox(height: 48),
             Center(
               child: Text(
-                'Ver 2.2.9',
+                'Ver 2.3.0',
                 style: GoogleFonts.notoSansJp(color: Colors.white.withValues(alpha: 0.1), fontSize: 11),
               ),
             ),

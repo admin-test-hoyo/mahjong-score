@@ -94,7 +94,7 @@ class MainScreen extends ConsumerWidget {
           ),
         ),
         Text(
-          'Ver 2.2.9',
+          'Ver 2.3.0',
           style: GoogleFonts.notoSansJp(color: Colors.white38, fontSize: 10),
         ),
       ],
@@ -145,7 +145,7 @@ class MainScreen extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('履歴のクリーンアップ', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            Text('履歴のクリーンアップ', style: GoogleFonts.notoSansJp(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 20),
             _cleanupOption(context, ref, '3ヶ月以上前を削除', 3),
             _cleanupOption(context, ref, '6ヶ月以上前を削除', 6),
@@ -153,7 +153,7 @@ class MainScreen extends ConsumerWidget {
             const Divider(color: Colors.white10),
             ListTile(
               leading: const Icon(Icons.delete_forever, color: Colors.redAccent),
-              title: const Text('すべての履歴を削除', style: TextStyle(color: Colors.redAccent)),
+              title: Text('すべての履歴を削除', style: GoogleFonts.notoSansJp(color: Colors.redAccent)),
               onTap: () async {
                 Navigator.pop(context);
                 final confirmed = await _confirmDelete(context, '本当にすべての履歴を削除しますか？');
@@ -171,7 +171,7 @@ class MainScreen extends ConsumerWidget {
   Widget _cleanupOption(BuildContext context, WidgetRef ref, String label, int months) {
     return ListTile(
       leading: const Icon(Icons.history, color: Color(0xFF00FFC2)),
-      title: Text(label, style: const TextStyle(color: Colors.white70)),
+      title: Text(label, style: GoogleFonts.notoSansJp(color: Colors.white70)),
       onTap: () async {
         Navigator.pop(context);
         final confirmed = await _confirmDelete(context, '$monthsヶ月以上前の履歴を削除しますか？');
@@ -187,11 +187,11 @@ class MainScreen extends ConsumerWidget {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF001F1A),
-        title: const Text('削除の確認', style: TextStyle(color: Colors.white, fontSize: 16)),
-        content: Text(message, style: const TextStyle(color: Colors.white70)),
+        title: Text('削除の確認', style: GoogleFonts.notoSansJp(color: Colors.white, fontSize: 16)),
+        content: Text(message, style: GoogleFonts.notoSansJp(color: Colors.white70)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('キャンセル', style: TextStyle(color: Colors.white54))),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('削除', style: TextStyle(color: Colors.redAccent))),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text('キャンセル', style: GoogleFonts.notoSansJp(color: Colors.white54))),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: Text('削除', style: GoogleFonts.notoSansJp(color: Colors.redAccent))),
         ],
       ),
     );
@@ -223,7 +223,7 @@ class MainScreen extends ConsumerWidget {
                         ),
                       ],
                     ),
-                    child: const Text('🀄', style: TextStyle(fontSize: 44)),
+                    child: Text('🀄', style: GoogleFonts.notoSansJp(fontSize: 44)),
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -287,8 +287,8 @@ class MainScreen extends ConsumerWidget {
           children: [
             Text('麻雀スコア表', style: GoogleFonts.notoSansJp(color: const Color(0xFF00FFC2), fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            Text('Version: 2.2.9', style: GoogleFonts.notoSansJp(color: Colors.white70, fontSize: 13)),
-            Text('Build: 72', style: GoogleFonts.notoSansJp(color: Colors.white38, fontSize: 11)),
+            Text('Version: 2.3.0', style: GoogleFonts.notoSansJp(color: Colors.white70, fontSize: 13)),
+            Text('Build: 73', style: GoogleFonts.notoSansJp(color: Colors.white38, fontSize: 11)),
             const SizedBox(height: 16),
             Text('© 2026 Admin Test Hoyo', style: GoogleFonts.notoSansJp(color: Colors.white24, fontSize: 10)),
           ],
