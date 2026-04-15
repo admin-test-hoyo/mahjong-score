@@ -21,9 +21,10 @@ class HelpScreen extends StatelessWidget {
           _buildHelpSection(
             context,
             icon: Icons.play_circle_outline,
-            title: '対局の始め方とグループについて',
-            content: '本アプリでは、まず「グループ管理」タブで一緒に打つ頻度の高いメンバーを事前に登録することをお勧めします。\n\n'
-                'グループを作成してメンバーを追加しておけば、「スコア計算」画面の右上にある「メンバー選択」ボタンから、ワンタップで対局メンバーを呼び出すことができます。',
+            title: '対局の記録（スコア入力）',
+            content: 'メンバー選択について：\n\n'
+                '座順の自動設定: メンバーを選択した順番（1番目、2番目…）が、そのまま対局の座順（東、南、西、北）として自動的に割り当てられます。起家から順番にタップしてください。\n\n'
+                'グループのロック: 選択画面を開く際に指定したグループのメンバーのみが表示されます。他のグループのメンバーを混在させることはできません。',
           ),
           _buildHelpSection(
             context,
@@ -35,9 +36,10 @@ class HelpScreen extends StatelessWidget {
           _buildHelpSection(
             context,
             icon: Icons.analytics_outlined,
-            title: '統計・分析について',
-            content: '保存された対局記録は、プレイヤー名ごとに自動集計されます。\n\n'
-                '「統計・分析」タブでは、通算成績、平均順位、1位率、連対率といった実力を示す指標を様々な角度から確認できます。グループ絞り込み機能を併用することで、特定の対局集団における詳細な戦績を把握できます。',
+            title: '履歴の確認と分析（NEW）',
+            content: 'データのフィルタリング: 履歴画面の上部にあるチップをタップすると、特定のグループ（いつめん等）の対局のみを瞬時に絞り込んで表示できます。\n\n'
+                '履歴の編集: 各履歴をタップ（またはアクションメニューを開く）すると、対局日や所属グループを後から修正できます。\n\n'
+                'CSVエクスポート: 画面右上のダウンロードアイコンから、現在表示されている（フィルタリングされた）履歴データをCSV形式で書き出せます。出力データには各プレイヤーの順位・Pt・チップ・収支がすべて含まれており、Excel等での高度な分析に最適です。',
           ),
           _buildHelpSection(
             context,
@@ -51,7 +53,7 @@ class HelpScreen extends StatelessWidget {
           const SizedBox(height: 40),
           Center(
             child: Text(
-              'Ver 2.2.4',
+              'Ver 2.2.5',
               style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 12),
             ),
           ),
