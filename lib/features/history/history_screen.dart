@@ -45,40 +45,35 @@ class HistoryScreen extends ConsumerStatefulWidget {
        return;
     }
 
-    // CSV構築
-    final sb = StringBuffer();
-    sb.writeln('対局ID,日付,グループ名,順位1,プレイヤー1,Pt1,チップ1,収支1,順位2,プレイヤー2,Pt2,チップ2,収支2,順位3,プレイヤー3,Pt3,チップ3,収支3,順位4,プレイヤー4,Pt4,チップ4,収支4');
+    // CSV構築 (Ver 2.2.3 強制上書きロジック)
+    String csv = "対局ID,日付,グループ名,順位1,プレイヤー1,Pt1,チップ1,収支1,順位2,プレイヤー2,Pt2,チップ2,収支2,順位3,プレイヤー3,Pt3,チップ3,収支3,順位4,プレイヤー4,Pt4,チップ4,収支4\n";
     
     for (var data in filteredSessions) {
-      final Session session = data['session'];
-      final String groupName = data['groupName'] ?? '';
-      final List<int> totalPts = data['totalPt'] ?? [];
-      final List<int> totalChips = data['totalChips'] ?? [];
-      final List<int> totalMoney = data['totalMoney'] ?? [];
+      final session = data['session'] as Session;
+      final groupName = (data['groupName'] as String? ?? '').replaceAll(',', '，');
+      final totalPts = data['totalPt'] as List<int>;
+      final totalChips = data['totalChips'] as List<int>;
+      final totalMoney = data['totalMoney'] as List<int>;
       
-      final row = [
-        session.id.toString(),
-        session.date,
-        groupName.replaceAll(',', '，'), // カンマのエスケープ
-      ];
-      
+      String row = "${session.id},${session.date},$groupName";
       for (int i = 0; i < 4; i++) {
-        if (i < session.playerNames.length && i < totalPts.length && i < totalMoney.length) {
-          row.add((i + 1).toString()); // 順位
-          row.add(session.playerNames[i].replaceAll(',', '，'));
-          row.add(totalPts[i].toString());
-          final c = i < totalChips.length ? totalChips[i].toString() : '0';
-          row.add(c); // チップ
-          row.add(totalMoney[i].toString());
+        if (i < session.playerNames.length) {
+          final name = session.playerNames[i].replaceAll(',', '，');
+          final pt = totalPts[i];
+          final chip = i < totalChips.length ? totalChips[i] : 0;
+          final money = totalMoney[i];
+          // 順位(i+1), 名前, Pt, チップ, 収支
+          row += ",${i + 1},$name,$pt,$chip,$money";
         } else {
-          row.addAll(['', '', '', '', '']); // 5カラム分（順位・名前・Pt・チップ・収支）の空文字
+          // プレイヤー不足時のパディング
+          row += ",,,,,";
         }
       }
-      sb.writeln(row.join(','));
+      csv += "$row\n";
     }
 
     final bom = utf8.encode('\uFEFF');
-    final bytes = bom + utf8.encode(sb.toString());
+    final bytes = bom + utf8.encode(csv);
     final blob = html.Blob([bytes]);
     final url = html.Url.createObjectUrlFromBlob(blob);
     final dateStr = DateTime.now().toString().substring(0, 10).replaceAll('-', '');
@@ -154,6 +149,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                 padding: const EdgeInsets.only(right: 8),
                 child: FilterChip(
                   label: Text(group['name'] as String, style: TextStyle(fontSize: 11, height: 1.2, color: isSelected ? Colors.black : Colors.white70, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                  padding: const EdgeInsets.symmetric(vertical: 4.0),
+                  materialTapTargetSize: MaterialTapTargetSize.padded,
                   selected: isSelected,
                   selectedColor: const Color(0xFF00FFC2),
                   backgroundColor: Colors.white.withValues(alpha: 0.05),

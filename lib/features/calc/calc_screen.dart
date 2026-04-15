@@ -540,7 +540,7 @@ class SettingsModal extends ConsumerWidget {
             const SizedBox(height: 48),
             Center(
               child: Text(
-                'Ver 2.2.1',
+                'Ver 2.2.3',
                 style: TextStyle(color: Colors.white.withValues(alpha: 0.1), fontSize: 11),
               ),
             ),
