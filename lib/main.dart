@@ -69,17 +69,44 @@ class MahjongApp extends StatelessWidget {
         ),
         scaffoldBackgroundColor: const Color(0xFF001F1A),
         textTheme: GoogleFonts.notoSansJpTextTheme(
-          Theme.of(context).textTheme.apply(bodyColor: Colors.white, displayColor: Colors.white),
+          const TextTheme(
+            bodyLarge: TextStyle(color: Colors.white),
+            bodyMedium: TextStyle(color: Colors.white70),
+          ),
+        ),
+        primaryTextTheme: GoogleFonts.notoSansJpTextTheme(
+          const TextTheme(
+            titleLarge: TextStyle(color: Colors.white),
+          ),
         ),
         appBarTheme: AppBarTheme(
           backgroundColor: Colors.black.withValues(alpha: 0.3),
           elevation: 0,
           centerTitle: true,
           titleTextStyle: GoogleFonts.notoSansJp(
-            fontSize: 20,
+            fontSize: 18,
             fontWeight: FontWeight.bold,
             color: const Color(0xFF00FFC2),
           ),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            textStyle: GoogleFonts.notoSansJp(fontWeight: FontWeight.bold),
+          ),
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+            textStyle: GoogleFonts.notoSansJp(fontWeight: FontWeight.bold),
+          ),
+        ),
+        textButtonTheme: TextButtonThemeData(
+          style: TextButton.styleFrom(
+            textStyle: GoogleFonts.notoSansJp(fontWeight: FontWeight.bold),
+          ),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          labelStyle: GoogleFonts.notoSansJp(color: Colors.white70),
+          hintStyle: GoogleFonts.notoSansJp(color: Colors.white24, fontSize: 13),
         ),
         useMaterial3: true,
       ),

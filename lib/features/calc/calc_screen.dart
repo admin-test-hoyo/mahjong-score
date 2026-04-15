@@ -64,7 +64,7 @@ class CalcScreen extends ConsumerWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Ver 2.2.1', style: TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold)),
+              const Text('Ver 2.2.7', style: TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold)),
               Text(DateFormat('yyyy/MM/dd').format(DateTime.now()), style: const TextStyle(color: Colors.white24, fontSize: 10)),
             ],
           ),
@@ -224,7 +224,7 @@ class CalcScreen extends ConsumerWidget {
           const SizedBox(width: 12),
           _quickField(label: '場代', value: displayFee.toString(), onChanged: (v) => ref.read(calcProvider.notifier).updateRuleGameFee(int.tryParse(v) ?? 0), width: 80),
           const Spacer(),
-          const Text('Ver 2.2.1', style: TextStyle(color: Colors.white12, fontSize: 9)),
+          const Text('Ver 2.2.7', style: TextStyle(color: Colors.white12, fontSize: 9)),
         ],
       ),
     );
@@ -294,7 +294,7 @@ class CalcScreen extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: const TextStyle(color: Colors.white38, fontSize: 9)),
-        SizedBox(width: width, height: 24, child: TextField(controller: TextEditingController(text: value)..selection = TextSelection.fromPosition(TextPosition(offset: value.length)), keyboardType: TextInputType.number, style: GoogleFonts.robotoMono(color: const Color(0xFF00FFC2), fontSize: 13, fontWeight: FontWeight.bold), decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.zero, border: InputBorder.none), onChanged: onChanged)),
+        SizedBox(width: width, height: 24, child: TextField(controller: TextEditingController(text: value)..selection = TextSelection.fromPosition(TextPosition(offset: value.length)), keyboardType: TextInputType.number, style: GoogleFonts.notoSansJp(color: const Color(0xFF00FFC2), fontSize: 13, fontWeight: FontWeight.bold), decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.zero, border: InputBorder.none), onChanged: onChanged)),
       ],
     );
   }
@@ -311,7 +311,7 @@ class CalcScreen extends ConsumerWidget {
           data: Theme.of(context).copyWith(dividerColor: Colors.white10),
           child: DataTable(
             columnSpacing: 0, horizontalMargin: 4, showCheckboxColumn: false,
-            headingTextStyle: GoogleFonts.robotoMono(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold),
+            headingTextStyle: GoogleFonts.notoSansJp(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold),
             columns: [
               DataColumn(label: SizedBox(width: ctrlWidth, child: const Center(child: Text('No')))),
               ...List.generate(4, (i) => DataColumn(label: SizedBox(width: pWidth, child: Center(child: PlayerNameField(index: i, initialName: state.playerNames[i]))))),
@@ -337,7 +337,7 @@ class CalcScreen extends ConsumerWidget {
                       val = r > 0 ? '+${r.toCommaString()}' : r.toCommaString();
                       col = r < 0 ? const Color(0xFFFF5252) : const Color(0xFF00FFC2);
                     }
-                    return DataCell(SizedBox(width: pWidth, child: Center(child: Text(val, style: GoogleFonts.robotoMono(color: col, fontWeight: results != null ? FontWeight.bold : FontWeight.normal)))));
+                    return DataCell(SizedBox(width: pWidth, child: Center(child: Text(val, style: GoogleFonts.notoSansJp(color: col, fontWeight: results != null ? FontWeight.bold : FontWeight.normal)))));
                   }),
                   DataCell(SizedBox(width: ctrlWidth, child: Center(child: Icon(isValid ? Icons.check_circle : Icons.error_outline, color: isValid ? const Color(0xFF00FFC2).withValues(alpha: 0.3) : Colors.redAccent, size: 16)))),
                   DataCell(SizedBox(width: ctrlWidth, child: Center(child: IconButton(padding: EdgeInsets.zero, constraints: const BoxConstraints(), icon: const Icon(Icons.delete_outline, color: Colors.white24, size: 16), onPressed: () => ref.read(calcProvider.notifier).deleteGame(game.id))))),
@@ -352,8 +352,8 @@ class CalcScreen extends ConsumerWidget {
                       initialValue: state.globalChips[i] == 0 ? '' : state.globalChips[i].toString(), 
                       keyboardType: TextInputType.number, 
                       textAlign: TextAlign.center, 
-                      style: GoogleFonts.robotoMono(color: Colors.orangeAccent, fontSize: 13), 
-                      decoration: const InputDecoration(isDense: true, border: InputBorder.none, hintText: '0', hintStyle: TextStyle(color: Colors.white12)), 
+                      style: GoogleFonts.notoSansJp(color: Colors.orangeAccent, fontSize: 13), 
+                      decoration: InputDecoration(isDense: true, border: InputBorder.none, hintText: '0', hintStyle: GoogleFonts.notoSansJp(color: Colors.white12, fontSize: 11)), 
                       onChanged: (v) => ref.read(calcProvider.notifier).updateGlobalChip(i + 1, int.tryParse(v) ?? 0)
                     )
                   )
@@ -389,7 +389,7 @@ class CalcScreen extends ConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween, 
                 children: [
                   const SizedBox(width: 48), 
-                  Text('スコア編集', style: GoogleFonts.robotoMono(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)), 
+                  Text('スコア編集', style: GoogleFonts.notoSansJp(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)), 
                   IconButton(
                     icon: const Icon(Icons.cleaning_services, color: Colors.white38, size: 20), 
                     onPressed: () => ref.read(calcProvider.notifier).resetGameRecord(game.id)
@@ -540,8 +540,8 @@ class SettingsModal extends ConsumerWidget {
             const SizedBox(height: 48),
             Center(
               child: Text(
-                'Ver 2.2.6',
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.1), fontSize: 11),
+                'Ver 2.2.7',
+                style: GoogleFonts.notoSansJp(color: Colors.white.withValues(alpha: 0.1), fontSize: 11),
               ),
             ),
           ],
@@ -550,7 +550,7 @@ class SettingsModal extends ConsumerWidget {
     );
   }
 
-  Widget _field(WidgetRef ref, String l, String i, Function(String) o, {String? suffixText}) => TextFormField(initialValue: i, keyboardType: TextInputType.number, style: const TextStyle(color: Colors.white, fontSize: 14), decoration: InputDecoration(labelText: l, labelStyle: const TextStyle(color: Colors.white38, fontSize: 11), filled: true, fillColor: Colors.white.withValues(alpha: 0.04), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none), suffixText: suffixText), onChanged: o);
+  Widget _field(WidgetRef ref, String l, String i, Function(String) o, {String? suffixText}) => TextFormField(initialValue: i, keyboardType: TextInputType.number, style: GoogleFonts.notoSansJp(color: Colors.white, fontSize: 14), decoration: InputDecoration(labelText: l, labelStyle: GoogleFonts.notoSansJp(color: Colors.white38, fontSize: 11), filled: true, fillColor: Colors.white.withValues(alpha: 0.04), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none), suffixText: suffixText), onChanged: o);
 }
 
 class PlayerNameField extends ConsumerStatefulWidget {

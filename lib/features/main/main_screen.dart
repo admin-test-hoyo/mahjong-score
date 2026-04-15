@@ -241,20 +241,52 @@ class MainScreen extends ConsumerWidget {
           ),
           
           Expanded(
-            child: ListView(
-              padding: EdgeInsets.zero,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                _categoryLabel('[MAIN]'),
+                _drawerAction(
+                  context, 
+                  ref, 
+                  Icons.calculate_outlined, 
+                  'スコア計算', 
+                  () => ref.read(navigationProvider.notifier).setTab(MainTab.calc),
+                  titleColor: currentTab == MainTab.calc ? const Color(0xFF00FFC2) : null,
+                  iconColor: currentTab == MainTab.calc ? const Color(0xFF00FFC2) : null,
+                ),
+                _drawerAction(
+                  context, 
+                  ref, 
+                  Icons.history_outlined, 
+                  '対局履歴', 
+                  () => ref.read(navigationProvider.notifier).setTab(MainTab.history),
+                  titleColor: currentTab == MainTab.history ? const Color(0xFF00FFC2) : null,
+                  iconColor: currentTab == MainTab.history ? const Color(0xFF00FFC2) : null,
+                ),
+                _drawerAction(
+                  context, 
+                  ref, 
+                  Icons.bar_chart_outlined, 
+                  '統計・分析', 
+                  () => ref.read(navigationProvider.notifier).setTab(MainTab.stats),
+                  titleColor: currentTab == MainTab.stats ? const Color(0xFF00FFC2) : null,
+                  iconColor: currentTab == MainTab.stats ? const Color(0xFF00FFC2) : null,
+                ),
+
+                const Divider(color: Colors.white10, indent: 16, endIndent: 16),
                 _categoryLabel('[MANAGEMENT]'),
                 _drawerAction(context, ref, Icons.group, 'グループ管理', () {
                   Navigator.push(context, MaterialPageRoute(builder: (context) => const GroupScreen()));
                 }),
 
-                const Divider(color: Colors.white10),
+                const Divider(color: Colors.white10, indent: 16, endIndent: 16),
                 _categoryLabel('[SYSTEM]'),
                 _drawerAction(context, ref, Icons.settings_outlined, 'アプリ設定', () {
                   CalcScreen.showSettings(context, ref);
                 }),
 
+                const Spacer(),
+                
                 const Divider(color: Colors.white10),
                 _categoryLabel('[DATA]'),
                 _drawerAction(context, ref, Icons.download, 'バックアップ保存', () => CalcScreen.exportData(context, ref), iconColor: Colors.white24),
@@ -267,7 +299,7 @@ class MainScreen extends ConsumerWidget {
                   Navigator.push(context, MaterialPageRoute(builder: (context) => const HelpScreen()));
                 }),
                 
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
               ],
             ),
           ),

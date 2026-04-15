@@ -160,9 +160,9 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                     alignment: Alignment.center,
                     child: Text(
                       group['name'] as String,
-                      style: TextStyle(
+                      style: GoogleFonts.notoSansJp(
                         fontSize: 11,
-                        height: 1.2, // Noto Sans JP の見切れ防止のための明示的な行高
+                        height: 1.2,
                         color: isSelected ? Colors.black : Colors.white70,
                         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                       ),
@@ -209,7 +209,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           const SizedBox(width: 8),
           Text(
             '期間: ${DateFormat('M/d').format(selectedDateRange.start)} 〜 ${DateFormat('M/d').format(selectedDateRange.end)}',
-            style: const TextStyle(color: Colors.white70, fontSize: 11),
+            style: GoogleFonts.notoSansJp(color: Colors.white70, fontSize: 11),
           ),
           const Spacer(),
           InkWell(
@@ -239,7 +239,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     }
 
     if (filteredSessions.isEmpty) {
-      return const Center(child: Text('履歴がありません', style: TextStyle(color: Colors.white24)));
+      return Center(child: Text('履歴がありません', style: GoogleFonts.notoSansJp(color: Colors.white24)));
     }
 
     return Column(
@@ -265,14 +265,14 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       color: Colors.white.withValues(alpha: 0.02),
-      child: const Row(
+      child: Row(
         children: [
-          Expanded(flex: 3, child: Text('日付 / グループ', style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold))),
-          Expanded(flex: 2, child: Text('1位', textAlign: TextAlign.center, style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold))),
-          Expanded(flex: 2, child: Text('2位', textAlign: TextAlign.center, style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold))),
-          Expanded(flex: 2, child: Text('3位', textAlign: TextAlign.center, style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold))),
-          Expanded(flex: 2, child: Text('4位', textAlign: TextAlign.center, style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold))),
-          SizedBox(width: 8),
+          Expanded(flex: 3, child: Text('日付 / グループ', style: GoogleFonts.notoSansJp(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold))),
+          Expanded(flex: 2, child: Text('1位', textAlign: TextAlign.center, style: GoogleFonts.notoSansJp(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold))),
+          Expanded(flex: 2, child: Text('2位', textAlign: TextAlign.center, style: GoogleFonts.notoSansJp(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold))),
+          Expanded(flex: 2, child: Text('3位', textAlign: TextAlign.center, style: GoogleFonts.notoSansJp(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold))),
+          Expanded(flex: 2, child: Text('4位', textAlign: TextAlign.center, style: GoogleFonts.notoSansJp(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold))),
+          const SizedBox(width: 8),
         ],
       ),
     );
@@ -322,11 +322,11 @@ class _HistoryRow extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(session.date, style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold)),
+                  Text(session.date, style: GoogleFonts.notoSansJp(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 2),
                   Text(
                     groupName,
-                    style: TextStyle(
+                    style: GoogleFonts.notoSansJp(
                       color: groupName == 'フリー対局' ? Colors.orangeAccent.withValues(alpha: 0.5) : const Color(0xFF00FFC2).withValues(alpha: 0.3),
                       fontSize: 9,
                     ),
@@ -334,7 +334,7 @@ class _HistoryRow extends ConsumerWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 1),
-                  Text('$gameCount局', style: const TextStyle(color: Colors.white12, fontSize: 9)),
+                  Text('$gameCount局', style: GoogleFonts.notoSansJp(color: Colors.white12, fontSize: 9)),
                 ],
               ),
             ),
@@ -361,7 +361,7 @@ class _HistoryRow extends ConsumerWidget {
                         Flexible(
                           child: Text(
                             player['name'],
-                            style: TextStyle(
+                            style: GoogleFonts.notoSansJp(
                               color: isWinner ? Colors.white : Colors.white60,
                               fontSize: 10,
                               fontWeight: isWinner ? FontWeight.bold : FontWeight.normal,
@@ -376,7 +376,7 @@ class _HistoryRow extends ConsumerWidget {
                     // Row 2: Pt
                     Text(
                       player['pt'] > 0 ? '+${player['pt']}' : '${player['pt']}',
-                      style: TextStyle(
+                      style: GoogleFonts.notoSansJp(
                         color: performanceColor(player['pt']),
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
@@ -386,7 +386,7 @@ class _HistoryRow extends ConsumerWidget {
                     // Row 3: Money
                     Text(
                       '¥${(player['money'] as int).toCommaString()}',
-                      style: TextStyle(
+                      style: GoogleFonts.notoSansJp(
                         color: performanceColor(player['money']).withValues(alpha: 0.7),
                         fontSize: 9,
                       ),

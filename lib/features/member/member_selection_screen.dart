@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../core/database/database_service.dart';
 import '../calc/calc_providers.dart';
 import '../stats/stats_providers.dart';
@@ -52,19 +53,19 @@ class _MemberSelectionScreenState extends ConsumerState<MemberSelectionScreen> {
         children: [
           Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(2))),
           const SizedBox(height: 20),
-          const Text(
+          Text(
             '対局メンバーを選択',
-            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+            style: GoogleFonts.notoSansJp(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           Text(
             '選択順に 東・南・西・北 の座順となります',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 11),
+            style: GoogleFonts.notoSansJp(color: Colors.white.withValues(alpha: 0.4), fontSize: 11),
           ),
           const SizedBox(height: 12),
           Text(
             '選択済み：$selectedCount / 4人',
-            style: TextStyle(
+            style: GoogleFonts.notoSansJp(
               color: selectedCount == 4 ? const Color(0xFF00FFC2) : Colors.white24,
               fontSize: 14,
               fontWeight: FontWeight.bold,
@@ -91,7 +92,7 @@ class _MemberSelectionScreenState extends ConsumerState<MemberSelectionScreen> {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF00FFC2))),
-      error: (e, _) => Center(child: Text('Error: $e', style: const TextStyle(color: Colors.redAccent))),
+      error: (e, _) => Center(child: Text('Error: $e', style: GoogleFonts.notoSansJp(color: Colors.redAccent))),
     );
   }
 
@@ -123,7 +124,7 @@ class _MemberSelectionScreenState extends ConsumerState<MemberSelectionScreen> {
               },
               backgroundColor: Colors.white.withValues(alpha: 0.05),
               selectedColor: const Color(0xFF00FFC2).withValues(alpha: 0.2),
-              labelStyle: TextStyle(
+              labelStyle: GoogleFonts.notoSansJp(
                 color: isSelected ? const Color(0xFF00FFC2) : Colors.white60,
                 fontSize: 12,
               ),
@@ -149,11 +150,11 @@ class _MemberSelectionScreenState extends ConsumerState<MemberSelectionScreen> {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator(color: Color(0xFF00FFC2)));
         }
-        if (snapshot.hasError) return const Center(child: Text('データ取得に失敗しました', style: TextStyle(color: Colors.redAccent, fontSize: 12)));
+        if (snapshot.hasError) return Center(child: Text('データ取得に失敗しました', style: GoogleFonts.notoSansJp(color: Colors.redAccent, fontSize: 12)));
         
         final members = snapshot.data ?? [];
         if (members.isEmpty) {
-          return const Center(child: Text('このグループにはメンバーがいません', style: TextStyle(color: Colors.white24, fontSize: 13)));
+          return Center(child: Text('このグループにはメンバーがいません', style: GoogleFonts.notoSansJp(color: Colors.white24, fontSize: 13)));
         }
 
         return GridView.builder(
@@ -189,7 +190,7 @@ class _MemberSelectionScreenState extends ConsumerState<MemberSelectionScreen> {
                     Expanded(
                       child: Text(
                         name,
-                        style: TextStyle(
+                        style: GoogleFonts.notoSansJp(
                           color: isSelected ? Colors.white : Colors.white70,
                           fontSize: 14,
                           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
@@ -209,8 +210,8 @@ class _MemberSelectionScreenState extends ConsumerState<MemberSelectionScreen> {
                         child: Center(
                           child: Text(
                             order.toString(),
-                            style: const TextStyle(
-                              color: Color(0xFF004D40),
+                            style: GoogleFonts.notoSansJp(
+                              color: const Color(0xFF004D40),
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
                             ),
@@ -248,7 +249,7 @@ class _MemberSelectionScreenState extends ConsumerState<MemberSelectionScreen> {
           } : null,
           child: Text(
             selectedNames.isEmpty ? 'メンバーを選択してください' : '確定して反映 (${selectedNames.length}名)',
-            style: const TextStyle(fontWeight: FontWeight.bold),
+            style: GoogleFonts.notoSansJp(fontWeight: FontWeight.bold),
           ),
         ),
       ),

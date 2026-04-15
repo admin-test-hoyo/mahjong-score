@@ -15,20 +15,20 @@ class GroupScreen extends ConsumerStatefulWidget {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF001F1A),
-        title: const Text('新規グループ作成', style: TextStyle(color: Colors.white, fontSize: 16)),
+        title: Text('新規グループ作成', style: GoogleFonts.notoSansJp(color: Colors.white, fontSize: 16)),
         content: TextField(
           controller: controller,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
+          style: GoogleFonts.notoSansJp(color: Colors.white),
+          decoration: InputDecoration(
             hintText: 'グループ名を入力',
-            hintStyle: TextStyle(color: Colors.white24),
+            hintStyle: GoogleFonts.notoSansJp(color: Colors.white24),
           ),
           autofocus: true,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('キャンセル', style: TextStyle(color: Colors.white54)),
+            child: Text('キャンセル', style: GoogleFonts.notoSansJp(color: Colors.white54)),
           ),
           TextButton(
             onPressed: () async {
@@ -38,7 +38,7 @@ class GroupScreen extends ConsumerStatefulWidget {
                 ref.read(databaseVersionProvider.notifier).increment();
               }
             },
-            child: const Text('追加', style: TextStyle(color: Color(0xFF00FFC2), fontWeight: FontWeight.bold)),
+            child: Text('追加', style: GoogleFonts.notoSansJp(color: const Color(0xFF00FFC2), fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -75,7 +75,7 @@ class _GroupScreenState extends ConsumerState<GroupScreen> {
         data: (allGroups) {
           final groups = allGroups.where((g) => g['id'] != systemGroupIdFreeMatch).toList();
           if (groups.isEmpty) {
-            return const Center(child: Text('グループが登録されていません', style: TextStyle(color: Colors.white24)));
+            return Center(child: Text('グループが登録されていません', style: GoogleFonts.notoSansJp(color: Colors.white24)));
           }
           return ListView.builder(
             padding: const EdgeInsets.only(top: 8, bottom: 40),
@@ -94,8 +94,8 @@ class _GroupScreenState extends ConsumerState<GroupScreen> {
                 child: ExpansionTile(
                   tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   leading: const Icon(Icons.group, color: Colors.white54),
-                  title: Text(group['name'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                  subtitle: const Text('タップしてメニューを表示', style: TextStyle(color: Colors.white38, fontSize: 10)),
+                  title: Text(group['name'], style: GoogleFonts.notoSansJp(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                  subtitle: Text('タップしてメニューを表示', style: GoogleFonts.notoSansJp(color: Colors.white38, fontSize: 10)),
                   trailing: const Icon(Icons.expand_more, color: Colors.white24),
                   children: [
                     Container(
@@ -145,27 +145,27 @@ class _GroupScreenState extends ConsumerState<GroupScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF001F1A),
-        title: const Text('グループ名編集', style: TextStyle(color: Colors.white, fontSize: 16)),
+        title: Text('グループ名編集', style: GoogleFonts.notoSansJp(color: Colors.white, fontSize: 16)),
         content: TextField(
           controller: controller,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
+          style: GoogleFonts.notoSansJp(color: Colors.white),
+          decoration: InputDecoration(
             hintText: '新しい名前を入力',
-            hintStyle: TextStyle(color: Colors.white24),
+            hintStyle: GoogleFonts.notoSansJp(color: Colors.white24),
           ),
           autofocus: true,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('キャンセル', style: TextStyle(color: Colors.white54)),
+            child: Text('キャンセル', style: GoogleFonts.notoSansJp(color: Colors.white54)),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               _editGroupWrapper(id, controller.text);
             },
-            child: const Text('保存', style: TextStyle(color: Color(0xFF00FFC2), fontWeight: FontWeight.bold)),
+            child: Text('保存', style: GoogleFonts.notoSansJp(color: const Color(0xFF00FFC2), fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -177,19 +177,19 @@ class _GroupScreenState extends ConsumerState<GroupScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF001F1A),
-        title: const Text('グループ削除', style: TextStyle(color: Colors.white, fontSize: 16)),
-        content: Text('「$name」を削除しますか？\n（注：対局履歴は削除されません）', style: const TextStyle(color: Colors.white70)),
+        title: Text('グループ削除', style: GoogleFonts.notoSansJp(color: Colors.white, fontSize: 16)),
+        content: Text('「$name」を削除しますか？\n（注：対局履歴は削除されません）', style: GoogleFonts.notoSansJp(color: Colors.white70)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('キャンセル', style: TextStyle(color: Colors.white54)),
+            child: Text('キャンセル', style: GoogleFonts.notoSansJp(color: Colors.white54)),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               _deleteGroupWrapper(id);
             },
-            child: const Text('削除', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+            child: Text('削除', style: GoogleFonts.notoSansJp(color: Colors.redAccent, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -207,7 +207,7 @@ class _GroupScreenState extends ConsumerState<GroupScreen> {
           children: [
             Icon(icon, color: color ?? Colors.white70, size: 20),
             const SizedBox(height: 4),
-            Text(label, style: TextStyle(color: color ?? Colors.white54, fontSize: 9)),
+            Text(label, style: GoogleFonts.notoSansJp(color: color ?? Colors.white54, fontSize: 9)),
           ],
         ),
       ),
@@ -315,7 +315,7 @@ class _MemberEditScreenState extends State<MemberEditScreen> {
                       final member = _members[index];
                       return ListTile(
                         leading: const Icon(Icons.person, color: Colors.white54),
-                        title: Text(member['name'], style: const TextStyle(color: Colors.white70, fontSize: 15)),
+                        title: Text(member['name'], style: GoogleFonts.notoSansJp(color: Colors.white70, fontSize: 15)),
                         trailing: IconButton(
                           icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
                           onPressed: () => _deleteMember(member['id']),

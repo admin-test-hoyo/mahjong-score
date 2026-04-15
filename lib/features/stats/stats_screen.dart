@@ -101,8 +101,8 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
             indicatorColor: const Color(0xFF00FFC2),
             labelColor: const Color(0xFF00FFC2),
             unselectedLabelColor: Colors.white38,
-            labelStyle: GoogleFonts.robotoMono(fontSize: 13, fontWeight: FontWeight.bold),
-            unselectedLabelStyle: GoogleFonts.robotoMono(fontSize: 13),
+            labelStyle: GoogleFonts.notoSansJp(fontSize: 13, fontWeight: FontWeight.bold),
+            unselectedLabelStyle: GoogleFonts.notoSansJp(fontSize: 13),
             tabs: const [
               Tab(text: '個人分析'),
               Tab(text: 'グループ分析'),
@@ -308,7 +308,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
               }
               return Colors.transparent;
             }),
-            headingTextStyle: GoogleFonts.robotoMono(
+            headingTextStyle: GoogleFonts.notoSansJp(
                 color: const Color(0xFF00FFC2),
                 fontSize: 11,
                 fontWeight: FontWeight.bold),
@@ -417,20 +417,18 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                   // 総Pt
                   DataCell(Text(
                     totalPt >= 0 ? '+$totalPt' : '$totalPt',
-                    style: TextStyle(
+                    style: GoogleFonts.notoSansJp(
                         color: ptColor,
-                        fontFamily: 'RobotoMono',
                         fontWeight: FontWeight.bold,
                         fontSize: 12),
                   )),
                   // 総Chip
                   DataCell(Text(
                     totalChip >= 0 ? '+$totalChip' : '$totalChip',
-                    style: TextStyle(
+                    style: GoogleFonts.notoSansJp(
                         color: totalChip >= 0
                             ? Colors.amberAccent
                             : Colors.redAccent,
-                        fontFamily: 'RobotoMono',
                         fontSize: 12),
                   )),
                   // 総収支 (Money)
@@ -442,9 +440,8 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                     ),
                     child: Text(
                       '¥${_formatNumber(totalScore)}',
-                      style: TextStyle(
+                      style: GoogleFonts.notoSansJp(
                           color: scoreColor,
-                          fontFamily: 'RobotoMono',
                           fontWeight: FontWeight.bold,
                           fontSize: 12),
                     ),
@@ -585,11 +582,10 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
             style: const TextStyle(color: Colors.white24, fontSize: 10)),
         const SizedBox(height: 4),
         Text(value,
-            style: TextStyle(
+            style: GoogleFonts.notoSansJp(
                 color: color ?? Colors.white,
                 fontSize: 16,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'RobotoMono')),
+                fontWeight: FontWeight.bold)),
       ],
     );
   }
@@ -682,7 +678,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
       children: [
         Padding(
           padding: const EdgeInsets.only(left: 16, bottom: 8),
-          child: Text('累計Pt推移', style: GoogleFonts.robotoMono(color: const Color(0xFF00FFC2), fontSize: 13, fontWeight: FontWeight.bold)),
+          child: Text('累計Pt推移', style: GoogleFonts.notoSansJp(color: const Color(0xFF00FFC2), fontSize: 13, fontWeight: FontWeight.bold)),
         ),
         Container(
           height: 260,
