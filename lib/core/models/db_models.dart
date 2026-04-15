@@ -162,6 +162,7 @@ class Session {
   final String? configJson; // Snapshot of AppConfig
   final String? globalChipsJson; // [p1, p2, p3, p4] Snapshot
   final List<int>? totalMoneys; // Snapshot of final balances
+  final String? type; // Ver 3.6.0: '3-player' or '4-player'
 
   Session({
     this.id,
@@ -171,6 +172,7 @@ class Session {
     this.configJson,
     this.globalChipsJson,
     this.totalMoneys,
+    this.type,
   });
 
   Map<String, dynamic> toMap() {
@@ -188,6 +190,7 @@ class Session {
       'p2_money': totalMoneys != null && totalMoneys!.length > 1 ? totalMoneys![1] : 0,
       'p3_money': totalMoneys != null && totalMoneys!.length > 2 ? totalMoneys![2] : 0,
       'p4_money': totalMoneys != null && totalMoneys!.length > 3 ? totalMoneys![3] : 0,
+      'type': type,
     };
   }
 
@@ -210,6 +213,7 @@ class Session {
         map['p3_money'] ?? 0,
         map['p4_money'] ?? 0,
       ],
+      type: map['type'],
     );
   }
 }

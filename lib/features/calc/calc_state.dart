@@ -272,7 +272,8 @@ class CalcNotifier extends Notifier<CalcState> {
       final enteredInputs = tempInputs.where((p) => p.score != null).toList();
       final remainingInputs = tempInputs.where((p) => p.score == null).toList();
 
-      if (enteredInputs.length == 3 && remainingInputs.length == 1) {
+      final isSanma = ref.read(sanmaProvider);
+      if (enteredInputs.length == (isSanma ? 2 : 3) && remainingInputs.isNotEmpty) {
         final target = config.targetTotalScore;
         final currentSum = enteredInputs.fold(0, (s, p) => s + (p.score ?? 0));
         final remainder = target - currentSum;
@@ -354,8 +355,9 @@ class CalcNotifier extends Notifier<CalcState> {
   }
 
   void setYakumanTsumo(String gameId, int winnerId) {
+    final isSanma = ref.read(sanmaProvider);
+    final numPlayers = isSanma ? 3 : 4;
     final yakumanTsumoPrize = ref.read(configProvider).yakumanTsumoPrize;
-    const numPlayers = 4;
     final totalWin = yakumanTsumoPrize * (numPlayers - 1);
 
     final newGames = state.games.map((game) {
@@ -407,8 +409,17 @@ class CalcNotifier extends Notifier<CalcState> {
     state = state.copyWith(games: newGames, clearSnapshot: true);
   }
 
-  List<int> _buildUmaList(String umaText) {
+  List<int> _buildUmaList(String umaText, bool isSanma) {
     final parts = umaText.split('-');
+    if (isSanma) {
+      // Ver 3.5.7: 三麻は2位が0、1位と3位で設定値の最大値を授受する
+      int x = 20; 
+      final numbers = parts.map((e) => int.tryParse(e)).whereType<int>().toList();
+      if (numbers.isNotEmpty) {
+        x = numbers.reduce((a, b) => a.abs() > b.abs() ? a.abs() : b.abs());
+      }
+      return [x, 0, -x];
+    }
     if (parts.length == 2) {
       final a = int.tryParse(parts[0]) ?? 10;
       final b = int.tryParse(parts[1]) ?? 20;
@@ -429,7 +440,8 @@ class CalcNotifier extends Notifier<CalcState> {
       // Ver 3.5.2: 画面上の最新設定を常に使用（独立編集モード）
       // 以前の「凍結ロジック」は、過去の対局ルールの微調整（レート変更等）を妨げるため廃止しました。
 
-      const players = 4;
+      final isSanma = ref.read(sanmaProvider);
+      final players = isSanma ? 3 : 4;
       if (state.games.isEmpty) return SaveResult.failed;
 
       // 1. セッション全体の場代込収支を計算するための準備
@@ -441,8 +453,10 @@ class CalcNotifier extends Notifier<CalcState> {
 
       for (int i = 0; i < state.games.length; i++) {
         final g = state.games[i];
-        final isAllEntered = g.inputs.every((p) => p.score != null);
-        if (!isAllEntered || g.inputs.where((p) => p.id <= players).fold(0, (s, p) => s + (p.score ?? 0)) != calcConfig.targetTotalScore) {
+        final activeInputs = g.inputs.where((p) => p.id <= players).toList();
+        final isAllEntered = activeInputs.every((p) => p.score != null);
+        
+        if (!isAllEntered || activeInputs.fold(0, (s, p) => s + (p.score ?? 0)) != calcConfig.targetTotalScore) {
           continue;
         }
 
@@ -450,7 +464,7 @@ class CalcNotifier extends Notifier<CalcState> {
           inputs: g.inputs.where((p) => p.id <= players).toList(),
           rule: state.rule.copyWith(
             oka: calcConfig.oka,
-            uma: _buildUmaList(calcConfig.umaText),
+            uma: _buildUmaList(calcConfig.umaText, isSanma),
           ),
           config: calcConfig,
           startingOyaIndex: g.startingOyaIndex,
@@ -511,6 +525,7 @@ class CalcNotifier extends Notifier<CalcState> {
           configJson: effectiveConfigJson,
           globalChipsJson: jsonEncode(state.globalChips),
           totalMoneys: sessionFinalMoneys,
+          type: isSanma ? '3-player' : '4-player',
         ));
         await db.deleteGamesBySessionId(sessionId);
       } else {
@@ -521,6 +536,7 @@ class CalcNotifier extends Notifier<CalcState> {
           configJson: effectiveConfigJson,
           globalChipsJson: jsonEncode(state.globalChips),
           totalMoneys: sessionFinalMoneys,
+          type: isSanma ? '3-player' : '4-player',
         );
       }
 
@@ -530,43 +546,44 @@ class CalcNotifier extends Notifier<CalcState> {
         final result = cg['result'] as List<PlayerResult>;
         final gameMoneys = cg['moneys'] as Map<String, int>;
 
+        // Ver 3.5.7: 三麻・四麻の判別をDB保存時にも適用
         final Map<String, dynamic> row = {
           'session_id': sessionId,
-          'type': '4-player',
+          'type': isSanma ? '3-player' : '4-player',
           'date': date.toIso8601String(),
           'group_id': effectiveGroupId,
           'p1_name': state.playerNames[0],
           'p2_name': state.playerNames[1],
           'p3_name': state.playerNames[2],
-          'p4_name': state.playerNames[3],
+          'p4_name': !isSanma ? state.playerNames[3] : '',
           'p1_score': g.inputs[0].score,
           'p2_score': g.inputs[1].score,
           'p3_score': g.inputs[2].score,
-          'p4_score': g.inputs[3].score,
+          'p4_score': !isSanma ? g.inputs[3].score : 0,
           'p1_pt': result.firstWhereOrNull((r) => r.id == 1)?.finalPoint ?? 0,
           'p2_pt': result.firstWhereOrNull((r) => r.id == 2)?.finalPoint ?? 0,
           'p3_pt': result.firstWhereOrNull((r) => r.id == 3)?.finalPoint ?? 0,
-          'p4_pt': result.firstWhereOrNull((r) => r.id == 4)?.finalPoint ?? 0,
+          'p4_pt': !isSanma ? (result.firstWhereOrNull((r) => r.id == 4)?.finalPoint ?? 0) : 0,
           'p1_ch': g.inputs[0].chip, 
           'p2_ch': g.inputs[1].chip,
           'p3_ch': g.inputs[2].chip,
-          'p4_ch': g.inputs[3].chip,
+          'p4_ch': !isSanma ? g.inputs[3].chip : 0,
           'p1_tobi': (g.inputs[0].score ?? 0) < 0 ? 1 : 0,
           'p2_tobi': (g.inputs[1].score ?? 0) < 0 ? 1 : 0,
           'p3_tobi': (g.inputs[2].score ?? 0) < 0 ? 1 : 0,
-          'p4_tobi': (g.inputs[3].score ?? 0) < 0 ? 1 : 0,
+          'p4_tobi': (!isSanma && (g.inputs[3].score ?? 0) < 0) ? 1 : 0,
           'p1_blown_by': g.inputs[0].blownByPlayerId,
           'p2_blown_by': g.inputs[1].blownByPlayerId,
           'p3_blown_by': g.inputs[2].blownByPlayerId,
-          'p4_blown_by': g.inputs[3].blownByPlayerId,
+          'p4_blown_by': !isSanma ? g.inputs[3].blownByPlayerId : null,
           'p1_yakuman': g.inputs[0].yakumanPt,
           'p2_yakuman': g.inputs[1].yakumanPt,
           'p3_yakuman': g.inputs[2].yakumanPt,
-          'p4_yakuman': g.inputs[3].yakumanPt,
+          'p4_yakuman': !isSanma ? g.inputs[3].yakumanPt : 0,
           'p1_money': gameMoneys['1'] ?? 0,
           'p2_money': gameMoneys['2'] ?? 0,
           'p3_money': gameMoneys['3'] ?? 0,
-          'p4_money': gameMoneys['4'] ?? 0,
+          'p4_money': !isSanma ? (gameMoneys['4'] ?? 0) : 0,
           'oya_index': g.startingOyaIndex,
         };
 
@@ -574,7 +591,11 @@ class CalcNotifier extends Notifier<CalcState> {
         row['p1_rank'] = sortedByPt.indexWhere((r) => r.id == 1) + 1;
         row['p2_rank'] = sortedByPt.indexWhere((r) => r.id == 2) + 1;
         row['p3_rank'] = sortedByPt.indexWhere((r) => r.id == 3) + 1;
-        row['p4_rank'] = sortedByPt.indexWhere((r) => r.id == 4) + 1;
+        if (!isSanma) {
+          row['p4_rank'] = sortedByPt.indexWhere((r) => r.id == 4) + 1;
+        } else {
+          row['p4_rank'] = 4;
+        }
 
         await db.insertGame(row);
       }
@@ -601,8 +622,8 @@ class CalcNotifier extends Notifier<CalcState> {
           historyRule = MahjongRule(
             rate: historyConfig.rate.toInt(),
             chipRate: historyConfig.chipRate,
-            returnScore: historyConfig.startingPoints + (historyConfig.oka * 1000 / 4).round(),
-            uma: _buildUmaList(historyConfig.umaText),
+            returnScore: historyConfig.startingPoints + (historyConfig.oka * 1000 / (sessionGames.first.type == '3-player' ? 3 : 4)).round(),
+            uma: _buildUmaList(historyConfig.umaText, sessionGames.first.type == '3-player'), // Ver 3.5.7: DBから正確なモードを復元
             oka: historyConfig.oka,
             tobiPrize: historyConfig.tobiPrize,
             yakumanRonPrize: historyConfig.yakumanRonPrize,
@@ -724,23 +745,36 @@ class CalcNotifier extends Notifier<CalcState> {
 
 class ConfigNotifier extends Notifier<AppConfig> {
   @override
-  set state(AppConfig value) {
-    super.state = value;
-    try {
-      ref.read(sharedPrefsProvider).setString('appConfig', jsonEncode(value.toJson()));
-    } catch (_) {}
-  }
-
-  @override
   AppConfig build() {
     final prefs = ref.watch(sharedPrefsProvider);
-    final str = prefs.getString('appConfig');
+    final isSanma = ref.watch(sanmaProvider);
+    final key = isSanma ? 'appConfig_3ma' : 'appConfig';
+    
+    final str = prefs.getString(key);
     if (str != null) {
       try {
         return AppConfig.fromJson(jsonDecode(str));
       } catch (_) {}
     }
+    
+    if (isSanma) {
+      return const AppConfig(
+        startingPoints: 35000,
+        targetTotalScore: 105000,
+        umaText: '10-20', // 三麻のデフォルト例
+      );
+    }
     return const AppConfig();
+  }
+
+  @override
+  set state(AppConfig value) {
+    super.state = value;
+    try {
+      final isSanma = ref.read(sanmaProvider);
+      final key = isSanma ? 'appConfig_3ma' : 'appConfig';
+      ref.read(sharedPrefsProvider).setString(key, jsonEncode(value.toJson()));
+    } catch (_) {}
   }
 
   void updateRate(double rate) {
@@ -768,7 +802,8 @@ class ConfigNotifier extends Notifier<AppConfig> {
   }
 
   void updateStartingPoints(int startingPoints) {
-    const numPlayers = 4;
+    final isSanma = ref.read(sanmaProvider);
+    final numPlayers = isSanma ? 3 : 4;
     final targetScore = startingPoints * numPlayers;
     state = state.copyWith(startingPoints: startingPoints, targetTotalScore: targetScore);
   }

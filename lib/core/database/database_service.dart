@@ -38,7 +38,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 6, 
+      version: 7, 
       onCreate: _createDb,
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) await _upgradeToV2(db);
@@ -46,6 +46,7 @@ class DatabaseService {
         if (oldVersion < 4) await _upgradeToV4(db);
         if (oldVersion < 5) await _upgradeToV5(db);
         if (oldVersion < 6) await _upgradeToV6(db);
+        if (oldVersion < 7) await _upgradeToV7(db);
       },
     );
   }
@@ -53,6 +54,18 @@ class DatabaseService {
   Future<void> _upgradeToV6(Database db) async {
     try {
       await db.execute('ALTER TABLE games ADD COLUMN oya_index INTEGER DEFAULT 0');
+    } catch (_) {}
+  }
+  
+  Future<void> _upgradeToV7(Database db) async {
+    // 1. gamesテーブルへのtype追加 (v6 migration漏れの補填)
+    try {
+      await db.execute('ALTER TABLE games ADD COLUMN type TEXT NOT NULL DEFAULT "4-player"');
+    } catch (_) {}
+    
+    // 2. sessionsテーブルへのtype追加
+    try {
+      await db.execute('ALTER TABLE sessions ADD COLUMN type TEXT NOT NULL DEFAULT "4-player"');
     } catch (_) {}
   }
 
@@ -108,7 +121,8 @@ class DatabaseService {
         p1_name TEXT, p2_name TEXT, p3_name TEXT, p4_name TEXT,
         config_json TEXT,
         global_chips_json TEXT,
-        p1_money INTEGER, p2_money INTEGER, p3_money INTEGER, p4_money INTEGER
+        p1_money INTEGER, p2_money INTEGER, p3_money INTEGER, p4_money INTEGER,
+        type TEXT NOT NULL DEFAULT "4-player"
       )
     ''');
     await db.execute('''
@@ -183,7 +197,7 @@ class DatabaseService {
         }
         for (int i=0; i<4; i++) {
           final income = (ptSums[i] * rate) + (chipSums[i] * chipRate);
-          s['p${i+1}_money'] = (income - (fee / 4.0)).round();
+          s['p${i+1}_money'] = (income - (fee / (s['type'] == '3-player' ? 3.0 : 4.0))).round();
         }
         changed = true;
       }
@@ -216,11 +230,15 @@ class DatabaseService {
         }
       }
       
+      final String sessionType = games.isNotEmpty ? (games.first['type'] as String? ?? '4-player') : (s['type'] as String? ?? '4-player');
+      final double divisor = sessionType == '3-player' ? 3.0 : 4.0;
+
       final Map<String, dynamic> updates = {};
       for (int i=0; i<4; i++) {
         final income = (ptSums[i] * rate) + (chipSums[i] * chipRate);
-        updates['p${i+1}_money'] = (income - (fee / 4.0)).round();
+        updates['p${i+1}_money'] = (income - (fee / divisor)).round();
       }
+      if (s['type'] == null) updates['type'] = sessionType; // 欠損補填
       await db.update('sessions', updates, where: 'id = ?', whereArgs: [sid]);
     }
   }
@@ -292,7 +310,7 @@ class DatabaseService {
     return await db.delete('games', where: 'id = ?', whereArgs: [id]);
   }
 
-  Future<int> findOrCreateSession({required String date, required List<String> playerNames, int groupId = systemGroupIdFreeMatch, String? configJson, String? globalChipsJson, List<int>? totalMoneys}) async {
+  Future<int> findOrCreateSession({required String date, required List<String> playerNames, int groupId = systemGroupIdFreeMatch, String? configJson, String? globalChipsJson, List<int>? totalMoneys, String? type}) async {
     if (kIsWeb) {
       final sessions = await _webQuery('web_db_sessions');
       for (var s in sessions) {
@@ -300,13 +318,13 @@ class DatabaseService {
           return s['id'];
         }
       }
-      return _webInsert('web_db_sessions', Session(date: date, playerNames: playerNames, groupId: groupId, configJson: configJson, globalChipsJson: globalChipsJson, totalMoneys: totalMoneys).toMap());
+      return _webInsert('web_db_sessions', Session(date: date, playerNames: playerNames, groupId: groupId, configJson: configJson, globalChipsJson: globalChipsJson, totalMoneys: totalMoneys, type: type ?? (playerNames.length == 3 ? '3-player' : '4-player')).toMap());
     }
     final db = await database;
     final results = await db.query('sessions', where: 'date = ? AND p1_name = ? AND p2_name = ? AND p3_name = ? AND group_id = ?',
         whereArgs: [date, playerNames[0], playerNames[1], playerNames[2], groupId]);
     if (results.isNotEmpty) return results.first['id'] as int;
-    return await db.insert('sessions', Session(date: date, playerNames: playerNames, groupId: groupId, configJson: configJson, globalChipsJson: globalChipsJson, totalMoneys: totalMoneys).toMap());
+    return await db.insert('sessions', Session(date: date, playerNames: playerNames, groupId: groupId, configJson: configJson, globalChipsJson: globalChipsJson, totalMoneys: totalMoneys, type: type ?? (playerNames.length == 3 ? '3-player' : '4-player')).toMap());
   }
 
   Future<void> updateSession(Session session) async {

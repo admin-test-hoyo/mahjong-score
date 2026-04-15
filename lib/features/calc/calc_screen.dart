@@ -302,10 +302,12 @@ class CalcScreen extends ConsumerWidget {
   Widget _buildMainDataTable(BuildContext context, WidgetRef ref) {
     final state = ref.watch(calcProvider);
     final config = ref.watch(configProvider);
+    final isSanma = ref.watch(sanmaProvider);
+    final players = isSanma ? 3 : 4;
     return LayoutBuilder(builder: (context, constraints) {
       const double ctrlWidth = 35;
       final double available = constraints.maxWidth - (ctrlWidth * 3) - 12;
-      final double pWidth = available / 4;
+      final double pWidth = available / players;
       return SingleChildScrollView(
         child: Theme(
           data: Theme.of(context).copyWith(dividerColor: Colors.white10),
@@ -314,7 +316,7 @@ class CalcScreen extends ConsumerWidget {
             headingTextStyle: GoogleFonts.notoSansJp(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold),
             columns: [
               DataColumn(label: SizedBox(width: ctrlWidth, child: const Center(child: Text('No')))),
-              ...List.generate(4, (i) => DataColumn(label: SizedBox(width: pWidth, child: Center(child: PlayerNameField(index: i, initialName: state.playerNames[i]))))),
+              ...List.generate(ref.watch(sanmaProvider) ? 3 : 4, (i) => DataColumn(label: SizedBox(width: pWidth, child: Center(child: PlayerNameField(index: i, initialName: state.playerNames[i]))))),
               DataColumn(label: SizedBox(width: ctrlWidth, child: const Center(child: Text('Chk')))),
               DataColumn(label: SizedBox(width: ctrlWidth, child: const Center(child: Text('Del')))),
             ],
@@ -325,11 +327,19 @@ class CalcScreen extends ConsumerWidget {
                 final isValid = game.inputs.every((p) => p.score != null) && sum == config.targetTotalScore;
                 List<PlayerResult>? results;
                 if (isValid) {
-                  try { results = MahjongCalculator.calculate(inputs: game.inputs, rule: state.rule.copyWith(oka: config.oka, uma: _buildUmaList(config.umaText)), config: config, startingOyaIndex: game.startingOyaIndex); } catch (_) {}
+                  try { 
+                    final isSanma = ref.read(sanmaProvider);
+                    results = MahjongCalculator.calculate(
+                      inputs: game.inputs.where((ip) => ip.id <= (isSanma ? 3 : 4)).toList(), 
+                      rule: state.rule.copyWith(oka: config.oka, uma: _buildUmaList(config.umaText, isSanma)), 
+                      config: config, 
+                      startingOyaIndex: game.startingOyaIndex
+                    ); 
+                  } catch (_) {}
                 }
                 return DataRow(onSelectChanged: (_) => _showEditModal(context, ref, game), cells: [
                   DataCell(SizedBox(width: ctrlWidth, child: Center(child: Text('${idx + 1}', style: GoogleFonts.notoSansJp(fontSize: 10, color: Colors.white24))))),
-                  ...List.generate(4, (pIdx) {
+                  ...List.generate(ref.watch(sanmaProvider) ? 3 : 4, (pIdx) {
                     final p = game.inputs.firstWhere((p) => p.id == pIdx + 1, orElse: () => const PlayerInput(id: 0, score: null));
                     String val = p.score?.toCommaString() ?? '-'; Color col = Colors.white70;
                     if (results != null) {
@@ -345,7 +355,7 @@ class CalcScreen extends ConsumerWidget {
               }),
               DataRow(color: WidgetStateProperty.all(const Color(0xFF00FFC2).withValues(alpha: 0.1)), cells: [
                 const DataCell(Center(child: Icon(Icons.stars, color: Colors.orangeAccent, size: 14))),
-                ...List.generate(4, (i) => DataCell(SizedBox(
+                ...List.generate(ref.watch(sanmaProvider) ? 3 : 4, (i) => DataCell(SizedBox(
                   width: pWidth, 
                   child: Center(
                     child: TextFormField(
@@ -361,7 +371,7 @@ class CalcScreen extends ConsumerWidget {
                 DataCell(Center(child: Text(state.globalChips.fold(0, (s, c) => s + c) == 0 ? '' : 'ERR', style: GoogleFonts.notoSansJp(color: Colors.redAccent, fontSize: 8, fontWeight: FontWeight.bold)))),
                 const DataCell(SizedBox()),
               ]),
-              DataRow(cells: [DataCell(Center(child: IconButton(icon: const Icon(Icons.add_circle_outline, color: Color(0xFF00FFC2), size: 20), onPressed: () => ref.read(calcProvider.notifier).addGame()))), ...List.generate(4, (_) => const DataCell(SizedBox())), const DataCell(SizedBox()), const DataCell(SizedBox())]),
+              DataRow(cells: [DataCell(Center(child: IconButton(icon: const Icon(Icons.add_circle_outline, color: Color(0xFF00FFC2), size: 20), onPressed: () => ref.read(calcProvider.notifier).addGame()))), ...List.generate(ref.watch(sanmaProvider) ? 3 : 4, (_) => const DataCell(SizedBox())), const DataCell(SizedBox()), const DataCell(SizedBox())]),
             ],
           ),
         ),
@@ -399,7 +409,7 @@ class CalcScreen extends ConsumerWidget {
               const Divider(color: Colors.white10),
               Column(
                 mainAxisSize: MainAxisSize.min,
-                children: updatedGame.inputs.map((p) {
+                children: updatedGame.inputs.where((p) => p.id <= (ref.read(sanmaProvider) ? 3 : 4)).map((p) {
                   return Padding(
                     padding: const EdgeInsets.only(bottom: spacing),
                     child: PlayerInputCard(
@@ -429,7 +439,7 @@ class CalcScreen extends ConsumerWidget {
       content: Column(mainAxisSize: MainAxisSize.min, children: [
         ElevatedButton(child: Text('ツモ和了', style: GoogleFonts.notoSansJp()), onPressed: () { ref.read(calcProvider.notifier).setYakumanTsumo(game.id, winnerId); Navigator.pop(ctx); }),
         const SizedBox(height: 16),
-        ...List.generate(4, (i) => i + 1).where((id) => id != winnerId).map((loserId) => ListTile(title: Text('${names[loserId - 1]} が放銃', style: GoogleFonts.notoSansJp(color: Colors.white70)), onTap: () { ref.read(calcProvider.notifier).setYakumanRon(game.id, winnerId, loserId); Navigator.pop(ctx); })),
+        ...List.generate(ref.read(sanmaProvider) ? 3 : 4, (i) => i + 1).where((id) => id != winnerId).map((loserId) => ListTile(title: Text('${names[loserId - 1]} が放銃', style: GoogleFonts.notoSansJp(color: Colors.white70)), onTap: () { ref.read(calcProvider.notifier).setYakumanRon(game.id, winnerId, loserId); Navigator.pop(ctx); })),
       ]),
     ));
   }
@@ -440,7 +450,7 @@ class CalcScreen extends ConsumerWidget {
       backgroundColor: const Color(0xFF001F1A),
       title: Text('${names[blownId-1]} を飛ばした人', style: GoogleFonts.notoSansJp(color: Colors.white, fontSize: 15)),
       content: Column(mainAxisSize: MainAxisSize.min, children: [
-        ...List.generate(4, (i) => i + 1).where((id) => id != blownId).map((id) => ListTile(title: Text(names[id - 1], style: GoogleFonts.notoSansJp(color: Colors.white70)), onTap: () { ref.read(calcProvider.notifier).setBlownBy(game.id, blownId, id); Navigator.pop(ctx); })),
+        ...List.generate(ref.read(sanmaProvider) ? 3 : 4, (i) => i + 1).where((id) => id != blownId).map((id) => ListTile(title: Text(names[id - 1], style: GoogleFonts.notoSansJp(color: Colors.white70)), onTap: () { ref.read(calcProvider.notifier).setBlownBy(game.id, blownId, id); Navigator.pop(ctx); })),
       ]),
     ));
   }
@@ -448,14 +458,17 @@ class CalcScreen extends ConsumerWidget {
   Widget _buildBottomSummaryFooter(BuildContext context, WidgetRef ref) {
     final state = ref.watch(calcProvider);
     final config = ref.watch(configProvider);
-    final summaries = { for (int i = 1; i <= 4; i++) i: {'pt': 0, 'chip': 0} };
+    final isSanma = ref.watch(sanmaProvider);
+    final players = isSanma ? 3 : 4;
+    final summaries = { for (int i = 1; i <= players; i++) i: {'pt': 0, 'chip': 0} };
     int completed = 0;
     for (var g in state.games) {
-      final isAllEntered = g.inputs.every((ip) => ip.score != null);
-      if (isAllEntered && g.inputs.fold(0, (s, ip) => s + (ip.score ?? 0)) == config.targetTotalScore) {
+      final activeInputs = g.inputs.where((ip) => ip.id <= players).toList();
+      final isAllEntered = activeInputs.every((ip) => ip.score != null);
+      if (isAllEntered && activeInputs.fold(0, (s, ip) => s + (ip.score ?? 0)) == config.targetTotalScore) {
         completed++;
         try {
-          final res = MahjongCalculator.calculate(inputs: g.inputs, rule: state.rule.copyWith(oka: config.oka, uma: _buildUmaList(config.umaText)), config: config, startingOyaIndex: g.startingOyaIndex);
+          final res = MahjongCalculator.calculate(inputs: activeInputs, rule: state.rule.copyWith(oka: config.oka, uma: _buildUmaList(config.umaText, isSanma)), config: config, startingOyaIndex: g.startingOyaIndex);
           for (var r in res) {
             summaries[r.id]!['pt'] = (summaries[r.id]!['pt'] ?? 0) + r.finalPoint;
             summaries[r.id]!['chip'] = (summaries[r.id]!['chip'] ?? 0) + g.inputs.firstWhere((inp) => inp.id == r.id).chip;
@@ -463,11 +476,11 @@ class CalcScreen extends ConsumerWidget {
         } catch (_) {}
       }
     }
-    for (int i=0; i<4; i++) {
+    for (int i=0; i<players; i++) {
        summaries[i+1]!['chip'] = (summaries[i+1]!['chip'] ?? 0) + state.globalChips[i];
     }
     return Container(padding: const EdgeInsets.symmetric(vertical: 8), decoration: BoxDecoration(color: Colors.black26, border: const Border(top: BorderSide(color: Color(0xFF00FFC2), width: 1))), child: Row(children: [
-        for (int i = 1; i <= 4; i++) Expanded(child: _buildSumBlock(state.playerNames[i - 1], summaries[i]!, config, 4, completed, state.snapshottedMoneys != null && state.snapshottedMoneys!.length >= i ? state.snapshottedMoneys![i-1] : null))
+        for (int i = 1; i <= players; i++) Expanded(child: _buildSumBlock(state.playerNames[i - 1], summaries[i]!, config, players, completed, state.snapshottedMoneys != null && state.snapshottedMoneys!.length >= i ? state.snapshottedMoneys![i-1] : null))
     ]));
   }
 
@@ -483,8 +496,17 @@ class CalcScreen extends ConsumerWidget {
     ]);
   }
 
-  List<int> _buildUmaList(String umaText) {
+  List<int> _buildUmaList(String umaText, bool isSanma) {
     final parts = umaText.split('-');
+    if (isSanma) {
+      // Ver 3.5.7: 三麻は2位が0、1位と3位で設定値の最大値を授受する
+      int x = 20; 
+      final numbers = parts.map((e) => int.tryParse(e)).whereType<int>().toList();
+      if (numbers.isNotEmpty) {
+        x = numbers.reduce((a, b) => a.abs() > b.abs() ? a.abs() : b.abs());
+      }
+      return [x, 0, -x];
+    }
     if (parts.length == 2) {
       final a = int.tryParse(parts[0]) ?? 10;
       final b = int.tryParse(parts[1]) ?? 20;
@@ -515,6 +537,64 @@ class SettingsModal extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Text(
+              'プレイモード',
+              style: GoogleFonts.notoSansJp(color: Colors.white.withValues(alpha: 0.4), fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.04),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () { if (ref.read(sanmaProvider)) ref.read(sanmaProvider.notifier).toggle(); },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: !ref.watch(sanmaProvider) ? const Color(0xFF00FFC2).withValues(alpha: 0.2) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Center(
+                          child: Text(
+                            '四人打ち',
+                            style: GoogleFonts.notoSansJp(
+                              color: !ref.watch(sanmaProvider) ? const Color(0xFF00FFC2) : Colors.white38,
+                              fontWeight: !ref.watch(sanmaProvider) ? FontWeight.bold : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () { if (!ref.read(sanmaProvider)) ref.read(sanmaProvider.notifier).toggle(); },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: ref.watch(sanmaProvider) ? const Color(0xFF00FFC2).withValues(alpha: 0.2) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Center(
+                          child: Text(
+                            '三人打ち',
+                            style: GoogleFonts.notoSansJp(
+                              color: ref.watch(sanmaProvider) ? const Color(0xFF00FFC2) : Colors.white38,
+                              fontWeight: ref.watch(sanmaProvider) ? FontWeight.bold : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 32),
             Text(
               'ルール設定',
               style: GoogleFonts.notoSansJp(color: Colors.white.withValues(alpha: 0.4), fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2),

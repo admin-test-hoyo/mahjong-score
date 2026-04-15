@@ -180,13 +180,10 @@ class PlayerResult {
 
 /// 麻雀収支計算エンジン
 class MahjongCalculator {
-  /// 3人の素点から4人目の素点を自動計算する
-  static int calculateMissingScore(List<int> threeScores) {
-    if (threeScores.length != 3) {
-      throw ArgumentError('Precisely 3 scores are required.');
-    }
-    final sum = threeScores.fold(0, (prev, curr) => prev + curr);
-    return 100000 - sum;
+  /// 3人の素点から4人目の素点を自動計算する (Ver 3.5.7: ターゲットスコアを動的に受領)
+  static int calculateMissingScore(List<int> enteredScores, int target) {
+    final sum = enteredScores.fold(0, (prev, curr) => prev + curr);
+    return target - sum;
   }
 
   static int _roundGoshaRokunyu(double value) {
@@ -213,9 +210,9 @@ class MahjongCalculator {
     required AppConfig config,
     int startingOyaIndex = 0,
   }) {
-    const expectedPlayers = 4;
-    if (inputs.length != expectedPlayers) {
-      throw ArgumentError('There must be exactly $expectedPlayers players.');
+    final expectedPlayers = inputs.length;
+    if (expectedPlayers < 3 || expectedPlayers > 4) {
+      throw ArgumentError('Only 3 or 4 players are supported.');
     }
 
     // 順位付け (スコアの降順でソート。同点の場合は起家からの順番(priority)でソート)
@@ -225,10 +222,10 @@ class MahjongCalculator {
         if (cmp != 0) return cmp;
         
         // 同点時のTie-break: 優先度が低い（数値が小さい）方が上位。
-        // priority = (playerIndex - startingOyaIndex + 4) % 4
-        // ※ player.id は 1〜4 なので、index は id - 1
-        final priorityA = ((a.id - 1) - startingOyaIndex + 4) % 4;
-        final priorityB = ((b.id - 1) - startingOyaIndex + 4) % 4;
+        // priority = (playerIndex - startingOyaIndex + expectedPlayers) % expectedPlayers
+        // ※ player.id は 1〜N なので、index は id - 1
+        final priorityA = ((a.id - 1) - startingOyaIndex + expectedPlayers) % expectedPlayers;
+        final priorityB = ((b.id - 1) - startingOyaIndex + expectedPlayers) % expectedPlayers;
         return priorityA.compareTo(priorityB);
       });
       
@@ -295,13 +292,13 @@ class MahjongCalculator {
     
     // 5. 金銭換算 (Strict Formula Implementation)
     // 厳守：収支（円） = (ポイント × レート) + (チップ数 × チップ単価)
-    // 厳守：場代込（円） = 収支 - (場代 / 4)
+    // 厳守：場代込（円） = 収支 - (場代 / N)
     final finalResults = results.map((r) {
       final input = inputs.firstWhere((i) => i.id == r.id);
       
       final income = (r.finalPoint * config.rate) + (input.chip * config.chipRate);
       
-      // Note: Fee subtraction (gameFee / 4) is handled at the session/aggregation level
+      // Note: Fee subtraction (gameFee / N) is handled at the session/aggregation level
       // to ensure it applies exactly once per session.
       return r.copyWith(money: income.round());
     }).toList();
