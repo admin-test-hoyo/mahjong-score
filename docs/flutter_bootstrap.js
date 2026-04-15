@@ -37,6 +37,10 @@ _flutter.buildConfig = {"engineRevision":"425cfb54d01a9472b3e81d9e76fd63a4a44cfb
 
 _flutter.loader.load({
   serviceWorkerSettings: {
+<<<<<<< HEAD
     serviceWorkerVersion: "4128635296" /* Flutter's service worker is deprecated and will be removed in a future Flutter release. */
+=======
+    serviceWorkerVersion: "1661526442" /* Flutter's service worker is deprecated and will be removed in a future Flutter release. */
+>>>>>>> 2b1af89 (Ver 2.2.4: CSVエンコード不具合の解消とフィルターチップのカスタムUI化 (ホットフィックス))
   }
 });

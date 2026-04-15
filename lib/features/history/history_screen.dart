@@ -72,9 +72,8 @@ class HistoryScreen extends ConsumerStatefulWidget {
       csv += "$row\n";
     }
 
-    final bom = utf8.encode('\uFEFF');
-    final bytes = bom + utf8.encode(csv);
-    final blob = html.Blob([bytes]);
+    final csvWithBom = '\uFEFF$csv';
+    final blob = html.Blob([csvWithBom], 'text/csv; charset=utf-8');
     final url = html.Url.createObjectUrlFromBlob(blob);
     final dateStr = DateTime.now().toString().substring(0, 10).replaceAll('-', '');
     final filename = 'mahjong_history_$dateStr.csv';
@@ -147,18 +146,28 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
               final isSelected = selectedGroup == group['id'];
               return Padding(
                 padding: const EdgeInsets.only(right: 8),
-                child: FilterChip(
-                  label: Text(group['name'] as String, style: TextStyle(fontSize: 11, height: 1.2, color: isSelected ? Colors.black : Colors.white70, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
-                  padding: const EdgeInsets.symmetric(vertical: 4.0),
-                  materialTapTargetSize: MaterialTapTargetSize.padded,
-                  selected: isSelected,
-                  selectedColor: const Color(0xFF00FFC2),
-                  backgroundColor: Colors.white.withValues(alpha: 0.05),
-                  side: BorderSide.none,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  onSelected: (selected) {
-                    ref.read(historyGroupFilterProvider.notifier).setFilter(selected ? (group['id'] as int?) : null);
+                child: GestureDetector(
+                  onTap: () {
+                    // すでに選択されている場合は null（すべて）に戻す
+                    ref.read(historyGroupFilterProvider.notifier).setFilter(!isSelected ? (group['id'] as int?) : null);
                   },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                    decoration: BoxDecoration(
+                      color: isSelected ? const Color(0xFF00FFC2) : Colors.white.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      group['name'] as String,
+                      style: TextStyle(
+                        fontSize: 11,
+                        height: 1.2, // Noto Sans JP の見切れ防止のための明示的な行高
+                        color: isSelected ? Colors.black : Colors.white70,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                  ),
                 ),
               );
             },
