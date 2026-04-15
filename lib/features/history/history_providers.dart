@@ -91,6 +91,7 @@ class HistoryNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
         'games': sessionGames,
         'groupName': groupName,
         'totalPt': totalPts,
+        'totalChips': totalChips,
         'totalMoney': totalMoneysCalculated,
         'gameCount': sessionGames.length,
       });

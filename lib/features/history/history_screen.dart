@@ -47,12 +47,13 @@ class HistoryScreen extends ConsumerStatefulWidget {
 
     // CSV構築
     final sb = StringBuffer();
-    sb.writeln('対局ID,日付,グループ名,P1名前,P1_Pt,P1_収支,P2名前,P2_Pt,P2_収支,P3名前,P3_Pt,P3_収支,P4名前,P4_Pt,P4_収支');
+    sb.writeln('対局ID,日付,グループ名,順位1,プレイヤー1,Pt1,チップ1,収支1,順位2,プレイヤー2,Pt2,チップ2,収支2,順位3,プレイヤー3,Pt3,チップ3,収支3,順位4,プレイヤー4,Pt4,チップ4,収支4');
     
     for (var data in filteredSessions) {
       final Session session = data['session'];
       final String groupName = data['groupName'] ?? '';
       final List<int> totalPts = data['totalPt'] ?? [];
+      final List<int> totalChips = data['totalChips'] ?? [];
       final List<int> totalMoney = data['totalMoney'] ?? [];
       
       final row = [
@@ -63,11 +64,14 @@ class HistoryScreen extends ConsumerStatefulWidget {
       
       for (int i = 0; i < 4; i++) {
         if (i < session.playerNames.length && i < totalPts.length && i < totalMoney.length) {
+          row.add((i + 1).toString()); // 順位
           row.add(session.playerNames[i].replaceAll(',', '，'));
           row.add(totalPts[i].toString());
+          final c = i < totalChips.length ? totalChips[i].toString() : '0';
+          row.add(c); // チップ
           row.add(totalMoney[i].toString());
         } else {
-          row.addAll(['', '', '']);
+          row.addAll(['', '', '', '', '']); // 5カラム分（順位・名前・Pt・チップ・収支）の空文字
         }
       }
       sb.writeln(row.join(','));
@@ -149,7 +153,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
               return Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: FilterChip(
-                  label: Text(group['name'] as String, style: TextStyle(fontSize: 11, color: isSelected ? Colors.black : Colors.white70, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                  label: Text(group['name'] as String, style: TextStyle(fontSize: 11, height: 1.2, color: isSelected ? Colors.black : Colors.white70, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
                   selected: isSelected,
                   selectedColor: const Color(0xFF00FFC2),
                   backgroundColor: Colors.white.withValues(alpha: 0.05),
