@@ -164,19 +164,18 @@ class CalcNotifier extends Notifier<CalcState> {
 
 
   GameRecord _createEmptyGame(String id) {
+    final isSanma = ref.read(sanmaProvider);
+    final count = isSanma ? 3 : 4;
     return GameRecord(
       id: id,
-      inputs: const [
-        PlayerInput(id: 1, score: null),
-        PlayerInput(id: 2, score: null),
-        PlayerInput(id: 3, score: null),
-        PlayerInput(id: 4, score: null),
-      ]
+      inputs: List.generate(count, (i) => PlayerInput(id: i + 1, score: null)),
     );
   }
 
   void updatePlayerName(int id, String name) {
-    if (id < 1 || id > 4) return;
+    final isSanma = ref.read(sanmaProvider);
+    final count = isSanma ? 3 : 4;
+    if (id < 1 || id > count) return;
     final newNames = List<String>.from(state.playerNames);
     newNames[id - 1] = name;
     // Ver 3.5.0: 手動タイピング時は強制的にフリー対局とする
@@ -184,8 +183,10 @@ class CalcNotifier extends Notifier<CalcState> {
   }
 
   void setPlayersFromGroup(int groupId, List<String> names) {
-    // Ver 3.6.1: 4人分を生成し、選ばれなかった枠は空文字で埋める（重複・残留防止）
-    final paddedNames = List<String>.generate(4, (i) => i < names.length ? names[i] : "");
+    final isSanma = ref.read(sanmaProvider);
+    final count = isSanma ? 3 : 4;
+    // Ver 3.6.1: 選択された人数分を生成し、選ばれなかった枠は空文字で埋める
+    final paddedNames = List<String>.generate(count, (i) => i < names.length ? names[i] : "");
     state = state.copyWith(
       playerNames: paddedNames,
       pickedGroupId: groupId,
@@ -274,7 +275,8 @@ class CalcNotifier extends Notifier<CalcState> {
 
       final isSanma = ref.read(sanmaProvider);
       if (enteredInputs.length == (isSanma ? 2 : 3) && remainingInputs.isNotEmpty) {
-        final target = config.targetTotalScore;
+        // Ver 2.3.2: 三麻は 配給原点×3、四麻は 100,000 固定
+        final target = isSanma ? (config.startingPoints * 3) : 100000;
         final currentSum = enteredInputs.fold(0, (s, p) => s + (p.score ?? 0));
         final remainder = target - currentSum;
         
@@ -656,8 +658,11 @@ class CalcNotifier extends Notifier<CalcState> {
         ? (jsonDecode(sessionGlobalChips) as List<dynamic>).map((e) => e as int).toList()
         : const [0, 0, 0, 0];
 
+    final isSanma = session.type == '3-player' || (sessionGames.isNotEmpty && sessionGames.first.type == '3-player');
+    final count = isSanma ? 3 : 4;
+
     final List<GameRecord> newGames = sessionGames.map((game) {
-      final inputs = List.generate(4, (i) => PlayerInput(
+      final inputs = List.generate(count, (i) => PlayerInput(
         id: i + 1,
         score: game.scores[i],
         tobiPt: game.tobis[i] ? -1 : 0, 
@@ -686,7 +691,9 @@ class CalcNotifier extends Notifier<CalcState> {
 
   void loadGame(SavedGame game) {
     final draft = state.currentId == null ? jsonEncode(state.toJson()) : state.currentDraft;
-    final inputs = List.generate(4, (i) => PlayerInput(
+    final isSanma = game.type == '3-player';
+    final count = isSanma ? 3 : 4;
+    final inputs = List.generate(count, (i) => PlayerInput(
       id: i + 1,
       score: game.scores[i],
       tobiPt: game.tobis[i] ? -1 : 0,
@@ -713,9 +720,11 @@ class CalcNotifier extends Notifier<CalcState> {
       } catch (_) {}
     }
     // 記録対象グループのリセット
+    final isSanma = ref.read(sanmaProvider);
+    final count = isSanma ? 3 : 4;
     state = state.copyWith(
-      playerNames: const ['A', 'B', 'C', 'D'],
-      globalChips: const [0, 0, 0, 0],
+      playerNames: List.generate(count, (i) => String.fromCharCode(65 + i)),
+      globalChips: List.generate(count, (i) => 0),
       games: const [],
       rule: state.rule,
       currentDraft: null,

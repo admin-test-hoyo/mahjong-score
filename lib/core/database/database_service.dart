@@ -221,20 +221,21 @@ class DatabaseService {
         chipRate = (config['chipRate'] as num?)?.toInt() ?? 0;
       }
 
-      final List<int> ptSums = [0, 0, 0, 0];
-      final List<int> chipSums = [0, 0, 0, 0];
+      final String sessionType = games.isNotEmpty ? (games.first['type'] as String? ?? '4-player') : (s['type'] as String? ?? '4-player');
+      final int playerCount = sessionType == '3-player' ? 3 : 4;
+      final double divisor = playerCount.toDouble();
+
+      final List<int> ptSums = List.generate(playerCount, (i) => 0);
+      final List<int> chipSums = List.generate(playerCount, (i) => 0);
       for (var g in games) {
-        for (int i=1; i<=4; i++) {
+        for (int i=1; i<=playerCount; i++) {
           ptSums[i-1] += (g['p${i}_pt'] as num?)?.toInt() ?? 0;
           chipSums[i-1] += (g['p${i}_ch'] as num?)?.toInt() ?? 0;
         }
       }
-      
-      final String sessionType = games.isNotEmpty ? (games.first['type'] as String? ?? '4-player') : (s['type'] as String? ?? '4-player');
-      final double divisor = sessionType == '3-player' ? 3.0 : 4.0;
 
       final Map<String, dynamic> updates = {};
-      for (int i=0; i<4; i++) {
+      for (int i=0; i<playerCount; i++) {
         final income = (ptSums[i] * rate) + (chipSums[i] * chipRate);
         updates['p${i+1}_money'] = (income - (fee / divisor)).round();
       }
