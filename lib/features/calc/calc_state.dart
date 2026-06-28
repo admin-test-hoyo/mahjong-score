@@ -614,7 +614,8 @@ class CalcNotifier extends Notifier<CalcState> {
           final notifier = ref.read(configProvider.notifier);
           notifier.updateRate(historyConfig.rate);
           notifier.updateChipRate(historyConfig.chipRate);
-          notifier.updateGameFee(historyConfig.gameFee.toInt());
+          // 履歴の場代でメイン画面の場代を上書きしないように修正（その他のレート等は維持）
+          // notifier.updateGameFee(historyConfig.gameFee.toInt());
           notifier.updateUmaText(historyConfig.umaText);
           notifier.updateOka(historyConfig.oka);
           notifier.updateStartingPoints(historyConfig.startingPoints);
