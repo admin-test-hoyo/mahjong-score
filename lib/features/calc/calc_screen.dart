@@ -262,7 +262,7 @@ class CalcScreen extends ConsumerWidget {
           Material(
             color: Colors.transparent,
             child: InkWell(
-              onTap: () => _confirmReset(context, ref),
+              onTap: () => ref.read(calcProvider.notifier).exitHistoryMode(),
               borderRadius: BorderRadius.circular(20),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
