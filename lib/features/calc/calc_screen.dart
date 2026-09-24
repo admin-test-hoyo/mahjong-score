@@ -479,7 +479,7 @@ class CalcScreen extends ConsumerWidget {
       Text(name, style: GoogleFonts.notoSansJp(color: const Color(0xFF00FFC2), fontSize: 13), overflow: TextOverflow.ellipsis),
       Text('Pt：${pt.toCommaString()}', style: GoogleFonts.notoSansJp(color: const Color(0xFFFFD700), fontSize: 13, fontWeight: FontWeight.bold)),
       Text('収支：¥${income.toInt().toCommaString()}', style: GoogleFonts.notoSansJp(color: income < 0 ? Colors.redAccent : Colors.white60, fontSize: 10)),
-      Text('場代込：¥${balance.toInt().toCommaString()}', style: GoogleFonts.notoSansJp(color: balance < 0 ? Colors.redAccent : const Color(0xFF00FFC2), fontSize: 12, fontWeight: FontWeight.bold)),
+      Text('場代込：¥${balance.toInt().toCommaString()}', style: GoogleFonts.notoSansJp(color: balance < 0 ? Colors.redAccent : const Color(0xFF00FFC2), fontSize: 11, fontWeight: FontWeight.bold), softWrap: false),
     ]);
   }
 
