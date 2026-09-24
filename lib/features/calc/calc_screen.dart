@@ -477,7 +477,7 @@ class CalcScreen extends ConsumerWidget {
     final balance = snap ?? (income - (conf.gameFee / players)).round();
     return Column(mainAxisSize: MainAxisSize.min, children: [
       Text(name, style: GoogleFonts.notoSansJp(color: const Color(0xFF00FFC2), fontSize: 13), overflow: TextOverflow.ellipsis),
-      Text('Pt:${pt.toCommaString()}|Ch:${ch.toCommaString()}', style: GoogleFonts.notoSansJp(color: Colors.white54, fontSize: 11)),
+      Text('Pt:${pt.toCommaString()}', style: GoogleFonts.notoSansJp(color: const Color(0xFFFFD700), fontSize: 14, fontWeight: FontWeight.bold)),
       Text('¥${income.toInt().toCommaString()}', style: GoogleFonts.notoSansJp(color: income < 0 ? Colors.redAccent : Colors.white60, fontSize: 10)),
       Text('¥${balance.toInt().toCommaString()}', style: GoogleFonts.notoSansJp(color: balance < 0 ? Colors.redAccent : const Color(0xFF00FFC2), fontSize: 11, fontWeight: FontWeight.bold)),
     ]);
